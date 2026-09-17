@@ -34,9 +34,11 @@ jobs:
     - name: Clone DDNet
       run: |
         rm -rf ddnet
-        git clone https://github.com/ddnet/ddnet.git
+        git clone --depth 100 https://github.com/ddnet/ddnet.git ddnet
         cd ddnet
-        git submodule update --init --recursive
+        for sm in $(git submodule status | awk '{print $2}'); do
+          git submodule update --init --depth 100 "$sm"
+        done
 
     - name: Apply ZenithTee patches
       run: |
@@ -50,8 +52,6 @@ jobs:
         echo "=== Verify ==="
         grep -c "CBotControl m_BotControl" src/game/client/gameclient.h
         grep -c "m_BotControl" src/game/client/gameclient.cpp
-        grep -c "kinetix" CMakeLists.txt
-        find src/game/client/components/kinetix -name "*.cpp" | wc -l
         echo "=== Patched OK ==="
 
     - name: Build Android app (arm64)
