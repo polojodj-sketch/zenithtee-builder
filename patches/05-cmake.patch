@@ -1,5 +1,5 @@
---- /data/data/com.termux/files/home/ddnet-original/CMakeLists.txt	2026-09-17 18:43:28.620559509 +0300
-+++ /data/data/com.termux/files/home/ddnet/CMakeLists.txt	2026-09-17 02:20:18.726995328 +0300
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
 @@ -1,26 +1,8 @@
  cmake_minimum_required(VERSION 3.12...3.27.4)
  

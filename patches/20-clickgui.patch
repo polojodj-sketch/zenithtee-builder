@@ -1,5 +1,5 @@
 --- /dev/null	1974-06-23 01:33:43.955999999 +0300
-+++ /data/data/com.termux/files/home/ddnet/src/game/client/components/kinetix/clickgui.cpp	2026-09-17 02:59:51.278994423 +0300
++++ b/src/game/client/components/kinetix/clickgui.cpp	2026-09-17 02:59:51.278994423 +0300
 @@ -0,0 +1,6933 @@
 +// (c) ZenithTee. ClickGUI overlay component — see clickgui.h for overview.
 +//

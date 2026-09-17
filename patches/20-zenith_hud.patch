@@ -1,5 +1,5 @@
 --- /dev/null	1974-06-23 01:33:43.955999999 +0300
-+++ /data/data/com.termux/files/home/ddnet/src/game/client/components/kinetix/zenith_hud.cpp	2026-09-17 02:36:34.466994956 +0300
++++ b/src/game/client/components/kinetix/zenith_hud.cpp	2026-09-17 02:36:34.466994956 +0300
 @@ -0,0 +1,175 @@
 +// (c) ZenithTee. HUD overlay component — see zenith_hud.h for overview.
 +

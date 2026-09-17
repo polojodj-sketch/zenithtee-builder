@@ -1,5 +1,5 @@
---- /data/data/com.termux/files/home/ddnet-original/src/game/client/gameclient.cpp	2026-09-17 18:43:31.656559507 +0300
-+++ /data/data/com.termux/files/home/ddnet/src/game/client/gameclient.cpp	2026-09-16 23:58:31.738998573 +0300
+--- a/src/game/client/gameclient.cpp
++++ b/src/game/client/gameclient.cpp
 @@ -90,1227 +90,1612 @@
  const char *CGameClient::Version() const { return GAME_VERSION; }
  const char *CGameClient::NetVersion() const { return GAME_NETVERSION; }

@@ -1,0 +1,6 @@
+--- a/src/game/client/components/kinetix/fake_aim.cpp
++++ b/src/game/client/components/kinetix/fake_aim.cpp
+@@ -0,0 +1,3 @@
++// Fake Aim logic was moved into CControls::SnapInput (controls.cpp)
++// for correct timing (fire/hook detection must happen in same call as send).
++// This file is kept for CMakeLists but is now empty.

@@ -1,0 +1,307 @@
+--- a/src/game/client/components/kinetix/avoid_freeze.cpp
++++ b/src/game/client/components/kinetix/avoid_freeze.cpp
+@@ -0,0 +1,304 @@
++// (c) ZenithTee. Avoid Freeze component (formerly Basic Avoid Freeze).
++// Algorithm: "Latest Safe Tick with Engagement Threshold" (ZenithTee v1.1)
++//
++// Each frame:
++//   1. Danger check: simulate kx_af_ticks ahead with the current input and
++//      with hook released. Neither dangerous → release any override, return.
++//   2. Engagement threshold (kx_af_trigger_ticks): if the earliest predicted
++//      danger is further out than trigger ticks — monitor only, the player
++//      keeps full control. AF intervenes only when danger is imminent.
++//   3. Test A "wait 1 more tick": 1 tick of current input, then brute-force
++//      all combos on the remaining ticks. Any combo that clears danger → wait.
++//   4. Test B "act now": brute-force all combos from tick 0. Score = survival
++//      time, ties broken by minimal input diff. Apply the winner.
++//   5. Both fail → danger inevitable, don't touch the input.
++//
++// Combos: direction(-1,0,1) × jump(0,1) × hook(0,1) × aim angles (FOV cone).
++
++#include <game/client/components/kinetix/avoid_freeze.h>
++
++#include <algorithm>
++#include <engine/shared/config.h>
++#include <game/client/components/controls.h>
++#include <game/client/gameclient.h>
++#include <game/client/prediction/entities/character.h>
++#include <game/client/prediction/gameworld.h>
++#include <game/collision.h>
++#include <game/mapitems.h>
++#include <generated/protocol.h>
++#include <game/client/components/kinetix/kinetix_internal.h> // SetMousePos
++
++void CAvoidFreeze::OnReset()
++{
++	m_WasOverriding = false;
++	m_OverrideHook = 0;
++}
++
++int CAvoidFreeze::InputDiff(const CNetObj_PlayerInput &A, const CNetObj_PlayerInput &B) const
++{
++	int diff = 0;
++	if(A.m_Direction != B.m_Direction) diff++;
++	if((A.m_Jump != 0) != (B.m_Jump != 0)) diff++;
++	if((A.m_Hook != 0) != (B.m_Hook != 0)) diff++;
++	if(A.m_TargetX != B.m_TargetX || A.m_TargetY != B.m_TargetY) diff++;
++	return diff;
++}
++
++int CAvoidFreeze::SimulateDanger(SSimContext &Ctx, const CNetObj_PlayerInput &DelayInput,
++        int Delay, const CNetObj_PlayerInput &ComboInput, int Ticks) const
++{
++	const bool avoidFreeze = g_Config.m_KxAfAvoidFreeze != 0;
++	const bool avoidTeleport = g_Config.m_KxAfAvoidTeleport != 0;
++	const bool avoidDeath = g_Config.m_KxAfAvoidDeath != 0;
++
++	CGameWorld SimWorld;
++	SimWorld.CopyWorld(&Ctx.m_World);
++
++	CCharacter *pChar = SimWorld.GetCharacterById(Ctx.m_LocalId);
++	if(!pChar)
++		return 0;
++
++	for(int t = 0; t < Ticks; t++)
++	{
++		const CNetObj_PlayerInput &In = (t < Delay) ? DelayInput : ComboInput;
++		pChar->OnDirectInput(&In);
++		SimWorld.m_GameTick = Ctx.m_StartTick + t + 1;
++		pChar->OnPredictedInput(&In);
++		SimWorld.Tick();
++
++		if(!SimWorld.GetCharacterById(Ctx.m_LocalId))
++			return avoidDeath ? (t + 1) : 0;
++
++		if(avoidFreeze && pChar->m_FreezeTime > 0)
++			return t + 1;
++
++		if(avoidDeath || avoidTeleport)
++		{
++			const int Idx = Ctx.m_pCol->GetPureMapIndex(pChar->m_Pos);
++			if(Idx >= 0)
++			{
++				if(avoidDeath && (Ctx.m_pCol->GetTileIndex(Idx) == TILE_DEATH ||
++						  Ctx.m_pCol->GetFrontTileIndex(Idx) == TILE_DEATH))
++					return t + 1;
++				if(avoidTeleport && (Ctx.m_pCol->IsTeleport(Idx) || Ctx.m_pCol->IsEvilTeleport(Idx)))
++					return t + 1;
++			}
++		}
++	}
++	return 0;
++}
++
++void CAvoidFreeze::ApplyOverride()
++{
++	if(!g_Config.m_KxAvoidFreezeBot)
++		return;
++
++	CGameClient *pGame = GameClient();
++	const int LocalId = pGame->m_Snap.m_LocalClientId;
++	if(LocalId < 0 || !pGame->m_Snap.m_aCharacters[LocalId].m_Active)
++		return;
++	if(!pGame->m_PredictedWorld.GetCharacterById(LocalId))
++		return;
++
++	CNetObj_PlayerInput *pInput = &pGame->m_Controls.m_aInputData[g_Config.m_ClDummy];
++	const CNetObj_PlayerInput Current = *pInput;
++
++	const int simTicks = std::clamp(g_Config.m_KxAfTicks, 1, 20);
++	const int triggerTicks = std::clamp(g_Config.m_KxAfTriggerTicks, 1, simTicks);
++
++	// --- Shared sim context: copy the world ONCE per ApplyOverride call ---
++	// and strip the other characters once. Previously every combination
++	// evaluation repeated both steps — up to 1728 copies per tick.
++	SSimContext Ctx;
++	Ctx.m_LocalId = LocalId;
++	Ctx.m_StartTick = pGame->m_PredictedWorld.GameTick();
++	Ctx.m_World.CopyWorld(&pGame->m_PredictedWorld);
++	for(int i = 0; i < MAX_CLIENTS; i++)
++	{
++		if(i == LocalId)
++			continue;
++		if(CCharacter *pChar = Ctx.m_World.GetCharacterById(i))
++			delete pChar;
++	}
++	Ctx.m_pLocalChar = Ctx.m_World.GetCharacterById(LocalId);
++	if(!Ctx.m_pLocalChar)
++		return;
++	Ctx.m_pCol = Ctx.m_pLocalChar->Collision();
++
++	// Danger with current input (detects hook pulling into freeze).
++	const int dangerWithCurrent = SimulateDanger(Ctx, Current, 0, Current, simTicks);
++	// Danger without hook — the "natural" danger state.
++	CNetObj_PlayerInput NoHook = Current;
++	NoHook.m_Hook = 0;
++	const int dangerWithoutHook = SimulateDanger(Ctx, NoHook, 0, NoHook, simTicks);
++
++	// Safe either way → release any forced hook and stand down.
++	if(dangerWithCurrent == 0 && dangerWithoutHook == 0)
++	{
++		if(m_WasOverriding)
++		{
++			if(m_OverrideHook != 0)
++				pInput->m_Hook = 0;
++			m_WasOverriding = false;
++		}
++		return;
++	}
++
++	const int imminent = dangerWithCurrent > 0 ? dangerWithCurrent : dangerWithoutHook;
++
++	// --- Engagement threshold (kx_af_trigger_ticks): danger still far →
++	// monitor only. The player keeps control until the danger is imminent.
++	if(imminent > triggerTicks)
++		return;
++
++	// --- Hook-only danger: latest-moment release. ---
++	if(dangerWithCurrent > 0 && dangerWithoutHook == 0)
++	{
++		// Test A: 1 tick with current input (hook still held), then hookless
++		// for the rest — one continuous simulation from the same state.
++		if(SimulateDanger(Ctx, Current, 1, NoHook, simTicks) == 0)
++			return; // can wait — hook is safe for now
++		// Last moment — release the hook NOW.
++		pInput->m_Hook = 0;
++		m_WasOverriding = true;
++		m_OverrideHook = 0;
++		return;
++	}
++
++	// --- Brute-force combos (dir × jump × hook × aim angles). ---
++	const bool allowDir = g_Config.m_KxAfDirection != 0;
++	const bool allowJump = g_Config.m_KxAfJump != 0;
++	const bool allowHook = g_Config.m_KxAfHook != 0;
++	const bool allowAim = g_Config.m_KxAfAim != 0;
++
++	int dirs[3];
++	int dirCount = 1;
++	if(allowDir) { dirs[0] = -1; dirs[1] = 0; dirs[2] = 1; dirCount = 3; }
++	else { dirs[0] = Current.m_Direction; }
++
++	int jumps[2] = {0, 0};
++	int jumpCount = 1;
++	if(allowJump) { jumps[0] = 0; jumps[1] = 1; jumpCount = 2; }
++	else { jumps[0] = Current.m_Jump != 0 ? 1 : 0; }
++
++	int hooks[2] = {0, 0};
++	int hookCount = 1;
++	if(allowHook) { hooks[0] = 0; hooks[1] = 1; hookCount = 2; }
++	else { hooks[0] = Current.m_Hook != 0 ? 1 : 0; }
++
++	// Aim angles: centered on current aim, spread evenly within the FOV cone.
++	vec2 aimTargets[145];
++	int aimCount = 1;
++	aimTargets[0] = vec2((float)Current.m_TargetX, (float)Current.m_TargetY);
++	if(allowAim)
++	{
++		const int numAngles = std::clamp(g_Config.m_KxAfAngles, 1, 144);
++		const float fovRad = (float)g_Config.m_KxAfFov * (3.14159265f / 180.0f);
++		const float curAngle = atan2f((float)Current.m_TargetY, (float)Current.m_TargetX);
++		float aimDist = sqrtf((float)Current.m_TargetX * Current.m_TargetX +
++					      (float)Current.m_TargetY * Current.m_TargetY);
++		if(aimDist < 1.0f)
++			aimDist = 100.0f;
++
++		aimCount = 0;
++		for(int a = 0; a < numAngles; a++)
++		{
++			const float t = (numAngles == 1) ? 0.0f : (float)a / (float)(numAngles - 1) - 0.5f;
++			const float angle = curAngle + t * fovRad;
++			aimTargets[aimCount] = vec2(cosf(angle) * aimDist, sinf(angle) * aimDist);
++			aimCount++;
++		}
++	}
++
++	// --- Unified combo evaluation: Test A (wait 1 tick) + Test B (act now).
++	// Single pass builds each combo once and evaluates both tests, halving
++	// the loop scaffolding of the old implementation.
++	bool canWait = false;
++	bool found = false;
++	CNetObj_PlayerInput bestInput = Current;
++	int bestSurvival = -1;
++	int bestDiff = 999;
++
++	for(int di = 0; di < dirCount && !(canWait && found); di++)
++	{
++		for(int ji = 0; ji < jumpCount && !(canWait && found); ji++)
++		{
++			for(int hi = 0; hi < hookCount && !(canWait && found); hi++)
++			{
++				for(int ai = 0; ai < aimCount && !(canWait && found); ai++)
++				{
++					CNetObj_PlayerInput test = Current;
++					test.m_Direction = dirs[di];
++					test.m_Jump = jumps[ji];
++					test.m_Hook = hooks[hi];
++					test.m_TargetX = (int)aimTargets[ai].x;
++					test.m_TargetY = (int)aimTargets[ai].y;
++
++					const bool sameAsCurrent = test.m_Direction == Current.m_Direction &&
++						(test.m_Jump != 0) == (Current.m_Jump != 0) &&
++						(test.m_Hook != 0) == (Current.m_Hook != 0) &&
++						test.m_TargetX == Current.m_TargetX &&
++						test.m_TargetY == Current.m_TargetY;
++
++					// Test A: 1 tick with current input, then this combo —
++					// one continuous simulation from the same state.
++					if(!canWait && !sameAsCurrent &&
++						SimulateDanger(Ctx, Current, 1, test, simTicks) == 0)
++						canWait = true;
++
++					// Test B: this combo from tick 0 — score by survival.
++					if(!found && !sameAsCurrent)
++					{
++						const int danger = SimulateDanger(Ctx, test, 0, test, simTicks);
++						const int survival = (danger == 0) ? simTicks : danger - 1;
++						const int diff = InputDiff(Current, test);
++						if(bestSurvival < 0 || survival > bestSurvival ||
++							(survival == bestSurvival && diff < bestDiff))
++						{
++							bestSurvival = survival;
++							bestDiff = diff;
++							bestInput = test;
++							found = true;
++						}
++					}
++				}
++			}
++		}
++	}
++
++	if(canWait)
++		return;
++
++	// Apply the best combo if it survives longer than the current input.
++	const int currentSurvival = dangerWithoutHook - 1;
++	if(found && bestSurvival > currentSurvival)
++	{
++		pInput->m_Direction = bestInput.m_Direction;
++		pInput->m_Jump = bestInput.m_Jump;
++		pInput->m_Hook = bestInput.m_Hook;
++
++		m_WasOverriding = true;
++		m_OverrideHook = bestInput.m_Hook;
++
++		// Apply aim: silent (server-only) or visible.
++		if(allowAim && (bestInput.m_TargetX != Current.m_TargetX || bestInput.m_TargetY != Current.m_TargetY))
++		{
++			if(g_Config.m_KxAfSilent)
++			{
++				// Silent: laser unfreeze aim channel (same as aimbot).
++				// BUG7 guard: if Laser Unfreeze / AimBot already claimed the
++				// channel this tick, don't overwrite their offset.
++				if(!pGame->m_Controls.m_LaserUnfreezeAimActive)
++				{
++					pGame->m_Controls.m_LaserUnfreezeAimActive = true;
++					pGame->m_Controls.m_LaserUnfreezeAimOffset = vec2((float)bestInput.m_TargetX, (float)bestInput.m_TargetY);
++				}
++			}
++			else
++			{
++				// Visible: move the real crosshair via the shared helper.
++				SetMousePos(pGame, g_Config.m_ClDummy, vec2((float)bestInput.m_TargetX, (float)bestInput.m_TargetY));
++			}
++		}
++	}
++}

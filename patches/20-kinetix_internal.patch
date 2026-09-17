@@ -1,5 +1,5 @@
 --- /dev/null	1974-06-23 01:33:43.955999999 +0300
-+++ /data/data/com.termux/files/home/ddnet/src/game/client/components/kinetix/kinetix_internal.h	2026-09-17 02:36:00.374994969 +0300
++++ b/src/game/client/components/kinetix/kinetix_internal.h	2026-09-17 02:36:00.374994969 +0300
 @@ -0,0 +1,601 @@
 +#ifndef GAME_CLIENT_COMPONENTS_KINETIX_INTERNAL_H
 +#define GAME_CLIENT_COMPONENTS_KINETIX_INTERNAL_H
