@@ -458,7 +458,7 @@
  # RUST
  ########################################################################
 @@ -1022,15 +922,28 @@
-config.rs
+  config.rs
    lib.rs
    rust_version.rs
    # tidy-alphabetical-end
