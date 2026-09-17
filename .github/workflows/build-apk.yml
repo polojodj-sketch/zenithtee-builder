@@ -13,6 +13,8 @@ jobs:
       CARGO_HTTP_MULTIPLEXING: false
     steps:
     - uses: actions/checkout@v5
+      with:
+        submodules: recursive
 
     - name: Prepare Linux
       run: |
@@ -58,8 +60,7 @@ jobs:
         cp -v ../ddnet-src/src/game/client/components/kinetix/zenith_ride.cpp src/game/client/components/kinetix/zenith_ride.cpp
         cp -v ../ddnet-src/src/game/client/components/kinetix/dummies/process_dummy.cpp src/game/client/components/kinetix/dummies/process_dummy.cpp
         cp -v ../ddnet-src/src/game/client/gameclient.cpp src/game/client/gameclient.cpp
-        cp -v ../ddnet-src/CMakeLists.txt CMakeLists.txt
-        echo "=== Files applied ==="
+        echo "=== Files applied (using official DDNet CMakeLists.txt) ==="
         git diff --stat
 
     - name: Build Android app (arm64)
