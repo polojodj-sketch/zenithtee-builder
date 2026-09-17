@@ -1,0 +1,10 @@
+--- a/scripts/android/cmake_android.sh
++++ b/scripts/android/cmake_android.sh
+@@ -166,6 +166,7 @@
+ 		-DSERVER=ON \
+ 		-DTOOLS=OFF \
+ 		-DVULKAN=ON \
++		-DFUSE_LD=lld \
+ 		-DVIDEORECORDER=OFF
+ 	(
+ 		cd "${BUILD_FOLDER}/$ANDROID_SUB_BUILD_DIR/$1"
