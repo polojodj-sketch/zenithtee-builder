@@ -11,6 +11,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -27,6 +29,7 @@ jobs:
       - run: |
           git clone --depth 1 https://github.com/ddnet/ddnet.git
           cd ddnet
+          git submodule update --init --recursive
           for p in ../patches/*.patch; do
             echo "=== Applying $p ==="
             git apply "$p" || echo "Skip: $p"
@@ -53,18 +56,16 @@ jobs:
             -DTOOLS=OFF \
             -DVULKAN=OFF \
             -DVIDEORECORDER=OFF
-        working-directory: ddnet
       - run: |
           cd ddnet/build_arch/arm64
           ninja -j$(nproc) game-client game-server
       - run: |
           cd ddnet
           bash scripts/android/cmake_android.sh arm64 ZenithTee org.zenith.client Release build_gh
-          cp build_gh/ZenithTee-release.apk ZenithTee-release.apk 2>/dev/null || true
-          cp build_gh/ZenithTee-debug.apk ZenithTee-debug.apk 2>/dev/null || true
+          ls -la build_gh/*.apk 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         with:
           name: ZenithTee-APK
           path: |
-            ddnet/ZenithTee-release.apk
-            ddnet/ZenithTee-debug.apk
+            ddnet/build_gh/ZenithTee-release.apk
+            ddnet/build_gh/ZenithTee-debug.apk
