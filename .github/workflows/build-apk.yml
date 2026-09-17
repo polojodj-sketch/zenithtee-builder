@@ -41,7 +41,12 @@ jobs:
 
     - name: Apply ZenithTee modifications
       run: |
+        set -e
         cd ddnet
+        echo "=== Copying ZenithTee modified files ==="
+        mkdir -p engine/shared
+        mkdir -p src/game/client/components/kinetix
+        mkdir -p src/game/client/components/kinetix/dummies
         cp -v ../ddnet-src/engine/shared/config_variables.h engine/shared/config_variables.h
         cp -v ../ddnet-src/src/game/client/components/kinetix/kinetix.h src/game/client/components/kinetix/kinetix.h
         cp -v ../ddnet-src/src/game/client/components/kinetix/kinetix.cpp src/game/client/components/kinetix/kinetix.cpp
@@ -54,6 +59,7 @@ jobs:
         cp -v ../ddnet-src/src/game/client/components/kinetix/dummies/process_dummy.cpp src/game/client/components/kinetix/dummies/process_dummy.cpp
         cp -v ../ddnet-src/src/game/client/gameclient.cpp src/game/client/gameclient.cpp
         cp -v ../ddnet-src/CMakeLists.txt CMakeLists.txt
+        echo "=== Files applied ==="
         git diff --stat
 
     - name: Build Android app (arm64)
