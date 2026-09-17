@@ -167,6 +167,7 @@ function build_for_type() {
 		-DTOOLS=OFF \
 		-DVULKAN=ON \
 		-DFUSE_LD=lld \
+		-DIPO=OFF \
 		-DVIDEORECORDER=OFF
 	(
 		cd "${BUILD_FOLDER}/$ANDROID_SUB_BUILD_DIR/$1"
