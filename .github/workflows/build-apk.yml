@@ -40,19 +40,30 @@ jobs:
       uses: Swatinem/rust-cache@v2.9.2
       with:
           cache-bin: false
-          workspaces: |
-              src/mastersrv
-              src/masterping
-              ./
+          workspaces: ./
 
-    - name: Clone DDNet and apply ZenithTee patches
+    - name: Clone DDNet
       run: |
         git clone --recursive https://github.com/ddnet/ddnet.git
         cd ddnet
-        for p in ../.github/patches/*.patch; do
-          echo "=== Applying $p ==="
-          git apply "$p" || echo "Skip: $p"
-        done
+
+    - name: Apply ZenithTee modifications
+      run: |
+        cd ddnet
+        # Copy our modified files over official DDNet sources
+        cp -v ../ddnet-src/engine/shared/config_variables.h engine/shared/config_variables.h
+        cp -v ../ddnet-src/src/game/client/components/kinetix/kinetix.h src/game/client/components/kinetix/kinetix.h
+        cp -v ../ddnet-src/src/game/client/components/kinetix/kinetix.cpp src/game/client/components/kinetix/kinetix.cpp
+        cp -v ../ddnet-src/src/game/client/components/kinetix/kinetix_internal.h src/game/client/components/kinetix/kinetix_internal.h
+        cp -v ../ddnet-src/src/game/client/components/kinetix/clickgui.cpp src/game/client/components/kinetix/clickgui.cpp
+        cp -v ../ddnet-src/src/game/client/components/kinetix/clickgui.h src/game/client/components/kinetix/clickgui.h
+        cp -v ../ddnet-src/src/game/client/components/kinetix/zenith_hud.h src/game/client/components/kinetix/zenith_hud.h
+        cp -v ../ddnet-src/src/game/client/components/kinetix/zenith_hud.cpp src/game/client/components/kinetix/zenith_hud.cpp
+        cp -v ../ddnet-src/src/game/client/components/kinetix/zenith_ride.cpp src/game/client/components/kinetix/zenith_ride.cpp
+        cp -v ../ddnet-src/src/game/client/components/kinetix/dummies/process_dummy.cpp src/game/client/components/kinetix/dummies/process_dummy.cpp
+        cp -v ../ddnet-src/src/game/client/gameclient.cpp src/game/client/gameclient.cpp
+        cp -v ../ddnet-src/CMakeLists.txt CMakeLists.txt
+        git diff --stat
 
     - name: Build Android app (arm64)
       env:
@@ -64,8 +75,8 @@ jobs:
         export ANDROID_HOME="/home/runner/Android/Sdk"
         unset ANDROID_SDK_ROOT
         export PATH=/home/runner/cmake/bin:$PATH
-        scripts/android/download_android_sdk.sh /home/runner
         cd ddnet
+        scripts/android/download_android_sdk.sh /home/runner
         scripts/android/cmake_android.sh arm64 ZenithTee org.zenith.client Release build-android
         mkdir -p artifacts
         mv build-android/*.apk artifacts/ 2>/dev/null || true
