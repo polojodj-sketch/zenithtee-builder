@@ -31,9 +31,10 @@ jobs:
         rustup target add aarch64-linux-android
         rustup target add x86_64-linux-android
 
-    - name: Clone DDNet with submodules
+    - name: Clone DDNet
       run: |
-        git clone --recursive https://github.com/ddnet/ddnet.git
+        rm -rf ddnet
+        git clone https://github.com/ddnet/ddnet.git
         cd ddnet
         git submodule update --init --recursive
 
