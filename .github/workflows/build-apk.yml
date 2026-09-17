@@ -34,10 +34,10 @@ jobs:
     - name: Clone DDNet
       run: |
         rm -rf ddnet
-        git clone --depth 100 https://github.com/ddnet/ddnet.git ddnet
+        git clone --depth 1000 https://github.com/ddnet/ddnet.git ddnet
         cd ddnet
         for sm in $(git submodule status | awk '{print $2}'); do
-          git submodule update --init --depth 100 "$sm"
+          git submodule update --init --depth 1000 "$sm"
         done
 
     - name: Apply ZenithTee patches

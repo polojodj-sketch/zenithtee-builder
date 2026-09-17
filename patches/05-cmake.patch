@@ -458,31 +458,19 @@
  # RUST
  ########################################################################
 @@ -1022,15 +922,28 @@
-   config.rs
+config.rs
    lib.rs
    rust_version.rs
-+  snapshot/builder.rs
-+  snapshot/delta.rs
-+  snapshot/mod.rs
-+  uuid_manager.rs
    # tidy-alphabetical-end
  )
- 
+
  set_src(RUST_BRIDGE_SHARED GLOB_RECURSE src/rust-bridge
    # tidy-alphabetical-start
-+  base/cxx.h
+   base/cxx.h
    cpp/console.cpp
    cpp/console.h
-+  cpp/snapshot.cpp
-+  cpp/snapshot.h
-+  cpp/uuid_manager.cpp
-+  cpp/uuid_manager.h
    engine/shared/rust_version.cpp
    engine/shared/rust_version.h
-+  engine/shared/snapshot/builder.cpp
-+  engine/shared/snapshot/builder.h
-+  engine/shared/snapshot/delta.cpp
-+  engine/shared/snapshot/delta.h
    # tidy-alphabetical-end
  )
  
@@ -599,34 +587,12 @@
    math.h
    mem.cpp
 @@ -2309,7 +2205,6 @@
-   ghost.h
+  ghost.h
    graphics.cpp
    graphics.h
--  http.cpp
    http.h
    image.h
    input.h
-@@ -2358,10 +2253,8 @@
-   global_uuid_manager.cpp
-   host_lookup.cpp
-   host_lookup.h
--  http_curl.cpp
--  http_curl.h
--  http_emscripten.cpp
--  http_emscripten.h
-+  http.cpp
-+  http.h
-   huffman.cpp
-   huffman.h
-   jobs.cpp
-@@ -2403,7 +2296,6 @@
-   ringbuffer.h
-   serverinfo.cpp
-   serverinfo.h
--  sixup_translate_snapshot.cpp
-   snapshot.cpp
-   snapshot.h
-   storage.cpp
 @@ -2517,11 +2409,8 @@
  target_include_directories(engine-gfx PRIVATE ${PNG_INCLUDE_DIRS})
  add_library(engine-shared EXCLUDE_FROM_ALL OBJECT ${ENGINE_INTERFACE} ${ENGINE_SHARED} ${ENGINE_UUID_SHARED} ${BASE})
@@ -728,7 +694,7 @@
      components/menus_ingame_touch_controls.h
      components/menus_settings.cpp
 -    components/menus_settings_appearance.cpp
-+    components/menus_settings7.cpp
++    components/menus_settings_tee7.cpp
      components/menus_settings_assets.cpp
      components/menus_settings_controls.cpp
      components/menus_settings_controls.h
