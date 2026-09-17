@@ -35,6 +35,7 @@ jobs:
       run: |
         git clone --recursive https://github.com/ddnet/ddnet.git
         cd ddnet
+        git submodule update --init --recursive
 
     - name: Apply ZenithTee patches
       run: |
