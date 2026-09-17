@@ -13,8 +13,6 @@ jobs:
       CARGO_HTTP_MULTIPLEXING: false
     steps:
     - uses: actions/checkout@v5
-      with:
-        submodules: recursive
 
     - name: Prepare Linux
       run: |
@@ -36,13 +34,7 @@ jobs:
         version: 1.3.296.0
         cache: true
 
-    - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@v2.9.2
-      with:
-          cache-bin: false
-          workspaces: ./
-
-    - name: Clone DDNet
+    - name: Clone DDNet with submodules
       run: |
         git clone --recursive https://github.com/ddnet/ddnet.git
         cd ddnet
@@ -50,7 +42,6 @@ jobs:
     - name: Apply ZenithTee modifications
       run: |
         cd ddnet
-        # Copy our modified files over official DDNet sources
         cp -v ../ddnet-src/engine/shared/config_variables.h engine/shared/config_variables.h
         cp -v ../ddnet-src/src/game/client/components/kinetix/kinetix.h src/game/client/components/kinetix/kinetix.h
         cp -v ../ddnet-src/src/game/client/components/kinetix/kinetix.cpp src/game/client/components/kinetix/kinetix.cpp
