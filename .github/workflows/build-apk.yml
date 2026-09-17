@@ -1,0 +1,71 @@
+name: Build ZenithTee APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          ndk-version: r29
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake python3
+          curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable --target aarch64-linux-android
+          source "$HOME/.cargo/env"
+      - run: |
+          git clone --depth 1 https://github.com/ddnet/ddnet.git
+          cd ddnet
+          git submodule update --init --recursive
+          for p in ../patches/*.patch; do
+            echo "=== Applying $p ==="
+            git apply "$p" || echo "Skip: $p"
+          done
+      - run: |
+          cd ddnet
+          mkdir -p build_arch/arm64
+          cd build_arch/arm64
+          cmake -H../.. -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_TOOLCHAIN_FILE=${{ env.ANDROID_NDK_HOME }}/build/cmake/android.toolchain.cmake \
+            -DANDROID_NDK=${{ env.ANDROID_NDK_HOME }} \
+            -DANDROID_ABI=arm64-v8a \
+            -DCMAKE_ANDROID_NDK=${{ env.ANDROID_NDK_HOME }} \
+            -DCMAKE_SYSTEM_NAME=Android \
+            -DCMAKE_SYSTEM_VERSION=24 \
+            -DCARGO_NDK_TARGET=aarch64-linux-android \
+            -DCARGO_NDK_API=24 \
+            -DANDROID_PACKAGE_NAME=org.zenith.client \
+            -DANDROID_PACKAGE_NAME_JNI=org_zenith_client \
+            -DPREFER_BUNDLED_LIBS=ON \
+            -DSERVER=ON \
+            -DTOOLS=OFF \
+            -DVULKAN=OFF \
+            -DVIDEORECORDER=OFF
+      - run: |
+          cd ddnet/build_arch/arm64
+          ninja -j$(nproc) game-client game-server
+      - run: |
+          cd ddnet
+          bash scripts/android/cmake_android.sh arm64 ZenithTee org.zenith.client Release build_gh
+          ls -la build_gh/*.apk 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZenithTee-APK
+          path: |
+            ddnet/build_gh/ZenithTee-release.apk
+            ddnet/build_gh/ZenithTee-debug.apk
