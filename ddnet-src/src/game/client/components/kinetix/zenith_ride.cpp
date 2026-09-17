@@ -1,0 +1,211 @@
+#include <game/client/components/kinetix/kinetix.h>
+#include <game/client/components/kinetix/kinetix_internal.h>
+
+#include <engine/keys.h>
+#include <engine/shared/config.h>
+
+#include <base/math.h>
+#include <base/vmath.h>
+
+#include <game/client/gameclient.h>
+
+// ZenithTee v1.1: BalanceBot / HookRide / JetRide.
+// FlyRide-pattern dummy controls: init-on-enable, cleanup-on-disable,
+// dummy targeting, input injected via m_aDummyInput.
+
+// Find the other connected dummy (not the pilot). Returns -1 if none.
+static int RideOtherDummy(CGameClient *pGame)
+{
+        const int activeD = g_Config.m_ClDummy;
+        for(int D = 0; D < MAX_DUMMIES; D++)
+        {
+                if(D == activeD)
+                        continue;
+                if(D != 0 && !pGame->Client()->DummyConnected(D))
+                        continue;
+                const int cid = pGame->m_aLocalIds[D];
+                if(cid < 0 || cid >= 128)
+                        continue;
+                if(!pGame->m_aClients[cid].m_Active)
+                        continue;
+                return D;
+        }
+        return -1;
+}
+
+// ZenithTee v1.1: BalanceBot — dummy copies the pilot's input each tick
+// (direction, jump, hook, fire). Mirror flips the horizontal direction,
+// for balance/symmetric maps where both tees must move oppositely.
+void CBotNet::UpdateBalanceBot()
+{
+        CGameClient *pGame = GameClient();
+        if(!pGame)
+                return;
+
+        const bool enabled = g_Config.m_KxBalanceBot != 0;
+        if(enabled && !m_BalanceBotWasActive)
+                m_BalanceBotWasActive = true;
+        else if(!enabled && m_BalanceBotWasActive)
+        {
+                // Cleanup: stop the dummy.
+                for(int D = 0; D < MAX_DUMMIES; D++)
+                {
+                        if(D == g_Config.m_ClDummy || (D != 0 && !pGame->Client()->DummyConnected(D)))
+                                continue;
+                        CNetObj_PlayerInput *pDummy = &pGame->m_aDummyInput[D];
+                        pDummy->m_Direction = 0;
+                        pDummy->m_Jump = 0;
+                        pDummy->m_Hook = 0;
+                        pGame->m_Controls.m_aInputData[D] = *pDummy;
+                }
+                m_BalanceBotWasActive = false;
+                return;
+        }
+        if(!enabled)
+                return;
+        if(!pGame->m_Snap.m_pLocalInfo)
+                return;
+
+        const int dummy = RideOtherDummy(pGame);
+        if(dummy < 0)
+                return;
+
+        // Pilot's live input (active player).
+        const CNetObj_PlayerInput &pilot = pGame->m_Controls.m_aInputData[g_Config.m_ClDummy];
+
+        CNetObj_PlayerInput *pDummy = &pGame->m_aDummyInput[dummy];
+        const bool mirror = g_Config.m_KxBalanceBotMirror != 0;
+        pDummy->m_Direction = mirror ? -pilot.m_Direction : pilot.m_Direction;
+        pDummy->m_Jump = pilot.m_Jump;
+        pDummy->m_Hook = pilot.m_Hook;
+        pDummy->m_Fire = pilot.m_Fire;
+        pDummy->m_WantedWeapon = pilot.m_WantedWeapon;
+        pGame->m_Controls.m_aInputData[dummy] = *pDummy;
+}
+
+// ZenithTee v1.1: HookRide — dummy permanently hooks the pilot and walks
+// following the pilot's raw A/D keys, dragging the pilot along (ride the hook).
+void CBotNet::UpdateHookRide()
+{
+        CGameClient *pGame = GameClient();
+        if(!pGame)
+                return;
+
+        const bool enabled = g_Config.m_KxHookRide != 0;
+        if(enabled && !m_HookRideWasActive)
+                m_HookRideWasActive = true;
+        else if(!enabled && m_HookRideWasActive)
+        {
+                // Cleanup: release dummy hook, stop movement.
+                for(int D = 0; D < MAX_DUMMIES; D++)
+                {
+                        if(D == g_Config.m_ClDummy || (D != 0 && !pGame->Client()->DummyConnected(D)))
+                                continue;
+                        CNetObj_PlayerInput *pDummy = &pGame->m_aDummyInput[D];
+                        pDummy->m_Direction = 0;
+                        if(pDummy->m_Hook)
+                        {
+                                pDummy->m_Hook = 0;
+                                pGame->m_Controls.m_aInputData[D] = *pDummy;
+                        }
+                }
+                m_HookRideWasActive = false;
+                return;
+        }
+        if(!enabled)
+                return;
+        if(!pGame->m_Snap.m_pLocalInfo)
+                return;
+
+        const int dummy = RideOtherDummy(pGame);
+        if(dummy < 0)
+                return;
+
+        const int cid = pGame->m_aLocalIds[dummy];
+        if(cid < 0 || cid >= 128 || !pGame->m_aClients[cid].m_Active)
+                return;
+        const vec2 pilotPos = pGame->m_PredictedChar.m_Pos;
+        const vec2 dummyPos = pGame->m_aClients[cid].m_Predicted.m_Pos;
+
+        // Dummy aim at pilot + hook held.
+        CNetObj_PlayerInput *pDummy = &pGame->m_aDummyInput[dummy];
+        const vec2 aim = pilotPos - dummyPos;
+        pDummy->m_TargetX = (int)aim.x;
+        pDummy->m_TargetY = (int)aim.y;
+        pDummy->m_Hook = 1;
+
+        // Dummy walks with the pilot's raw A/D keys (hook-ride steering).
+        const bool left = Input()->KeyIsPressed(KEY_A);
+        const bool right = Input()->KeyIsPressed(KEY_D);
+        pDummy->m_Direction = right ? 1 : (left ? -1 : 0);
+        pGame->m_Controls.m_aInputData[dummy] = *pDummy;
+}
+
+// ZenithTee v1.1: JetRide — while the pilot stands on the dummy's head
+// (within ~50px above), the dummy auto-jumps every KxJetRideDelay ticks,
+// carrying the pilot upward like a jetpack lift. Dummy also steers with A/D.
+void CBotNet::UpdateJetRide()
+{
+        CGameClient *pGame = GameClient();
+        if(!pGame)
+                return;
+
+        const bool enabled = g_Config.m_KxJetRide != 0;
+        if(enabled && !m_JetRideWasActive)
+        {
+                m_JetRideWasActive = true;
+                m_JetRideLastJumpTick = -1;
+        }
+        else if(!enabled && m_JetRideWasActive)
+        {
+                for(int D = 0; D < MAX_DUMMIES; D++)
+                {
+                        if(D == g_Config.m_ClDummy || (D != 0 && !pGame->Client()->DummyConnected(D)))
+                                continue;
+                        CNetObj_PlayerInput *pDummy = &pGame->m_aDummyInput[D];
+                        pDummy->m_Direction = 0;
+                        pDummy->m_Jump = 0;
+                        pGame->m_Controls.m_aInputData[D] = *pDummy;
+                }
+                m_JetRideWasActive = false;
+                return;
+        }
+        if(!enabled)
+                return;
+        if(!pGame->m_Snap.m_pLocalInfo)
+                return;
+
+        const int dummy = RideOtherDummy(pGame);
+        if(dummy < 0)
+                return;
+
+        const int cid = pGame->m_aLocalIds[dummy];
+        if(cid < 0 || cid >= 128 || !pGame->m_aClients[cid].m_Active)
+                return;
+        const vec2 pilotPos = pGame->m_PredictedChar.m_Pos;
+        const vec2 dummyPos = pGame->m_aClients[cid].m_Predicted.m_Pos;
+
+        CNetObj_PlayerInput *pDummy = &pGame->m_aDummyInput[dummy];
+
+        // Steer with the pilot's raw A/D keys.
+        const bool left = Input()->KeyIsPressed(KEY_A);
+        const bool right = Input()->KeyIsPressed(KEY_D);
+        pDummy->m_Direction = right ? 1 : (left ? -1 : 0);
+
+        // Auto-jump when pilot is on/above the dummy (y grows downward in DDNet,
+        // so "above" = pilotPos.y < dummyPos.y). X-tolerance 40px, height 50px.
+        const int curTick = Client()->GameTick(g_Config.m_ClDummy);
+        const bool pilotOnTop = std::abs(pilotPos.x - dummyPos.x) <= 40.0f &&
+                                pilotPos.y < dummyPos.y &&
+                                dummyPos.y - pilotPos.y <= 50.0f;
+        if(pilotOnTop && (m_JetRideLastJumpTick < 0 || curTick - m_JetRideLastJumpTick >= g_Config.m_KxJetRideDelay))
+        {
+                m_JetRideLastJumpTick = curTick;
+                pDummy->m_Jump = 1;
+        }
+        else if(m_JetRideLastJumpTick >= 0 && curTick - m_JetRideLastJumpTick >= 5)
+        {
+                pDummy->m_Jump = 0; // short release so the next jump registers
+        }
+        pGame->m_Controls.m_aInputData[dummy] = *pDummy;
+}

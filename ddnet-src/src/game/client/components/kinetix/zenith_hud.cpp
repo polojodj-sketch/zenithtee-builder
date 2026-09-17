@@ -1,0 +1,175 @@
+// (c) ZenithTee. HUD overlay component — see zenith_hud.h for overview.
+
+#include <game/client/components/kinetix/zenith_hud.h>
+
+#include <base/color.h>
+#include <engine/graphics.h>
+#include <engine/shared/config.h>
+#include <engine/textrender.h>
+#include <game/client/gameclient.h>
+#include <game/client/components/camera.h>
+#include <game/client/components/kinetix/kinetix_internal.h>
+
+#include <generated/protocol.h>
+
+#include <vector>
+
+void CZenithHud::OnReset()
+{
+	m_AdminAlarmSince = -1.0f;
+}
+
+void CZenithHud::TriggerAdminAlarm()
+{
+	m_AdminAlarmSince = Client()->GlobalTime();
+}
+
+void CZenithHud::OnRender()
+{
+	if(Client()->State() != IClient::STATE_ONLINE && Client()->State() != IClient::STATE_DEMOPLAYBACK)
+		return;
+
+	if(g_Config.m_KxFakeAimShowServer && g_Config.m_KxFakeAim)
+		RenderServerAim();
+	if(g_Config.m_KxAdminAlarm)
+		RenderAdminAlarm();
+	if(g_Config.m_KxSpectatorList)
+		RenderSpectatorList();
+	if(g_Config.m_KxArrayList)
+		RenderArrayList();
+}
+
+void CZenithHud::RenderServerAim()
+{
+	CGameClient *pGame = GameClient();
+	const int LocalId = pGame->m_Snap.m_LocalClientId;
+	if(LocalId < 0 || !pGame->m_Snap.m_aCharacters[LocalId].m_Active)
+		return;
+	if(!pGame->m_Controls.m_FakeAimRenderActive)
+		return;
+
+	const vec2 pos = pGame->m_aClients[LocalId].m_RenderPos;
+	const vec2 offset = pGame->m_Controls.m_FakeAimRenderOffset;
+	const float len = length(offset);
+	if(len < 1.0f)
+		return;
+	const vec2 end = pos + offset; // offset already carries the aim distance
+
+	Graphics()->MapScreenToInterface(pGame->m_Camera.m_Center.x, pGame->m_Camera.m_Center.y, pGame->m_Camera.m_Zoom);
+	Graphics()->TextureClear();
+	Graphics()->LinesBegin();
+	// ZenithTee v1.1: configurable color via Line rendering panel (KX_LINE_SERVER_AIM).
+	const ColorRGBA col = ColorRGBA(KxLineColorAt(KX_LINE_SERVER_AIM, 0), true);
+	Graphics()->SetColor(col.r, col.g, col.b, KxLineAlpha(KX_LINE_SERVER_AIM));
+	const IGraphics::CLineItem Line(pos.x, pos.y, end.x, end.y);
+	Graphics()->LinesDraw(&Line, 1);
+	Graphics()->LinesEnd();
+}
+
+void CZenithHud::RenderSpectatorList()
+{
+	CGameClient *pGame = GameClient();
+
+	// Collect spectator names (same data the scoreboard lists).
+	std::vector<const char *> vNames;
+	for(const CNetObj_PlayerInfo *pInfo : pGame->m_Snap.m_apInfoByName)
+	{
+		if(!pInfo || pInfo->m_Team != TEAM_SPECTATORS)
+			continue;
+		if(pInfo->m_ClientId >= 0 && pInfo->m_ClientId < MAX_CLIENTS &&
+			pGame->m_aClients[pInfo->m_ClientId].m_Active)
+			vNames.push_back(pGame->m_aClients[pInfo->m_ClientId].m_aName);
+	}
+	if(vNames.empty())
+		return;
+
+	const float Height = 300.0f;
+	const float Width = Height * Graphics()->ScreenAspect();
+	Graphics()->MapScreen(0.0f, 0.0f, Width, Height);
+
+	const float FontSize = 5.5f;
+	const float LineH = FontSize + 1.5f;
+	float y = 6.0f;
+
+	char aHeader[64];
+	str_format(aHeader, sizeof(aHeader), "Spectators (%d)", (int)vNames.size());
+	TextRender()->TextColor(1.0f, 1.0f, 1.0f, 0.9f);
+	TextRender()->Text(Width - 6.0f - TextRender()->TextWidth(FontSize, aHeader), y, FontSize, aHeader);
+	y += LineH + 1.0f;
+
+	for(const char *pName : vNames)
+	{
+		TextRender()->TextColor(0.9f, 0.9f, 0.9f, 0.85f);
+		TextRender()->Text(Width - 6.0f - TextRender()->TextWidth(FontSize, pName), y, FontSize, pName);
+		y += LineH;
+	}
+	TextRender()->TextColor(TextRender()->DefaultTextColor());
+}
+
+void CZenithHud::RenderArrayList()
+{
+	// Array list — enabled ZenithTee modules, stacked top-left.
+	char aLines[24][48];
+	int Count = 0;
+#define KX_ADD_IF(Name, Cond) \
+	if(Cond && Count < 24) \
+	{ \
+		str_copy(aLines[Count], Name, sizeof(aLines[Count])); \
+		Count++; \
+	}
+	KX_ADD_IF("AimBot", g_Config.m_KxAimBot)
+	KX_ADD_IF("TriggerBot", g_Config.m_KxTriggerBot)
+	KX_ADD_IF("ESP", g_Config.m_KxEsp)
+	KX_ADD_IF("ESP Box", g_Config.m_KxEspBox)
+	KX_ADD_IF("Hitboxes", g_Config.m_KxEspHitboxes)
+	KX_ADD_IF("Fake Aim", g_Config.m_KxFakeAim)
+	KX_ADD_IF("Avoid Freeze", g_Config.m_KxAvoidFreezeBot)
+	KX_ADD_IF("Laser Unfreeze", g_Config.m_KxLaserUnfreeze)
+	KX_ADD_IF("Fly Ride", g_Config.m_KxFlyRide)
+	KX_ADD_IF("Triple Fly", g_Config.m_KxTripleFly)
+	KX_ADD_IF("Copy Moves", g_Config.m_KxCopyMoves)
+	KX_ADD_IF("Attack Bot", g_Config.m_KxAttack)
+	KX_ADD_IF("Zoom Hack", g_Config.m_KxZoomHack)
+	KX_ADD_IF("Spectator list", g_Config.m_KxSpectatorList)
+	KX_ADD_IF("Admin Alarm", g_Config.m_KxAdminAlarm)
+	KX_ADD_IF("Random Aim", g_Config.m_KxRandomAim)
+#undef KX_ADD_IF
+	if(Count == 0)
+		return;
+
+	const float Height = 300.0f;
+	const float Width = Height * Graphics()->ScreenAspect();
+	Graphics()->MapScreen(0.0f, 0.0f, Width, Height);
+
+	const float FontSize = 5.5f;
+	const float LineH = FontSize + 1.5f;
+	float y = 6.0f;
+	for(int i = 0; i < Count; i++)
+	{
+		TextRender()->TextColor(1.0f, 0.4f, 0.4f, 0.95f);
+		TextRender()->Text(4.0f, y, FontSize, aLines[i]);
+		y += LineH;
+	}
+	TextRender()->TextColor(TextRender()->DefaultTextColor());
+}
+
+void CZenithHud::RenderAdminAlarm()
+{
+	if(m_AdminAlarmSince < 0.0f)
+		return;
+	const float Elapsed = Client()->GlobalTime() - m_AdminAlarmSince;
+	if(m_AdminAlarmSince <= 0.0f || Elapsed > 5.0f)
+		return;
+
+	const float Alpha = Elapsed > 4.0f ? (5.0f - Elapsed) : 1.0f;
+	const float Height = 300.0f;
+	const float Width = Height * Graphics()->ScreenAspect();
+	Graphics()->MapScreen(0.0f, 0.0f, Width, Height);
+
+	const float FontSize = 7.0f;
+	const char *pText = "*** ADMIN AUTH DETECTED ***";
+	const float w = TextRender()->TextWidth(FontSize, pText);
+	TextRender()->TextColor(1.0f, 0.25f, 0.25f, Alpha);
+	TextRender()->Text(Width / 2.0f - w, Height * 0.25f, FontSize, pText);
+	TextRender()->TextColor(TextRender()->DefaultTextColor());
+}
