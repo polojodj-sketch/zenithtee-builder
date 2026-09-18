@@ -1,0 +1,15 @@
+diff --git a/src/engine/client/enums.h b/src/engine/client/enums.h
+index 45a475f..e92532e 100644
+--- a/src/engine/client/enums.h
++++ b/src/engine/client/enums.h
+@@ -6,6 +6,10 @@
+ enum
+ {
+ 	NUM_DUMMIES = 2,
++
++	// Kinetix: multi-dummy slots (dummy_controls cl_dummy_slot 0..MAX_DUMMIES-1).
++	// Update config_variables.h comments ("Max value 7") when this changes.
++	MAX_DUMMIES = 8,
+ };
+ 
+ #endif
