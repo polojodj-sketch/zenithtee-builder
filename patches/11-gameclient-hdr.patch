@@ -23,7 +23,7 @@
  #include "components/console.h"
  #include "components/controls.h"
  #include "components/countryflags.h"
-@@ -78,934 +90,949 @@
+@@ -78,934 +90,950 @@
  class CGameInfo
  {
  public:
@@ -1460,6 +1460,7 @@
 +
 +        int m_aLocalIds[MAX_DUMMIES];
 +        CNetObj_PlayerInput m_aDummyInput[MAX_DUMMIES]; // per-dummy stored input (index 0 unused for main)
++        CNetObj_PlayerInput &m_DummyInput = m_aDummyInput[1]; // alias for upstream compat (only conn 1 used by controls.cpp)
 +        CNetObj_PlayerInput m_aHammerInput[MAX_DUMMIES]; // per-dummy hammerfly input
 +        unsigned int m_aDummyFire[MAX_DUMMIES]; // per-dummy fire counter
 +        int m_aDummyLastFireTick[MAX_DUMMIES] = {};
