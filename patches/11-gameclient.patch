@@ -1886,7 +1886,7 @@ index af9f751..49992f2 100644
 +                                                m_aClients[m_aLocalIds[D]].m_UseCustomColor != g_Config.m_ClDummyUseCustomColor ||
 +                                                m_aClients[m_aLocalIds[D]].m_ColorBody != (int)g_Config.m_ClDummyColorBody ||
 +                                                m_aClients[m_aLocalIds[D]].m_ColorFeet != (int)g_Config.m_ClDummyColorFeet)
-+                                                SendDummyInfo(false, D);
++                                                SendDummyInfo(false);
 +                                        else
 +                                                m_aCheckInfo[D] = -1;
 +                                }
@@ -3035,7 +3035,7 @@ index af9f751..49992f2 100644
  }
  
  static CGameInfo GetGameInfo(const CNetObj_GameInfoEx *pInfoEx, int InfoExSize, const CServerInfo *pFallbackServerInfo)
-@@ -1715,2814 +2102,3894 @@ static CGameInfo GetGameInfo(const CNetObj_GameInfoEx *pInfoEx, int InfoExSize,
+@@ -1715,2814 +2102,3895 @@ static CGameInfo GetGameInfo(const CNetObj_GameInfoEx *pInfoEx, int InfoExSize,
  
  void CGameClient::InvalidateSnapshot()
  {
@@ -5193,8 +5193,9 @@ index af9f751..49992f2 100644
 -			m_aStats[i].Reset();
 -		}
 -	}
-+void CGameClient::SendDummyInfo(bool Start, int Dummy)
++void CGameClient::SendDummyInfo(bool Start)
 +{
++        const int Dummy = 1;
 +        if(Dummy < 1 || Dummy >= MAX_DUMMIES)
 +                return;
 +        int Conn = IClient::CONN_DUMMY_START + Dummy - 1;
