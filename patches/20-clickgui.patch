@@ -3717,7 +3717,7 @@
 +// the finger moves it becomes a scroll gesture instead of an accidental tap.
 +// Presses on headers (panel drag), sliders, dropdowns and while editing an
 +// input field fire immediately like on desktop.
-+bool CClickGui::OnTouchState(const std::vector<IInput::CTouchFingerState> &vTouchFingerStates)
++bool CClickGui::OnTouchState(std::vector<IInput::CTouchFingerState> &vTouchFingerStates)
 +{
 +        const bool isOpen = g_Config.m_ClClickGui != 0 || m_AnimProgress > 0.0f;
 +        if(!isOpen)

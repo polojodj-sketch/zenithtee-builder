@@ -2,7 +2,7 @@ diff --git a/src/game/client/gameclient.cpp b/src/game/client/gameclient.cpp
 index af9f751..49992f2 100644
 --- a/src/game/client/gameclient.cpp
 +++ b/src/game/client/gameclient.cpp
-@@ -90,1229 +90,1613 @@ using namespace std::chrono_literals;
+@@ -90,1229 +90,1616 @@ using namespace std::chrono_literals;
  const char *CGameClient::Version() const { return GAME_VERSION; }
  const char *CGameClient::NetVersion() const { return GAME_NETVERSION; }
  const char *CGameClient::NetVersion7() const { return GAME_NETVERSION7; }
@@ -818,14 +818,15 @@ index af9f751..49992f2 100644
 +        }
 +
 +        // handle touch events
-+        const std::vector<IInput::CTouchFingerState> &vTouchFingerStates = Input()->TouchFingerStates();
++        std::vector<IInput::CTouchFingerState> vTouchFingerStates = Input()->TouchFingerStates();
 +        bool TouchHandled = false;
++        std::vector<IInput::CTouchFingerState> vEmptyTouchStates;
 +        for(auto &pComponent : m_vpInput)
 +        {
 +                if(TouchHandled)
 +                {
 +                        // Also update inactive components so they can handle touch fingers being released.
-+                        pComponent->OnTouchState({});
++                        pComponent->OnTouchState(vEmptyTouchStates);
 +                }
 +                else if(pComponent->OnTouchState(vTouchFingerStates))
 +                {
@@ -924,7 +925,8 @@ index af9f751..49992f2 100644
  }
  
 -void CGameClient::OnDummySwap()
-+int CGameClient::OnSnapInput(int *pData, int Conn, bool Force)
++int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
++        const int Conn = Dummy ? 1 : 0;
  {
 -	if(g_Config.m_ClDummyResetOnSwitch)
 -	{
@@ -1901,8 +1903,9 @@ index af9f751..49992f2 100644
  }
  
 -void CGameClient::OnDummyDisconnect()
-+void CGameClient::OnDummyDisconnect(int Dummy)
++void CGameClient::OnDummyDisconnect()
  {
++        const int Dummy = 1;
 -	m_aLocalIds[1] = -1;
 -	m_aDDRaceMsgSent[1] = false;
 -	m_aShowOthers[1] = SHOW_OTHERS_NOT_SET;
