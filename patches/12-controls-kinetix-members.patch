@@ -1,0 +1,15 @@
+--- a/src/game/client/components/controls.h
++++ b/src/game/client/components/controls.h
+@@ -34,6 +34,12 @@
+ 	int64_t m_LastSendTime;
+ 	CNetObj_PlayerInput m_aInputData[NUM_DUMMIES];
+ 	CNetObj_PlayerInput m_aLastData[NUM_DUMMIES];
++
++	// ZenithTee (kinetix): transient aim overrides consumed by SnapInput
++	bool m_LaserUnfreezeAimActive = false;
++	vec2 m_LaserUnfreezeAimOffset = vec2(0.0f, 0.0f);
++	bool m_FakeAimRenderActive = false;
++	vec2 m_FakeAimRenderOffset = vec2(0.0f, 0.0f);
+ 	int m_aInputDirectionLeft[NUM_DUMMIES];
+ 	int m_aInputDirectionRight[NUM_DUMMIES];
+ 	int m_aShowHookColl[NUM_DUMMIES];
