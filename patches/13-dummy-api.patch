@@ -1,0 +1,88 @@
+--- a/src/engine/client.h
++++ b/src/engine/client.h
+@@ -222,6 +222,14 @@
+ 	virtual bool DummyConnected() const = 0;
+ 	virtual bool DummyConnecting() const = 0;
+ 	virtual bool DummyConnectingDelayed() const = 0;
+ 	virtual bool DummyAllowed() const = 0;
++	virtual void DummyDisconnect(int Dummy, const char *pReason) = 0;
++	virtual void DummyConnect(int Dummy) = 0;
++	virtual bool DummyConnected(int Dummy) const = 0;
++	virtual bool DummyConnecting(int Dummy) const = 0;
++	virtual bool DummyConnectingDelayed(int Dummy) const = 0;
++	virtual bool AnyDummyConnected() const = 0;
++	virtual bool AnyDummyConnecting() const = 0;
++	virtual bool AnyDummyConnectingDelayed() const = 0;
+ 
+ 	virtual void Restart() = 0;
+--- a/src/engine/client/client.h
++++ b/src/engine/client/client.h
+@@ -349,4 +349,12 @@
+ 	bool DummyConnectingDelayed() const override;
+ 	bool DummyAllowed() const override;
++	void DummyDisconnect(int Dummy, const char *pReason) override;
++	void DummyConnect(int Dummy) override;
++	bool DummyConnected(int Dummy) const override;
++	bool DummyConnecting(int Dummy) const override;
++	bool DummyConnectingDelayed(int Dummy) const override;
++	bool AnyDummyConnected() const override;
++	bool AnyDummyConnecting() const override;
++	bool AnyDummyConnectingDelayed() const override;
+ 
+ 	const CServerInfo &ServerInfo() const override;
+--- a/src/engine/client/client.cpp
++++ b/src/engine/client/client.cpp
+@@ -884,6 +884,53 @@
+ bool CClient::DummyAllowed() const
+ {
+ 	return m_ServerCapabilities.m_AllowDummy;
+ }
++
++void CClient::DummyDisconnect(int Dummy, const char *pReason)
++{
++	if(Dummy != 1)
++		return;
++	DummyDisconnect(pReason);
++}
++
++void CClient::DummyConnect(int Dummy)
++{
++	if(Dummy != 1)
++	{
++		log_warn("client", "Multi-dummy not supported upstream; only dummy 1 is available.");
++		return;
++	}
++	DummyConnect();
++}
++
++bool CClient::DummyConnected(int Dummy) const
++{
++	return Dummy == 1 && DummyConnected();
++}
++
++bool CClient::DummyConnecting(int Dummy) const
++{
++	return Dummy == 1 && DummyConnecting();
++}
++
++bool CClient::DummyConnectingDelayed(int Dummy) const
++{
++	return Dummy == 1 && DummyConnectingDelayed();
++}
++
++bool CClient::AnyDummyConnected() const
++{
++	return DummyConnected();
++}
++
++bool CClient::AnyDummyConnecting() const
++{
++	return DummyConnecting();
++}
++
++bool CClient::AnyDummyConnectingDelayed() const
++{
++	return DummyConnectingDelayed();
++}
+ 
+ const CServerInfo &CClient::ServerInfo() const

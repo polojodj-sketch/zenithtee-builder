@@ -51,6 +51,8 @@ jobs:
         rm -rf lua-5.4.6 lua.tar.gz
         mkdir -p src/engine/external/sol2
         curl -sSL -o src/engine/external/sol2/sol.hpp https://github.com/ThePhD/sol2/releases/download/v3.3.0/sol.hpp
+        mkdir -p src/engine/external/sol2/sol
+        curl -sSL -o src/engine/external/sol2/sol/config.hpp https://raw.githubusercontent.com/ThePhD/sol2/v3.3.0/include/sol/config.hpp
 
     - name: Apply ZenithTee patches
       run: |
