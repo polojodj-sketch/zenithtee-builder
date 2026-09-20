@@ -53,6 +53,19 @@ jobs:
         curl -sSL -o src/engine/external/sol2/sol.hpp https://github.com/ThePhD/sol2/releases/download/v3.3.0/sol.hpp
         mkdir -p src/engine/external/sol2/sol
         curl -sSL -o src/engine/external/sol2/sol/config.hpp https://raw.githubusercontent.com/ThePhD/sol2/v3.3.0/include/sol/config.hpp
+        python3 - <<'PYEOF'
+import io
+path = "src/engine/external/sol2/sol.hpp"
+data = io.open(path, "r", encoding="utf-8").read()
+old = "*this = nullopt;\r\n\t\t\tthis->construct(std::forward<Args>(args)...);\r\n\t\t}"
+new = "*this = nullopt;\r\n\t\t\tm_value = std::addressof(std::forward<Args>(args)...);\r\n\t\t\treturn *m_value;\r\n\t\t}"
+count = data.count(old)
+data = data.replace(old, new)
+io.open(path, "w", encoding="utf-8", newline="").write(data)
+print("patched optional<T&>::emplace occurrences:", count)
+if count != 1:
+    raise SystemExit("sol.hpp emplace fix did not match exactly once")
+PYEOF
 
     - name: Apply ZenithTee patches
       run: |
