@@ -54,19 +54,19 @@ jobs:
         mkdir -p src/engine/external/sol2/sol
         curl -sSL -o src/engine/external/sol2/sol/config.hpp https://raw.githubusercontent.com/ThePhD/sol2/v3.3.0/include/sol/config.hpp
         python3 - <<'PYEOF'
-import io
-path = "src/engine/external/sol2/sol.hpp"
-data = io.open(path, "r", encoding="utf-8").read()
-normalized = data.replace("\r\n", "\n")
-old = "*this = nullopt;\n\t\t\tthis->construct(std::forward<Args>(args)...);\n\t\t}"
-new = "*this = nullopt;\n\t\t\tm_value = std::addressof(std::forward<Args>(args)...);\n\t\t\treturn *m_value;\n\t\t}"
-count = normalized.count(old)
-normalized = normalized.replace(old, new)
-io.open(path, "w", encoding="utf-8", newline="").write(normalized)
-print("patched optional<T&>::emplace occurrences:", count)
-if count != 1:
-    raise SystemExit("sol.hpp emplace fix did not match exactly once")
-PYEOF
+        import io
+        path = "src/engine/external/sol2/sol.hpp"
+        data = io.open(path, "r", encoding="utf-8").read()
+        normalized = data.replace("\r\n", "\n")
+        old = "*this = nullopt;\n\t\t\tthis->construct(std::forward<Args>(args)...);\n\t\t}"
+        new = "*this = nullopt;\n\t\t\tm_value = std::addressof(std::forward<Args>(args)...);\n\t\t\treturn *m_value;\n\t\t}"
+        count = normalized.count(old)
+        normalized = normalized.replace(old, new)
+        io.open(path, "w", encoding="utf-8", newline="").write(normalized)
+        print("patched optional<T&>::emplace occurrences:", count)
+        if count != 1:
+            raise SystemExit("sol.hpp emplace fix did not match exactly once")
+        PYEOF
 
     - name: Apply ZenithTee patches
       run: |
