@@ -57,11 +57,12 @@ jobs:
 import io
 path = "src/engine/external/sol2/sol.hpp"
 data = io.open(path, "r", encoding="utf-8").read()
-old = "*this = nullopt;\r\n\t\t\tthis->construct(std::forward<Args>(args)...);\r\n\t\t}"
-new = "*this = nullopt;\r\n\t\t\tm_value = std::addressof(std::forward<Args>(args)...);\r\n\t\t\treturn *m_value;\r\n\t\t}"
-count = data.count(old)
-data = data.replace(old, new)
-io.open(path, "w", encoding="utf-8", newline="").write(data)
+normalized = data.replace("\r\n", "\n")
+old = "*this = nullopt;\n\t\t\tthis->construct(std::forward<Args>(args)...);\n\t\t}"
+new = "*this = nullopt;\n\t\t\tm_value = std::addressof(std::forward<Args>(args)...);\n\t\t\treturn *m_value;\n\t\t}"
+count = normalized.count(old)
+normalized = normalized.replace(old, new)
+io.open(path, "w", encoding="utf-8", newline="").write(normalized)
 print("patched optional<T&>::emplace occurrences:", count)
 if count != 1:
     raise SystemExit("sol.hpp emplace fix did not match exactly once")
