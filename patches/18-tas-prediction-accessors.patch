@@ -1,0 +1,64 @@
+diff --git a/src/game/client/prediction/entities/character.h b/src/game/client/prediction/entities/character.h
+index a844ce6..26c5af6 100644
+--- a/src/game/client/prediction/entities/character.h
++++ b/src/game/client/prediction/entities/character.h
+@@ -112,6 +112,11 @@ public:
+ 	int GetJumped() const { return m_Core.m_Jumped; }
+ 	int GetAttackTick() const { return m_AttackTick; }
+ 	int GetStrongWeakId() const { return m_StrongWeakId; }
++	int GetReloadTimer() const { return m_ReloadTimer; }
++	void SetReloadTimer(int ReloadTimer) { m_ReloadTimer = ReloadTimer; }
++	void SetAttackTick(int AttackTick) { m_AttackTick = AttackTick; }
++	CNetObj_PlayerInput GetLatestInput() { return m_LatestInput; }
++	void SetLatestInput(const CNetObj_PlayerInput &Input) { m_LatestInput = Input; }
+ 
+ 	CCharacter(CGameWorld *pGameWorld, int Id, CNetObj_Character *pChar, CNetObj_DDNetCharacter *pExtended = nullptr);
+ 	void Read(CNetObj_Character *pChar, CNetObj_DDNetCharacter *pExtended, bool IsLocal);
+diff --git a/src/game/client/prediction/entities/laser.cpp b/src/game/client/prediction/entities/laser.cpp
+index 81d1a61..c3c1450 100644
+--- a/src/game/client/prediction/entities/laser.cpp
++++ b/src/game/client/prediction/entities/laser.cpp
+@@ -237,3 +237,14 @@ CLaserData CLaser::GetData() const
+ 	Result.m_Predict = true;
+ 	return Result;
+ }
++
++void CLaser::Restore(CLaserData Data, vec2 Dir, vec2 PrevPos, float Energy, int Bounces, int Owner, bool ZeroEnergyBounce)
++{
++	m_From = Data.m_From;
++	m_Dir = Dir;
++	m_PrevPos = PrevPos;
++	m_Energy = Energy;
++	m_Bounces = Bounces;
++	m_Owner = Owner;
++	m_ZeroEnergyBounceInLastTick = ZeroEnergyBounce;
++}
+diff --git a/src/game/client/prediction/entities/laser.h b/src/game/client/prediction/entities/laser.h
+index d4e66a4..18aea1f 100644
+--- a/src/game/client/prediction/entities/laser.h
++++ b/src/game/client/prediction/entities/laser.h
+@@ -22,6 +22,12 @@ public:
+ 	CLaser(CGameWorld *pGameWorld, int Id, const CLaserData *pLaser);
+ 	bool Match(CLaser *pLaser);
+ 	CLaserData GetData() const;
++	const vec2 &GetDir() const { return m_Dir; }
++	const vec2 &GetPrevPos() const { return m_PrevPos; }
++	float GetEnergy() const { return m_Energy; }
++	int GetBounces() const { return m_Bounces; }
++	bool GetZeroEnergyBounceInLastTick() const { return m_ZeroEnergyBounceInLastTick; }
++	void Restore(CLaserData Data, vec2 Dir, vec2 PrevPos, float Energy, int Bounces, int Owner, bool ZeroEnergyBounce);
+ 
+ protected:
+ 	bool HitCharacter(vec2 From, vec2 To);
+diff --git a/src/game/client/prediction/gameworld.h b/src/game/client/prediction/gameworld.h
+index e673208..90b08a7 100644
+--- a/src/game/client/prediction/gameworld.h
++++ b/src/game/client/prediction/gameworld.h
+@@ -85,6 +85,7 @@ public:
+ 		bool m_NoWeakHookAndBounce;
+ 		bool m_PredictEvents;
+ 		bool m_OldLaser;
++		bool m_PredictTeleports;
+ 	} m_WorldConfig;
+ 
+ 	bool m_IsValidCopy;

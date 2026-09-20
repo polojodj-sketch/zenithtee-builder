@@ -1,0 +1,15 @@
+diff --git a/src/game/client/components/kinetix/tas.cpp b/src/game/client/components/kinetix/tas.cpp
+index f2cb2a5..0000000 100644
+--- a/src/game/client/components/kinetix/tas.cpp
++++ b/src/game/client/components/kinetix/tas.cpp
+@@ -340,6 +340,8 @@
+ 		Prev.m_AttackTick = Cur.m_AttackTick - 1;
+ 	}
+ 
++	const CScreenRect ScreenRect = Graphics()->GetScreen();
+ 	if(Cur.m_HookState > 0)
+-		pGame->m_Players.RenderHook(&Prev, &Cur, &Info, -1, IntraAlpha);
+-	pGame->m_Players.RenderPlayer(&Prev, &Cur, &Info, -1, IntraAlpha);
++		pGame->m_Players.RenderHook(ScreenRect, &Prev, &Cur, &Info, -1, IntraAlpha);
++	pGame->m_Players.RenderPlayer(ScreenRect, &Prev, &Cur, &Info, -1, IntraAlpha);
+ }

@@ -1,0 +1,85 @@
+diff --git a/src/game/client/components/freezebars.h b/src/game/client/components/freezebars.h
+index 369b8d9..e208469 100644
+--- a/src/game/client/components/freezebars.h
++++ b/src/game/client/components/freezebars.h
+@@ -5,12 +5,12 @@
+ class CFreezeBars : public CComponent
+ {
+ 	void RenderFreezeBar(int ClientId);
+-	void RenderFreezeBarPos(float x, float y, float Width, float Height, float Progress, float Alpha = 1.0f);
+ 	bool IsPlayerInfoAvailable(int ClientId) const;
+ 
+ public:
+ 	int Sizeof() const override { return sizeof(*this); }
+ 	void OnRender() override;
++	void RenderFreezeBarPos(float x, float y, float Width, float Height, float Progress, float Alpha = 1.0f);
+ };
+ 
+ #endif
+diff --git a/src/game/client/components/items.h b/src/game/client/components/items.h
+index a985799..b584998 100644
+--- a/src/game/client/components/items.h
++++ b/src/game/client/components/items.h
+@@ -16,7 +16,6 @@ class CScreenRect;
+ class CItems : public CComponent
+ {
+ 	void RenderProjectile(const CProjectileData *pCurrent, int ItemId, const CScreenRect &ScreenRect);
+-	void RenderPickup(const CNetObj_Pickup *pPrev, const CNetObj_Pickup *pCurrent, bool IsPredicted, int Flags);
+ 	void RenderFlags();
+ 	void RenderFlag(const CNetObj_Flag *pPrev, const CNetObj_Flag *pCurrent, const CNetObj_GameData *pPrevGameData, const CNetObj_GameData *pCurGameData);
+ 	void RenderLaser(const CLaserData *pCurrent, bool IsPredicted = false);
+@@ -30,6 +29,7 @@ public:
+ 
+ 	void ReconstructSmokeTrail(const CProjectileData *pCurrent, int DestroyTick);
+ 	void RenderLaser(vec2 From, vec2 Pos, ColorRGBA OuterColor, ColorRGBA InnerColor, float TicksBody, float TicksHead, int Type) const;
++	void RenderPickup(const CNetObj_Pickup *pPrev, const CNetObj_Pickup *pCurrent, bool IsPredicted, int Flags);
+ 
+ private:
+ 	int m_BlueFlagOffset;
+diff --git a/src/game/client/components/players.h b/src/game/client/components/players.h
+index 6d78dbf..4536abd 100644
+--- a/src/game/client/components/players.h
++++ b/src/game/client/components/players.h
+@@ -15,20 +15,6 @@ class CPlayers : public CComponent
+ 	void RenderHand7(const CTeeRenderInfo *pInfo, vec2 HandPos, float HandAngle, float Alpha);
+ 
+ 	void RenderHand(const CTeeRenderInfo *pInfo, vec2 CenterPos, vec2 Dir, float AngleOffset, vec2 PostRotOffset, float Alpha);
+-	void RenderPlayer(
+-		const CScreenRect &ScreenRect,
+-		const CNetObj_Character *pPrevChar,
+-		const CNetObj_Character *pPlayerChar,
+-		const CTeeRenderInfo *pRenderInfo,
+-		int ClientId,
+-		float Intra = 0.f);
+-	void RenderHook(
+-		const CScreenRect &ScreenRect,
+-		const CNetObj_Character *pPrevChar,
+-		const CNetObj_Character *pPlayerChar,
+-		const CTeeRenderInfo *pRenderInfo,
+-		int ClientId,
+-		float Intra = 0.f);
+ 	void RenderHookCollLine(
+ 		const CScreenRect &ScreenRect,
+ 		const CNetObj_Character *pPrevChar,
+@@ -58,6 +44,21 @@ public:
+ 
+ 	const std::shared_ptr<CManagedTeeRenderInfo> &NinjaTeeRenderInfo() const { return m_pNinjaTeeRenderInfo; }
+ 	const std::shared_ptr<CManagedTeeRenderInfo> &SpectatorTeeRenderInfo() const { return m_pSpectatorTeeRenderInfo; }
++	void RenderPlayer(
++		const CScreenRect &ScreenRect,
++		const CNetObj_Character *pPrevChar,
++		const CNetObj_Character *pPlayerChar,
++		const CTeeRenderInfo *pRenderInfo,
++		int ClientId,
++		float Intra = 0.f);
++	void RenderHook(
++		const CScreenRect &ScreenRect,
++		const CNetObj_Character *pPrevChar,
++		const CNetObj_Character *pPlayerChar,
++		const CTeeRenderInfo *pRenderInfo,
++		int ClientId,
++		float Intra = 0.f);
++
+ };
+ 
+ #endif
