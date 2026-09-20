@@ -1,0 +1,12 @@
+diff --git a/src/game/client/prediction/entities/projectile.h b/src/game/client/prediction/entities/projectile.h
+index aa6169a..f20e639 100644
+--- a/src/game/client/prediction/entities/projectile.h
++++ b/src/game/client/prediction/entities/projectile.h
+@@ -38,6 +38,7 @@ public:
+ 	const vec2 &GetDirection() const { return m_Direction; }
+ 	const int &GetOwner() const { return m_Owner; }
+ 	const int &GetStartTick() const { return m_StartTick; }
++	const int &GetType() const { return m_Type; }
+ 	CProjectile(CGameWorld *pGameWorld, int Id, const CProjectileData *pProj);
+ 
+ private:

@@ -88,7 +88,7 @@
 +
 +	const float Height = 300.0f;
 +	const float Width = Height * Graphics()->ScreenAspect();
-+	Graphics()->MapScreen(0.0f, 0.0f, Width, Height);
++	Graphics()->MapScreen(CScreenRect(0.0f, 0.0f, Width, Height));
 +
 +	const float FontSize = 5.5f;
 +	const float LineH = FontSize + 1.5f;
@@ -142,7 +142,7 @@
 +
 +	const float Height = 300.0f;
 +	const float Width = Height * Graphics()->ScreenAspect();
-+	Graphics()->MapScreen(0.0f, 0.0f, Width, Height);
++	Graphics()->MapScreen(CScreenRect(0.0f, 0.0f, Width, Height));
 +
 +	const float FontSize = 5.5f;
 +	const float LineH = FontSize + 1.5f;
@@ -167,7 +167,7 @@
 +	const float Alpha = Elapsed > 4.0f ? (5.0f - Elapsed) : 1.0f;
 +	const float Height = 300.0f;
 +	const float Width = Height * Graphics()->ScreenAspect();
-+	Graphics()->MapScreen(0.0f, 0.0f, Width, Height);
++	Graphics()->MapScreen(CScreenRect(0.0f, 0.0f, Width, Height));
 +
 +	const float FontSize = 7.0f;
 +	const char *pText = "*** ADMIN AUTH DETECTED ***";

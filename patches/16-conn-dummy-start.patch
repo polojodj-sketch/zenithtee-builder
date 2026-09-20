@@ -1,0 +1,12 @@
+diff --git a/src/engine/client.h b/src/engine/client.h
+index 27435d0..4ab8c4e 100644
+--- a/src/engine/client.h
++++ b/src/engine/client.h
+@@ -125,6 +125,7 @@
+ 	{
+ 		CONN_MAIN = 0,
+ 		CONN_DUMMY,
++		CONN_DUMMY_START = CONN_DUMMY,
+ 		CONN_CONTACT,
+ 		NUM_CONNS,
+ 	};
