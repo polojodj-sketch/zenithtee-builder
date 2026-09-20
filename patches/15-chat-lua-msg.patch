@@ -1,0 +1,9 @@
+--- a/src/game/client/components/chat.h
++++ b/src/game/client/components/chat.h
+@@ -164,5 +164,6 @@
+ 	int Sizeof() const override { return sizeof(*this); }
+ 
+ 	static constexpr float MESSAGE_TEE_PADDING_RIGHT = 0.5f;
++	static constexpr int LUA_MSG = -2;
+ 
+ 	bool IsActive() const { return m_Mode != MODE_NONE; }

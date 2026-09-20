@@ -1813,7 +1813,7 @@
 +        const bool Read = Storage()->ReadFile(g_ExecScriptPath, ViaStorage ? IStorage::TYPE_SAVE : IStorage::TYPE_ABSOLUTE, &pContent, &Len);
 +        if(!Read || (!pContent && Len > 0))
 +        {
-+                GameClient()->m_Chat.AddLine(CChat::CLIENT_MSG, 0, "Code Exec: failed to read script file");
++                GameClient()->m_Chat.AddLine(CChat::LUA_MSG, 0, "Code Exec: failed to read script file");
 +                return;
 +        }
 +
@@ -1888,7 +1888,7 @@
 +        unsigned Len = 0;
 +        if(!Storage()->ReadFile(g_ExecScriptPath, g_ExecScriptViaStorage ? IStorage::TYPE_SAVE : IStorage::TYPE_ABSOLUTE, &pContent, &Len) || !pContent)
 +        {
-+                GameClient()->m_Chat.AddLine(CChat::CLIENT_MSG, 0, "Code Exec: failed to read script file");
++                GameClient()->m_Chat.AddLine(CChat::LUA_MSG, 0, "Code Exec: failed to read script file");
 +                return;
 +        }
 +        static char s_aCode[262144];

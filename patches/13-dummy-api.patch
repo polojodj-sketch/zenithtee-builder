@@ -1,7 +1,8 @@
+diff --git a/src/engine/client.h b/src/engine/client.h
+index 27435d0..513e089 100644
 --- a/src/engine/client.h
 +++ b/src/engine/client.h
-@@ -222,6 +222,14 @@
- 	virtual bool DummyConnected() const = 0;
+@@ -223,6 +223,16 @@ public:
  	virtual bool DummyConnecting() const = 0;
  	virtual bool DummyConnectingDelayed() const = 0;
  	virtual bool DummyAllowed() const = 0;
@@ -13,31 +14,19 @@
 +	virtual bool AnyDummyConnected() const = 0;
 +	virtual bool AnyDummyConnecting() const = 0;
 +	virtual bool AnyDummyConnectingDelayed() const = 0;
++	virtual int DummyCount() const = 0;
++	virtual int LastDummy() const = 0;
  
  	virtual void Restart() = 0;
---- a/src/engine/client/client.h
-+++ b/src/engine/client/client.h
-@@ -349,4 +349,12 @@
- 	bool DummyConnectingDelayed() const override;
- 	bool DummyAllowed() const override;
-+	void DummyDisconnect(int Dummy, const char *pReason) override;
-+	void DummyConnect(int Dummy) override;
-+	bool DummyConnected(int Dummy) const override;
-+	bool DummyConnecting(int Dummy) const override;
-+	bool DummyConnectingDelayed(int Dummy) const override;
-+	bool AnyDummyConnected() const override;
-+	bool AnyDummyConnecting() const override;
-+	bool AnyDummyConnectingDelayed() const override;
- 
- 	const CServerInfo &ServerInfo() const override;
+ 	virtual void Quit() = 0;
+diff --git a/src/engine/client/client.cpp b/src/engine/client/client.cpp
+index 00cd83e..ce9292b 100644
 --- a/src/engine/client/client.cpp
 +++ b/src/engine/client/client.cpp
-@@ -884,6 +884,53 @@
- bool CClient::DummyAllowed() const
- {
+@@ -886,6 +886,63 @@ bool CClient::DummyAllowed() const
  	return m_ServerCapabilities.m_AllowDummy;
  }
-+
+ 
 +void CClient::DummyDisconnect(int Dummy, const char *pReason)
 +{
 +	if(Dummy != 1)
@@ -84,5 +73,38 @@
 +{
 +	return DummyConnectingDelayed();
 +}
- 
++
++int CClient::DummyCount() const
++{
++	return DummyConnected() ? 1 : 0;
++}
++
++int CClient::LastDummy() const
++{
++	return m_LastDummy ? 1 : 0;
++}
++
  const CServerInfo &CClient::ServerInfo() const
+ {
+ 	return m_CurrentServerInfo;
+diff --git a/src/engine/client/client.h b/src/engine/client/client.h
+index bee2307..e671aea 100644
+--- a/src/engine/client/client.h
++++ b/src/engine/client/client.h
+@@ -348,6 +348,16 @@ public:
+ 	bool DummyConnecting() const override;
+ 	bool DummyConnectingDelayed() const override;
+ 	bool DummyAllowed() const override;
++	void DummyDisconnect(int Dummy, const char *pReason) override;
++	void DummyConnect(int Dummy) override;
++	bool DummyConnected(int Dummy) const override;
++	bool DummyConnecting(int Dummy) const override;
++	bool DummyConnectingDelayed(int Dummy) const override;
++	bool AnyDummyConnected() const override;
++	bool AnyDummyConnecting() const override;
++	bool AnyDummyConnectingDelayed() const override;
++	int DummyCount() const override;
++	int LastDummy() const override;
+ 
+ 	const CServerInfo &ServerInfo() const override;
+ 	void ServerInfoRequest();

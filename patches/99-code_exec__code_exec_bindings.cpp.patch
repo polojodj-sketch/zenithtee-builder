@@ -1,6 +1,6 @@
 --- a/src/game/client/components/kinetix/code_exec/code_exec_bindings.cpp
 +++ b/src/game/client/components/kinetix/code_exec/code_exec_bindings.cpp
-@@ -0,0 +1,1604 @@
+@@ -0,0 +1,1602 @@
 +#include <game/client/components/kinetix/code_exec/code_exec.h>
 +#include <game/client/components/chat.h>
 +#include <game/client/components/camera.h>
@@ -57,6 +57,7 @@
 +#include <base/str.h>
 +#include <engine/console.h>
 +#include <engine/keys.h>
++#include <engine/client/keyboard.h>
 +#include <engine/client/client.h>
 +#include <base/vmath.h>
 +
@@ -230,7 +231,6 @@
 +
 +        // ===================== CTeamsCore =====================
 +        lua.new_usertype<CTeamsCore>("CTeamsCore",
-+                "m_IsDDRace16", &CTeamsCore::m_IsDDRace16,
 +                "SameTeam", &CTeamsCore::SameTeam,
 +                "CanKeepHook", &CTeamsCore::CanKeepHook,
 +                "CanCollide", &CTeamsCore::CanCollide,
@@ -1061,8 +1061,7 @@
 +                sol::base_classes, sol::bases<CEntity>(),
 +                "GetDirection", [](CProjectile &p) -> vec2 { return p.GetDirection(); },
 +                "GetOwner", [](CProjectile &p) -> int { return p.GetOwner(); },
-+                "GetStartTick", [](CProjectile &p) -> int { return p.GetStartTick(); },
-+                "GetType", [](CProjectile &p) -> int { return p.GetType(); }
++                "GetStartTick", [](CProjectile &p) -> int { return p.GetStartTick(); }
 +        );
 +
 +        lua.new_usertype<CLaser>("CLaser",
@@ -1463,17 +1462,16 @@
 +        gfx.set_function("window_width", [this]() -> float { return (float)Graphics()->WindowWidth(); });
 +        gfx.set_function("window_height", [this]() -> float { return (float)Graphics()->WindowHeight(); });
 +        gfx.set_function("map_screen", [this](float X0, float Y0, float X1, float Y1) {
-+                Graphics()->MapScreen(X0, Y0, X1, Y1);
++                Graphics()->MapScreen(CScreenRect(X0, Y0, X1 - X0, Y1 - Y0));
 +        });
 +        gfx.set_function("map_screen_to_world", [this, &lua](float CenterX, float CenterY, sol::optional<float> Zoom) -> sol::table {
-+                float aPoints[4];
-+                Graphics()->MapScreenToWorld(CenterX, CenterY, 100.0f, 100.0f, 100.0f, 0, 0, Graphics()->ScreenAspect(), Zoom.value_or(1.0f), aPoints);
-+                Graphics()->MapScreen(aPoints[0], aPoints[1], aPoints[2], aPoints[3]);
++                const CScreenRect R = Graphics()->MapScreenToWorld(CenterX, CenterY, 100.0f, 100.0f, 100.0f, 0, 0, Graphics()->ScreenAspect(), Zoom.value_or(1.0f));
++                Graphics()->MapScreen(R);
 +                auto t = lua.create_table();
-+                t[1] = aPoints[0];
-+                t[2] = aPoints[1];
-+                t[3] = aPoints[2];
-+                t[4] = aPoints[3];
++                t[1] = R.m_TopLeft.x;
++                t[2] = R.m_TopLeft.y;
++                t[3] = R.m_BottomRight.x;
++                t[4] = R.m_BottomRight.y;
 +                return t;
 +        });
 +        gfx.set_function("draw_rect", [this](float X, float Y, float W, float H, float R, float G, float B, float A, sol::optional<int> Corners, sol::optional<float> Rounding) {
@@ -1574,7 +1572,7 @@
 +        inp["KEY_MOUSE_WHEEL_UP"] = KEY_MOUSE_WHEEL_UP;
 +        inp["KEY_MOUSE_WHEEL_DOWN"] = KEY_MOUSE_WHEEL_DOWN;
 +        inp.set_function("pressed_this_frame", [this](int Key) -> bool { return Input()->KeyPress(Key); });
-+        inp.set_function("key_name", [this](int Key) -> std::string { return std::string(Input()->KeyName(Key)); });
++        inp.set_function("key_name", [this](int Key) -> std::string { return std::string(KeyName(Key)); });
 +        inp.set_function("find_key", [this](const std::string &Name) -> int { return Input()->FindKeyByName(Name.c_str()); });
 +        inp.set_function("shift_pressed", [this]() -> bool { return Input()->ShiftIsPressed(); });
 +        inp.set_function("alt_pressed", [this]() -> bool { return Input()->AltIsPressed(); });
