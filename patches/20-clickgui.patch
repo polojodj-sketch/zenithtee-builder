@@ -1,6 +1,6 @@
---- /dev/null	1974-06-23 01:33:43.955999999 +0300
-+++ b/src/game/client/components/kinetix/clickgui.cpp	2026-09-17 02:59:51.278994423 +0300
-@@ -0,0 +1,6983 @@
+--- a/src/game/client/components/kinetix/clickgui.cpp
++++ b/src/game/client/components/kinetix/clickgui.cpp
+@@ -0,0 +1,7023 @@
 +// (c) ZenithTee. ClickGUI overlay component — see clickgui.h for overview.
 +//
 +// v1.56.34 (UI-only): renders 3 column panels with open/close animation.
@@ -443,6 +443,15 @@
 +static SRow g_PfFreedomPathChildren[] = {
 +        {ERowType::Slider, "Ratio", nullptr, false, false, 0.1f, 10.0f, 0.1f, 1.0f, "x", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
 +};
++// v1.57: Pilot Bot — real-time navigation settings (KRX pilot-style).
++static const char *const g_PilotModeOpts[] = {"Autonomous", "Follow cursor", "Follow player"};
++static SRow g_PilotBotChildren[] = {
++        {ERowType::Dropdown, "Mode", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, g_PilotModeOpts, 3, 0, nullptr, 0},
++        {ERowType::Slider, "Population", nullptr, false, false, 1.0f, 1000.0f, 1.0f, 399.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
++        {ERowType::Slider, "Exploration Depth", nullptr, false, false, 1.0f, 50.0f, 1.0f, 13.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
++        {ERowType::Slider, "Top-K", nullptr, false, false, 1.0f, 128.0f, 1.0f, 22.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
++        {ERowType::Slider, "Sequence Length", nullptr, false, false, 1.0f, 32.0f, 1.0f, 1.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
++};
 +static char g_PfDyn_Progress[96];
 +static char g_PfDyn_Eta[64];
 +static char g_PfDyn_Time[96];
@@ -460,6 +469,7 @@
 +        {ERowType::Slider, "Performance", nullptr, false, false, 1.0f, 100.0f, 1.0f, 100.0f, "%", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
 +        {ERowType::Toggle, "Freeze Support (Beta)", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
 +        {ERowType::Expandable, "Visuals", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_VisualsChildren, 4},
++        {ERowType::Expandable, "Pilot Bot", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_PilotBotChildren, 5},
 +        // v1.56.150: DoubleButton — Pathfinding (left) + Play (right, visible only when FINISHED).
 +        {ERowType::DoubleButton, "Pathfinding", "Paste", false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
 +        {ERowType::DoubleButton, "Editor Forbidden Tiles", "Clear Forbidden Tiles", false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
@@ -2297,6 +2307,17 @@
 +                                                child.value = (float)g_Config.m_KxCopyMovesLatency;
 +                                        else if(str_comp(child.pName, "Ratio") == 0 && str_comp(row.pName, "Freedom Path") == 0)
 +                                                child.value = (float)g_Config.m_KxPfFreedomRatio / 10.0f;
++                                        // v1.57: Pilot Bot children (read config -> UI)
++                                        else if(str_comp(child.pName, "Mode") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
++                                                child.valueIdx = g_Config.m_KxPfPilotMode;
++                                        else if(str_comp(child.pName, "Population") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
++                                                child.value = (float)g_Config.m_KxPfPilotPopulation;
++                                        else if(str_comp(child.pName, "Exploration Depth") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
++                                                child.value = (float)g_Config.m_KxPfPilotExplorationDepth;
++                                        else if(str_comp(child.pName, "Top-K") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
++                                                child.value = (float)g_Config.m_KxPfPilotTopK;
++                                        else if(str_comp(child.pName, "Sequence Length") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
++                                                child.value = (float)g_Config.m_KxPfPilotSequenceLength;
 +                                        else if(str_comp(child.pName, "Filter: Jump") == 0)
 +                                                child.on = g_Config.m_KxDummyCopyMovesFilterJump != 0;
 +                                        else if(str_comp(child.pName, "Filter: Direction") == 0)
@@ -3429,6 +3450,15 @@
 +                                g_Config.m_KxCopyMovesLatency = (int)pTarget->value;
 +                        else if(str_comp(pTarget->pName, "Ratio") == 0 && str_comp(row.pName, "Freedom Path") == 0)
 +                                g_Config.m_KxPfFreedomRatio = (int)(pTarget->value * 10.0f + 0.5f);
++                        // v1.57: Pilot Bot sliders (UI -> config)
++                        else if(str_comp(pTarget->pName, "Population") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
++                                g_Config.m_KxPfPilotPopulation = (int)pTarget->value;
++                        else if(str_comp(pTarget->pName, "Exploration Depth") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
++                                g_Config.m_KxPfPilotExplorationDepth = (int)pTarget->value;
++                        else if(str_comp(pTarget->pName, "Top-K") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
++                                g_Config.m_KxPfPilotTopK = (int)pTarget->value;
++                        else if(str_comp(pTarget->pName, "Sequence Length") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
++                                g_Config.m_KxPfPilotSequenceLength = (int)pTarget->value;
 +                        else if(str_comp(pTarget->pName, "Max Distance") == 0 && str_comp(row.pName, "Auto fly") == 0)
 +                                g_Config.m_KxDummyHammerAutoMaxDist = (int)pTarget->value;
 +                        else if(str_comp(pTarget->pName, "Trigger radius") == 0 && str_comp(row.pName, "Auto Triple Fly") == 0)
@@ -3945,7 +3975,6 @@
 +                const int i = clickOrder[idx];
 +                if(i < 0)
 +                        continue;
-+                const vec2 ppos = m_aPanelPosValid[i] ? m_aPanelPos[i] : PanelHomePos(i);
 +                const vec2 ppos = m_aPanelPosValid[i] ? m_aPanelPos[i] : PanelHomePos(i);
 +
 +                // Check header hit (drag + collapse arrow).
@@ -4611,6 +4640,15 @@
 +                                        g_Config.m_KxCopyMovesLatency = (int)pTarget->value;
 +                                else if(str_comp(pTarget->pName, "Ratio") == 0 && str_comp(row.pName, "Freedom Path") == 0)
 +                                        g_Config.m_KxPfFreedomRatio = (int)(pTarget->value * 10.0f + 0.5f);
++                                // v1.57: Pilot Bot sliders (UI -> config)
++                                else if(str_comp(pTarget->pName, "Population") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
++                                        g_Config.m_KxPfPilotPopulation = (int)pTarget->value;
++                                else if(str_comp(pTarget->pName, "Exploration Depth") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
++                                        g_Config.m_KxPfPilotExplorationDepth = (int)pTarget->value;
++                                else if(str_comp(pTarget->pName, "Top-K") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
++                                        g_Config.m_KxPfPilotTopK = (int)pTarget->value;
++                                else if(str_comp(pTarget->pName, "Sequence Length") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
++                                        g_Config.m_KxPfPilotSequenceLength = (int)pTarget->value;
 +                                else if(str_comp(pTarget->pName, "Max Distance") == 0 && str_comp(row.pName, "Auto fly") == 0)
 +                                        g_Config.m_KxDummyHammerAutoMaxDist = (int)pTarget->value;
 +                                else if(str_comp(pTarget->pName, "Trigger radius") == 0 && str_comp(row.pName, "Auto Triple Fly") == 0)
@@ -4946,6 +4984,8 @@
 +                                                g_Config.m_KxPfAlgorithm = o;
 +                                        else if(str_comp(target.pName, "Effort") == 0)
 +                                                g_Config.m_KxPfEffort = o;
++                                        else if(str_comp(target.pName, "Mode") == 0 && str_comp(panel.pTitle, "Pathfinder") == 0)
++                                                g_Config.m_KxPfPilotMode = o;
 +                                        m_DropdownOpen = false;
 +                                        return true;
 +                                }
@@ -5699,7 +5739,7 @@
 +                ColorRGBA(m_AccentColorRGBA, true).WithAlpha(alpha * 0.9f));
 +        DrawText(wx + 12.0f, wy + 9.0f, 13.0f, "ZenithTee", ColorRGBA(CS_COL_TEXT, true).WithAlpha(alpha));
 +        char aVer[64];
-+        str_format(aVer, sizeof(aVer), "v1.2  |  %s", Client()->Version());
++        str_format(aVer, sizeof(aVer), "v1.2  |  %s", GAME_RELEASE_VERSION);
 +        float vw = TextRender()->TextWidth(11.0f, aVer);
 +        DrawText(wx + ww - 12.0f - vw, wy + 11.0f, 11.0f, aVer, ColorRGBA(CS_COL_TEXT_DIM, true).WithAlpha(alpha));
 +}
