@@ -1,5 +1,5 @@
 diff --git a/src/game/client/gameclient.cpp b/src/game/client/gameclient.cpp
-index af9f751..8f8fa56 100644
+index af9f751..629d69f 100644
 --- a/src/game/client/gameclient.cpp
 +++ b/src/game/client/gameclient.cpp
 @@ -90,1229 +90,1626 @@ using namespace std::chrono_literals;
@@ -938,7 +938,6 @@ index af9f751..8f8fa56 100644
  }
  
  int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
-+        const int Conn = Dummy ? 1 : 0;
  {
 -	if(!Dummy)
 -	{
@@ -973,6 +972,7 @@ index af9f751..8f8fa56 100644
 -			return 0;
 -		}
 -		m_DummyFire++;
++        const int Conn = Dummy ? 1 : 0;
 +        if(Conn == g_Config.m_ClDummy)
 +        {
 +                // TAS fake world: the keyboard belongs to the fake tee. Run
@@ -1858,7 +1858,7 @@ index af9f751..8f8fa56 100644
 +
 +                if(m_aCheckInfo[0] > 0)
 +                {
-+                        m_aCheckInfo[0] -= minimum(Client()->GameTick(0) - Client()->PrevGameTick(0), m_aCheckInfo[0]);
++                        m_aCheckInfo[0] -= std::min(Client()->GameTick(0) - Client()->PrevGameTick(0), m_aCheckInfo[0]);
 +                }
 +
 +                // Check info resend for all dummies
@@ -1894,7 +1894,7 @@ index af9f751..8f8fa56 100644
 +
 +                        if(m_aCheckInfo[D] > 0)
 +                        {
-+                                m_aCheckInfo[D] -= minimum(Client()->GameTick(D) - Client()->PrevGameTick(D), m_aCheckInfo[D]);
++                                m_aCheckInfo[D] -= std::min(Client()->GameTick(D) - Client()->PrevGameTick(D), m_aCheckInfo[D]);
 +                        }
 +                }
 +        }
@@ -2538,8 +2538,8 @@ index af9f751..8f8fa56 100644
 +                        }
 +                }
 +
-+                if(i <= 16)
-+                        m_Teams.m_IsDDRace16 = true;
++                if(i <= VANILLA_MAX_CLIENTS)
++                        m_Teams.m_NumDDRaceTeams = VANILLA_MAX_CLIENTS + 1;
 +
 +                m_Ghost.m_AllowRestart = true;
 +                m_RaceDemo.m_AllowRestart = true;
@@ -3036,7 +3036,7 @@ index af9f751..8f8fa56 100644
  }
  
  static CGameInfo GetGameInfo(const CNetObj_GameInfoEx *pInfoEx, int InfoExSize, const CServerInfo *pFallbackServerInfo)
-@@ -1715,2814 +2115,3895 @@ static CGameInfo GetGameInfo(const CNetObj_GameInfoEx *pInfoEx, int InfoExSize,
+@@ -1715,2814 +2115,3894 @@ static CGameInfo GetGameInfo(const CNetObj_GameInfoEx *pInfoEx, int InfoExSize,
  
  void CGameClient::InvalidateSnapshot()
  {
@@ -3100,8 +3100,7 @@ index af9f751..8f8fa56 100644
 +                }
 +        }
 +
-+        CServerInfo ServerInfo;
-+        Client()->GetServerInfo(&ServerInfo);
++        const CServerInfo &ServerInfo = Client()->ServerInfo();
 +
 +        bool FoundGameInfoEx = false;
 +        bool GotSwitchStateTeam = false;
@@ -3173,7 +3172,7 @@ index af9f751..8f8fa56 100644
 +                                                }
 +                                        }
 +
-+                                        m_Snap.m_HighestClientId = maximum(m_Snap.m_HighestClientId, pInfo->m_ClientId);
++                                        m_Snap.m_HighestClientId = std::max(m_Snap.m_HighestClientId, pInfo->m_ClientId);
 +
 +                                        // calculate team-balance
 +                                        if(pInfo->m_Team != TEAM_SPECTATORS)
@@ -3421,7 +3420,7 @@ index af9f751..8f8fa56 100644
 +                                int Team = std::clamp(Item.m_Id, (int)TEAM_FLOCK, 63);
 +
 +                                int HighestSwitchNumber = std::clamp(pSwitchStateData->m_HighestSwitchNumber, 0, 255);
-+                                if(HighestSwitchNumber != maximum(0, (int)Switchers().size() - 1))
++                                if(HighestSwitchNumber != std::max(0, (int)Switchers().size() - 1))
 +                                {
 +                                        m_GameWorld.m_Core.InitSwitchers(HighestSwitchNumber);
 +                                        Collision()->m_HighestSwitchNumber = HighestSwitchNumber;
@@ -4307,7 +4306,7 @@ index af9f751..8f8fa56 100644
 +                        if(!m_Snap.m_aCharacters[i].m_Active || i == m_Snap.m_LocalClientId || !m_aLastActive[i])
 +                                continue;
 +                        vec2 NewPos = (m_PredictedTick == Client()->PredGameTick(g_Config.m_ClDummy)) ? m_aClients[i].m_Predicted.m_Pos : m_aClients[i].m_PrevPredicted.m_Pos;
-+                        vec2 PredErr = (m_aLastPos[i] - NewPos) / (float)minimum(Client()->GetPredictionTime(), 200);
++                        vec2 PredErr = (m_aLastPos[i] - NewPos) / (float)std::min(Client()->GetPredictionTime(), 200);
 +                        if(in_range(length(PredErr), 0.05f, 5.f))
 +                        {
 +                                vec2 PredPos = mix(m_aClients[i].m_PrevPredicted.m_Pos, m_aClients[i].m_Predicted.m_Pos, Client()->PredIntraGameTick(g_Config.m_ClDummy));
@@ -4333,14 +4332,14 @@ index af9f751..8f8fa56 100644
 +                                        }
 +                                        int64_t TimePassed = time_get() - m_aClients[i].m_aSmoothStart[j];
 +                                        if(in_range(TimePassed, (int64_t)0, Len - 1))
-+                                                aMixAmount[j] = minimum(aMixAmount[j], (float)(TimePassed / (double)Len));
++                                                aMixAmount[j] = std::min(aMixAmount[j], (float)(TimePassed / (double)Len));
 +                                }
 +                                for(int j = 0; j < 2; j++)
 +                                        if(absolute(RenderDiff[j]) < 0.01f && absolute(PredDiff[j]) < 0.01f && absolute(m_aClients[i].m_PrevPredicted.m_Pos[j] - m_aClients[i].m_Predicted.m_Pos[j]) < 0.01f && aMixAmount[j] > aMixAmount[j ^ 1])
 +                                                aMixAmount[j] = aMixAmount[j ^ 1];
 +                                for(int j = 0; j < 2; j++)
 +                                {
-+                                        int64_t Remaining = minimum((1.f - aMixAmount[j]) * Len, minimum(time_freq() * 0.700f, (1.f - aMixAmount[j ^ 1]) * Len + time_freq() * 0.300f)); // don't smooth for longer than 700ms, or more than 300ms longer along one axis than the other axis
++                                        int64_t Remaining = std::min((1.f - aMixAmount[j]) * Len, std::min(time_freq() * 0.700f, (1.f - aMixAmount[j ^ 1]) * Len + time_freq() * 0.300f)); // don't smooth for longer than 700ms, or more than 300ms longer along one axis than the other axis
 +                                        int64_t Start = time_get() - (Len - Remaining);
 +                                        if(!in_range(Start + Len, m_aClients[i].m_aSmoothStart[j], m_aClients[i].m_aSmoothStart[j] + Len))
 +                                        {
@@ -5963,7 +5962,7 @@ index af9f751..8f8fa56 100644
 +
 +        if(l > 0.0001f) // make sure that this isn't 0
 +        {
-+                float OffsetAmount = maximum(l - m_Snap.m_SpecInfo.m_Deadzone, 0.0f) * (m_Snap.m_SpecInfo.m_FollowFactor / 100.0f);
++                float OffsetAmount = std::max(l - m_Snap.m_SpecInfo.m_Deadzone, 0.0f) * (m_Snap.m_SpecInfo.m_FollowFactor / 100.0f);
 +                TargetCameraOffset = normalize(m_CursorInfo.m_Target) * OffsetAmount;
 +        }
 +
@@ -6139,7 +6138,7 @@ index af9f751..8f8fa56 100644
 +                int ToPlayer = m_Snap.m_aCharacters[FromPlayer].m_Prev.m_HookedPlayer;
 +                if(ToPlayer < 0 || ToPlayer >= MAX_CLIENTS || !m_Snap.m_aCharacters[ToPlayer].m_Active || ToPlayer != m_Snap.m_aCharacters[FromPlayer].m_Cur.m_HookedPlayer)
 +                        continue;
-+                if(absolute(minimum(m_aLastUpdateTick[ToPlayer], m_aLastUpdateTick[FromPlayer]) - Client()->GameTick(g_Config.m_ClDummy)) < Client()->GameTickSpeed() / 4)
++                if(absolute(std::min(m_aLastUpdateTick[ToPlayer], m_aLastUpdateTick[FromPlayer]) - Client()->GameTick(g_Config.m_ClDummy)) < Client()->GameTickSpeed() / 4)
 +                        continue;
 +                if(m_Snap.m_aCharacters[FromPlayer].m_Prev.m_Direction != m_Snap.m_aCharacters[FromPlayer].m_Cur.m_Direction || m_Snap.m_aCharacters[ToPlayer].m_Prev.m_Direction != m_Snap.m_aCharacters[ToPlayer].m_Cur.m_Direction)
 +                        continue;

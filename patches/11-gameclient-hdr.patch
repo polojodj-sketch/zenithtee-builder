@@ -1,5 +1,5 @@
 diff --git a/src/game/client/gameclient.h b/src/game/client/gameclient.h
-index f0227d1..f52ee36 100644
+index f0227d1..75690b6 100644
 --- a/src/game/client/gameclient.h
 +++ b/src/game/client/gameclient.h
 @@ -30,10 +30,22 @@
@@ -25,7 +25,7 @@ index f0227d1..f52ee36 100644
  #include "components/console.h"
  #include "components/controls.h"
  #include "components/countryflags.h"
-@@ -78,934 +90,957 @@ class IMap;
+@@ -78,934 +90,961 @@ class IMap;
  class CGameInfo
  {
  public:
@@ -35,21 +35,38 @@ index f0227d1..f52ee36 100644
 -	bool m_DDRaceRecordMessage;
 -	bool m_RaceRecordMessage;
 -	bool m_RaceSounds;
--
++        bool m_FlagStartsRace;
++        bool m_TimeScore;
++        bool m_UnlimitedAmmo;
++        bool m_DDRaceRecordMessage;
++        bool m_RaceRecordMessage;
++        bool m_RaceSounds;
+ 
 -	bool m_AllowEyeWheel;
 -	bool m_AllowHookColl;
 -	bool m_AllowZoom;
--
++        bool m_AllowEyeWheel;
++        bool m_AllowHookColl;
++        bool m_AllowZoom;
+ 
 -	bool m_BugDDRaceGhost;
 -	bool m_BugDDRaceInput;
 -	bool m_BugFNGLaserRange;
 -	bool m_BugVanillaBounce;
--
++        bool m_BugDDRaceGhost;
++        bool m_BugDDRaceInput;
++        bool m_BugFNGLaserRange;
++        bool m_BugVanillaBounce;
+ 
 -	bool m_PredictFNG;
 -	bool m_PredictDDRace;
 -	bool m_PredictDDRaceTiles;
 -	bool m_PredictVanilla;
--
++        bool m_PredictFNG;
++        bool m_PredictDDRace;
++        bool m_PredictDDRaceTiles;
++        bool m_PredictVanilla;
+ 
 -	bool m_EntitiesDDNet;
 -	bool m_EntitiesDDRace;
 -	bool m_EntitiesRace;
@@ -57,52 +74,6 @@ index f0227d1..f52ee36 100644
 -	bool m_EntitiesVanilla;
 -	bool m_EntitiesBW;
 -	bool m_EntitiesFDDrace;
--
--	bool m_Race;
--	bool m_Pvp;
--
--	bool m_DontMaskEntities;
--	bool m_AllowXSkins;
--
--	bool m_HudHealthArmor;
--	bool m_HudAmmo;
--	bool m_HudDDRace;
--
--	bool m_NoWeakHookAndBounce;
--	bool m_NoSkinChangeForFrozen;
--
--	bool m_DDRaceTeam;
--
--	bool m_PredictEvents;
--
--	bool m_OldLaser;
--
--	// zero if the server does not send them
--	int m_MinTeamSize;
--	int m_MaxTeamSize;
--
--	int m_NumDDRaceTeams;
-+        bool m_FlagStartsRace;
-+        bool m_TimeScore;
-+        bool m_UnlimitedAmmo;
-+        bool m_DDRaceRecordMessage;
-+        bool m_RaceRecordMessage;
-+        bool m_RaceSounds;
-+
-+        bool m_AllowEyeWheel;
-+        bool m_AllowHookColl;
-+        bool m_AllowZoom;
-+
-+        bool m_BugDDRaceGhost;
-+        bool m_BugDDRaceInput;
-+        bool m_BugFNGLaserRange;
-+        bool m_BugVanillaBounce;
-+
-+        bool m_PredictFNG;
-+        bool m_PredictDDRace;
-+        bool m_PredictDDRaceTiles;
-+        bool m_PredictVanilla;
-+
 +        bool m_EntitiesDDNet;
 +        bool m_EntitiesDDRace;
 +        bool m_EntitiesRace;
@@ -110,26 +81,46 @@ index f0227d1..f52ee36 100644
 +        bool m_EntitiesVanilla;
 +        bool m_EntitiesBW;
 +        bool m_EntitiesFDDrace;
-+
+ 
+-	bool m_Race;
+-	bool m_Pvp;
 +        bool m_Race;
 +        bool m_Pvp;
-+
+ 
+-	bool m_DontMaskEntities;
+-	bool m_AllowXSkins;
 +        bool m_DontMaskEntities;
 +        bool m_AllowXSkins;
-+
+ 
+-	bool m_HudHealthArmor;
+-	bool m_HudAmmo;
+-	bool m_HudDDRace;
 +        bool m_HudHealthArmor;
 +        bool m_HudAmmo;
 +        bool m_HudDDRace;
-+
+ 
+-	bool m_NoWeakHookAndBounce;
+-	bool m_NoSkinChangeForFrozen;
 +        bool m_NoWeakHookAndBounce;
 +        bool m_NoSkinChangeForFrozen;
-+
+ 
+-	bool m_DDRaceTeam;
 +        bool m_DDRaceTeam;
-+
+ 
+-	bool m_PredictEvents;
 +        bool m_PredictEvents;
-+
+ 
+-	bool m_OldLaser;
++        bool m_OldLaser;
+ 
+-	// zero if the server does not send them
+-	int m_MinTeamSize;
+-	int m_MaxTeamSize;
 +        int m_MinTeamSize;
 +        int m_MaxTeamSize;
+ 
+-	int m_NumDDRaceTeams;
++        int m_NumDDRaceTeams;
  };
  
  class CSnapEntities
