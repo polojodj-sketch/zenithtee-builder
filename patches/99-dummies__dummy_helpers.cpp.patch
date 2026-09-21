@@ -1,6 +1,6 @@
 --- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
 +++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
-@@ -0,0 +1,361 @@
+@@ -0,0 +1,500 @@
 +#include <game/client/components/kinetix/kinetix.h>
 +#include <game/client/components/kinetix/kinetix_internal.h>
 +
@@ -21,7 +21,7 @@
 +bool CBotNet::HandleNoFeatureIdle(CGameClient *pGame, CNetObj_PlayerInput *pInput, int Dummy, CBotNetDummy &State)
 +{
 +        // Nothing to do this tick — clear inputs and return.
-+        if(!g_Config.m_KxAttack && !g_Config.m_KxCopyMoves && !g_Config.m_KxRandomAim && !State.m_MacroPlaying && !State.m_PathfinderGoActive)
++        if(!g_Config.m_KxAttack && !g_Config.m_KxCopyMoves && !g_Config.m_KxRandomAim && !State.m_MacroPlaying && !State.m_PathfinderGoActive && g_Config.m_KxPfPilotMode == 0)
 +        {
 +                ResetAndCommitInput(pGame, pInput, Dummy);
 +                return true;
@@ -276,6 +276,145 @@
 +        float WorldY = (float)(TChar.m_HasExtendedData ? TChar.m_ExtendedData.m_TargetY : 0);
 +        GameClient()->m_BotControl.ActionOverrideAim((int)WorldX, (int)WorldY, Dummy);
 +
++        pInput->m_PlayerFlags |= 1;
++        pGame->m_Controls.m_aInputData[Dummy] = *pInput;
++        return true;
++}
++
++bool CBotNet::ProcessPilotBot(CGameClient *pGame, CNetObj_PlayerInput *pInput, int Dummy, CBotNetDummy &State, int LocalID)
++{
++        // v1.57: Pilot Bot — real-time autonomous navigation (KRX pilot-style).
++        // Resolves a goal every tick (finish tiles / cursor / a player), rebuilds
++        // the A* flow field toward it every kx_pf_pilot_sequence_length ticks
++        // (bounded by a hard CPU budget), and steers the character via the flow
++        // field each tick. Returns true while active (commits input + ends tick).
++        const int PilotMode = g_Config.m_KxPfPilotMode;
++        if(PilotMode < 1 || PilotMode > 2)
++                return false;
++
++        vec2 MyPos((float)pGame->m_Snap.m_aCharacters[LocalID].m_Cur.m_X,
++                (float)pGame->m_Snap.m_aCharacters[LocalID].m_Cur.m_Y);
++        int botTX = (int)(MyPos.x / 32.0f);
++        int botTY = (int)(MyPos.y / 32.0f);
++
++        MaybeReloadMapGrid(0);
++        if(!m_MapGridLoaded)
++        {
++                SetDirection(pGame, Dummy, false, false);
++                pInput->m_Jump = 0;
++                pGame->m_Controls.m_aInputData[Dummy] = *pInput;
++                return true;
++        }
++
++        // ---- Resolve the goal position based on the pilot mode ----
++        vec2 Goal;
++        bool goalValid = false;
++        if(PilotMode == 1)
++        {
++                // Follow cursor: aim the flow field at the local player's current
++                // aim point (world coords). The crosshair is the steering target.
++                const auto &TChar = pGame->m_Snap.m_aCharacters[LocalID];
++                if(TChar.m_HasExtendedData)
++                {
++                        Goal.x = (float)TChar.m_ExtendedData.m_TargetX;
++                        Goal.y = (float)TChar.m_ExtendedData.m_TargetY;
++                        goalValid = true;
++                }
++        }
++        else if(PilotMode == 2)
++        {
++                // Follow player: aim at the nearest active, non-self player.
++                float best = 1e18f;
++                for(int i = 0; i < MAX_CLIENTS; i++)
++                {
++                        if(i == LocalID || !pGame->m_aClients[i].m_Active)
++                                continue;
++                        if(!(pGame->m_Snap.m_aCharacters[i].m_Active))
++                                continue;
++                        float dx = pGame->m_Snap.m_aCharacters[i].m_Cur.m_X - MyPos.x;
++                        float dy = pGame->m_Snap.m_aCharacters[i].m_Cur.m_Y - MyPos.y;
++                        float d = dx * dx + dy * dy;
++                        if(d < best)
++                        {
++                                best = d;
++                                Goal.x = (float)pGame->m_Snap.m_aCharacters[i].m_Cur.m_X;
++                                Goal.y = (float)pGame->m_Snap.m_aCharacters[i].m_Cur.m_Y;
++                                goalValid = true;
++                        }
++                }
++        }
++        else
++        {
++                // Autonomous: pick the nearest reachable finish/custom-finish tile.
++                const std::vector<vec2> &vFin = PfActiveFinishTiles();
++                float best = 1e18f;
++                for(const vec2 &f : vFin)
++                {
++                        float dx = f.x - MyPos.x;
++                        float dy = f.y - MyPos.y;
++                        float d = dx * dx + dy * dy;
++                        if(d < best)
++                        {
++                                best = d;
++                                Goal = f;
++                                goalValid = true;
++                        }
++                }
++        }
++
++        if(!goalValid)
++        {
++                // No goal this tick — hold still but stay active (goal may appear).
++                SetDirection(pGame, Dummy, false, false);
++                pInput->m_Jump = 0;
++                pGame->m_Controls.m_aInputData[Dummy] = *pInput;
++                return true;
++        }
++
++        State.m_PilotGoalPos = Goal;
++        State.m_PilotGoalValid = true;
++
++        int targetTX = (int)(Goal.x / 32.0f);
++        int targetTY = (int)(Goal.y / 32.0f);
++
++        // Reached the goal tile -> stop steering this tick (mode-specific).
++        if(botTX == targetTX && botTY == targetTY)
++        {
++                SetDirection(pGame, Dummy, false, false);
++                pInput->m_Jump = 0;
++                pGame->m_Controls.m_aInputData[Dummy] = *pInput;
++                return true;
++        }
++
++        // ---- Rebuild the flow field on the sequence-length cadence ----
++        int64_t CurTick = Client()->GameTick(0);
++        int SeqLen = pf_clamp(g_Config.m_KxPfPilotSequenceLength, 1, 32);
++        bool needPlan = (State.m_PilotLastPlanTick <= 0) || (CurTick - State.m_PilotLastPlanTick) >= SeqLen
++                || targetTX != State.m_LastTargetTX || targetTY != State.m_LastTargetTY
++                || !State.m_PathFound;
++
++        if(needPlan && IsTileWalkable(targetTX, targetTY))
++        {
++                // Hard CPU budget: only plan if within the allowed window.
++                UpdatePlayerPenalty(botTX, botTY, targetTX, targetTY, LocalID);
++                ComputePathfinder(botTX, botTY, targetTX, targetTY, State);
++                State.m_PilotLastPlanTick = CurTick;
++        }
++        else if(!IsTileWalkable(targetTX, targetTY))
++        {
++                // Goal is not walkable (e.g. cursor over a wall) — hold but keep active.
++                SetDirection(pGame, Dummy, false, false);
++                pInput->m_Jump = 0;
++                pGame->m_Controls.m_aInputData[Dummy] = *pInput;
++                return true;
++        }
++
++        // ---- Steer toward the goal via the flow field ----
++        bool left = false, right = false, jump = false;
++        GetMovementFromFlow(State, left, right, jump);
++
++        SetDirection(pGame, Dummy, left, right);
++        pInput->m_Jump = jump ? 1 : 0;
 +        pInput->m_PlayerFlags |= 1;
 +        pGame->m_Controls.m_aInputData[Dummy] = *pInput;
 +        return true;

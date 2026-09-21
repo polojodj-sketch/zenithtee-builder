@@ -2,7 +2,7 @@ diff --git a/src/game/client/components/kinetix/tas.cpp b/src/game/client/compon
 index f2cb2a5..0000000 100644
 --- a/src/game/client/components/kinetix/tas.cpp
 +++ b/src/game/client/components/kinetix/tas.cpp
-@@ -340,6 +340,8 @@
+@@ -340,7 +340,8 @@
  		Prev.m_AttackTick = Cur.m_AttackTick - 1;
  	}
  

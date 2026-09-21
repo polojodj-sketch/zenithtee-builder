@@ -1,6 +1,6 @@
 --- a/src/game/client/components/kinetix/kinetix.h
 +++ b/src/game/client/components/kinetix/kinetix.h
-@@ -0,0 +1,677 @@
+@@ -0,0 +1,689 @@
 +#ifndef GAME_CLIENT_COMPONENTS_BOTNET_H
 +#define GAME_CLIENT_COMPONENTS_BOTNET_H
 +
@@ -189,6 +189,11 @@
 +        bool m_PathfinderGoActive;
 +        vec2 m_PathfinderGoPos;
 +
++        // Pilot Bot (real-time navigation, KRX pilot-style)
++        int64_t m_PilotLastPlanTick; // game tick the flow field was last (re)built
++        vec2 m_PilotGoalPos;         // current resolved goal (world units)
++        bool m_PilotGoalValid;       // whether m_PilotGoalPos is usable
++
 +        // Random aim timing
 +        int64_t m_NextRandomAimTick;
 +
@@ -232,6 +237,9 @@
 +                m_StuckTicks = 0;
 +                m_PathfinderGoActive = false;
 +                m_PathfinderGoPos = vec2(0, 0);
++                m_PilotLastPlanTick = 0;
++                m_PilotGoalPos = vec2(0, 0);
++                m_PilotGoalValid = false;
 +                m_NextRandomAimTick = 0;
 +                m_LastTargetAttackTick = -1;
 +                m_MacroRecording = false;
@@ -666,7 +674,11 @@
 +        bool ApplyClientDelayGate(CGameClient *pGame, CNetObj_PlayerInput *pInput, int Dummy);
 +        bool ProcessCopyMoves(CGameClient *pGame, CNetObj_PlayerInput *pInput, int Dummy);
 +        bool ProcessPathfinderGo(CGameClient *pGame, CNetObj_PlayerInput *pInput, int Dummy, CBotNetDummy &State, int LocalID);
-+        void ProcessRandomAim(int Dummy, CBotNetDummy &State, int64_t CurTick); // fall-through (void)
++        // v1.57: Pilot Bot — real-time autonomous navigation (KRX pilot-style).
++        // Continuous loop: resolve a goal (finish / cursor / player), rebuild the
++        // flow field every kx_pf_pilot_sequence_length ticks within a CPU budget,
++        // and steer the character toward it every tick. Returns true when active.
++        bool ProcessPilotBot(CGameClient *pGame, CNetObj_PlayerInput *pInput, int Dummy, CBotNetDummy &State, int LocalID);        void ProcessRandomAim(int Dummy, CBotNetDummy &State, int64_t CurTick); // fall-through (void)
 +
 +        // Shared A* engine for ComputePathfinder / ComputePathfinderRescue.
 +        // Multi-source BFS-style Dijkstra/A* from `sources` toward bot tile.

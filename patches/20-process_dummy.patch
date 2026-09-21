@@ -1,6 +1,6 @@
---- /dev/null	1974-06-23 01:33:43.955999999 +0300
-+++ b/src/game/client/components/kinetix/dummies/process_dummy.cpp	2026-09-17 03:02:57.834994352 +0300
-@@ -0,0 +1,656 @@
+--- a/src/game/client/components/kinetix/dummies/process_dummy.cpp
++++ b/src/game/client/components/kinetix/dummies/process_dummy.cpp
+@@ -0,0 +1,660 @@
 +#include <game/client/components/kinetix/kinetix.h>
 +#include <game/client/components/kinetix/kinetix_internal.h>
 +
@@ -40,6 +40,10 @@
 +
 +        // Mirror another client's input.  Falls through when target inactive.
 +        if(ProcessCopyMoves(pGame, pInput, Dummy))
++                return;
++
++        // Pilot Bot — real-time autonomous navigation (KRX pilot-style).
++        if(ProcessPilotBot(pGame, pInput, Dummy, State, LocalID))
 +                return;
 +
 +        // "Go to position" pathfinder (A* + flow-field movement toward m_PathfinderGoPos).

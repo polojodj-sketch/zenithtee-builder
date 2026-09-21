@@ -1,6 +1,6 @@
 --- a/src/game/client/components/kinetix/clickgui.h
 +++ b/src/game/client/components/kinetix/clickgui.h
-@@ -0,0 +1,338 @@
+@@ -0,0 +1,373 @@
 +// (c) Kinetix. ClickGUI overlay component.
 +// v1.56.39: Full UX (drag, toggle, slider, expand/collapse) + 30% background
 +// dimming with smooth animation. Row states are reference-only (no real
@@ -78,6 +78,11 @@
 +        // Replaces hardcoded BG_DIM_ALPHA. Stored as integer percent; divided by 100
 +        // at render time. Default = 30 (30%).
 +        int m_BgBlackout = 30;
++
++        // v1.57: CS-cheat skin. Single central window with a left sidebar of
++        // category tabs; only the active tab's panel body is drawn in the
++        // content area. m_ActiveTab = index into g_Panels[] (0..NUM_PANELS-1).
++        int m_ActiveTab = 0;
 +
 +        // Per-panel offscreen target (randomized each time ClickGUI closes).
 +        vec2 m_aOffscreenPos[NUM_PANELS] = {};
@@ -275,6 +280,36 @@
 +        // v1.56.175: which slot the given panel currently occupies (index into
 +        // m_aPanelOrder). Returns 0 if not found (shouldn't happen).
 +        int SlotOf(int panelIdx) const;
++
++        // v1.57: CS-cheat skin geometry. Single centered window = sidebar
++        // (category tabs, left) + content area (active panel body, right).
++        // All rects in virtual units.
++        void CsWindowRect(float &outX, float &outY, float &outW, float &outH) const;
++        void CsSidebarRect(float &outX, float &outY, float &outW, float &outH) const;
++        void CsContentRect(float &outX, float &outY, float &outW, float &outH) const;
++        // Sidebar tab button rect for the given panel index.
++        void CsTabRect(int panelIdx, float &outX, float &outY, float &outW, float &outH) const;
++        // Draw the CS sidebar (tabs) with the given alpha. Called from OnRender.
++        void RenderSidebar(float alpha);
++        // Draw the CS window chrome (background + header) with the given alpha.
++        void RenderWindowChrome(float alpha);
++        // Hit-test the sidebar tabs; returns true and sets m_ActiveTab if a tab was hit.
++        bool HandleSidebarClick(vec2 mousePos);
++        // CS-cheat theme colors (0xAARRGGBB).
++        static constexpr unsigned CS_COL_WINDOW_BG = 0xff14161a;      // main window backdrop
++        static constexpr unsigned CS_COL_SIDEBAR_BG = 0xff1b1e23;     // sidebar strip
++        static constexpr unsigned CS_COL_SIDEBAR_HOVER = 0xff22262c;  // tab hover
++        static constexpr unsigned CS_COL_CONTENT_BG = 0xff181b20;     // content backdrop
++        static constexpr unsigned CS_COL_HEADER_BG = 0xff14161a;      // window header
++        static constexpr unsigned CS_COL_TEXT = 0xffd6dae0;           // default text
++        static constexpr unsigned CS_COL_TEXT_DIM = 0xff7c8289;       // inactive tab text
++        static constexpr unsigned CS_COL_ROW_HOVER = 0xff1f2329;      // row hover highlight
++        static constexpr unsigned CS_COL_TOGGLE_ON = 0xff2d3036;      // toggle track on
++        static constexpr unsigned CS_COL_TOGGLE_OFF = 0xff2b2e33;     // toggle track off
++        static constexpr float CS_SIDEBAR_W = 150.0f;                 // sidebar width
++        static constexpr float CS_TAB_H = 32.0f;                      // each tab height
++        static constexpr float CS_HEADER_H = 34.0f;                   // window header height
++        static constexpr float CS_WINDOW_W = 470.0f;                  // total window width
 +
 +        // Cubic-bezier easing exactly matching CSS cubic-bezier(0.16, 1, 0.3, 1).
 +        static float CubicBezierEase(float t);

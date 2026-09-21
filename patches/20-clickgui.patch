@@ -1,6 +1,6 @@
 --- /dev/null	1974-06-23 01:33:43.955999999 +0300
 +++ b/src/game/client/components/kinetix/clickgui.cpp	2026-09-17 02:59:51.278994423 +0300
-@@ -0,0 +1,6933 @@
+@@ -0,0 +1,6983 @@
 +// (c) ZenithTee. ClickGUI overlay component — see clickgui.h for overview.
 +//
 +// v1.56.34 (UI-only): renders 3 column panels with open/close animation.
@@ -1272,6 +1272,66 @@
 +                        return s;
 +        }
 +        return 0; // not found — shouldn't happen, default to slot 0
++}
++
++// v1.57: CS-cheat skin geometry. The whole menu is a single centered window:
++// left sidebar with category tabs + right content area that shows only the
++// active tab's panel body. Rects are in virtual units (DPI-independent).
++void CClickGui::CsWindowRect(float &outX, float &outY, float &outW, float &outH) const
++{
++        outW = CS_WINDOW_W;
++        outH = 500.0f;
++        const float sw = VScreenWidth();
++        const float sh = VScreenHeight();
++        outX = (sw - outW) * 0.5f;
++        outY = (sh - outH) * 0.5f;
++        if(outY < 40.0f)
++                outY = 40.0f;
++}
++
++void CClickGui::CsSidebarRect(float &outX, float &outY, float &outW, float &outH) const
++{
++        float wx, wy, ww, wh;
++        CsWindowRect(wx, wy, ww, wh);
++        outX = wx;
++        outY = wy + CS_HEADER_H;
++        outW = CS_SIDEBAR_W;
++        outH = wh - CS_HEADER_H;
++}
++
++void CClickGui::CsContentRect(float &outX, float &outY, float &outW, float &outH) const
++{
++        float sx, sy, sw, shh;
++        CsSidebarRect(sx, sy, sw, shh);
++        outX = sx + sw;
++        outY = sy;
++        outW = CS_WINDOW_W - sw;
++        outH = shh;
++}
++
++void CClickGui::CsTabRect(int panelIdx, float &outX, float &outY, float &outW, float &outH) const
++{
++        float sx, sy, sw, shh;
++        CsSidebarRect(sx, sy, sw, shh);
++        outX = sx;
++        outY = sy + panelIdx * CS_TAB_H;
++        outW = sw;
++        outH = CS_TAB_H;
++}
++
++bool CClickGui::HandleSidebarClick(vec2 mousePos)
++{
++        for(int p = 0; p < NUM_PANELS; ++p)
++        {
++                float tx, ty, tw, th;
++                CsTabRect(p, tx, ty, tw, th);
++                if(PointInRect(mousePos, tx, ty, tw, th))
++                {
++                        m_ActiveTab = p;
++                        return true;
++                }
++        }
++        return false;
 +}
 +
 +// Cubic-bezier easing matching CSS cubic-bezier(0.16, 1, 0.3, 1) exactly.
@@ -3558,75 +3618,21 @@
 +                        IGraphics::CORNER_NONE, 0.0f);
 +        }
 +
-+        // Render panels in z-order (low z first = painted behind, high z on top).
-+        // Build a list of panel indices sorted by z-order ascending.
-+        int renderOrder[NUM_PANELS];
-+        for(int i = 0; i < NUM_PANELS; ++i)
-+                renderOrder[i] = i;
-+        for(int a = 0; a < NUM_PANELS; ++a)
-+                for(int b = a + 1; b < NUM_PANELS; ++b)
-+                        if(m_aZOrder[renderOrder[b]] < m_aZOrder[renderOrder[a]])
-+                        {
-+                                int tmp = renderOrder[a];
-+                                renderOrder[a] = renderOrder[b];
-+                                renderOrder[b] = tmp;
-+                        }
++        // v1.57: CS-cheat skin — single centered window. Draw the window chrome,
++        // the left sidebar of tabs, then only the ACTIVE tab's panel body in the
++        // content area. The old floating multi-window render loop is replaced.
++        RenderWindowChrome(alpha);
++        RenderSidebar(alpha);
 +
-+        for(int idx = 0; idx < NUM_PANELS; ++idx)
 +        {
-+                const int i = renderOrder[idx];
-+                const vec2 home = PanelHomePos(i);
-+                // Initialize target on first valid frame.
-+                if(!m_aPanelPosValid[i])
-+                {
-+                        m_aPanelPos[i] = home;
-+                        m_aPanelTarget[i] = home;
-+                        m_aPanelPosValid[i] = true;
-+                }
-+        // Smooth drag: lerp current position toward target, frame-rate independent.
-+        // Uses exponential approach: factor = 1 - exp(-k * dt). At high FPS the
-+        // per-frame step is small; at low FPS it's large — total speed is constant.
-+        // k = 25 means ~63% of remaining distance covered in 1/25s (40ms).
-+        // v1.56.175: BOTH the dragged panel AND non-dragged panels lerp toward
-+        // their target. For non-dragged panels the target is their slot home
-+        // (PanelHomePos), so when a drag-to-sort swap moves them to a new slot
-+        // they glide there. When no swap happened, target == current position,
-+        // so the lerp is a no-op (no jitter).
-+        const float dtDrag = Client()->RenderFrameTime();
-+        const float dragK = 25.0f;
-+        const float dragFactor = 1.0f - std::exp(-dragK * dtDrag);
-+        if(m_Dragging && m_DragPanelIdx == i)
-+        {
-+                m_aPanelPos[i] = vec2(
-+                        m_aPanelPos[i].x + (m_aPanelTarget[i].x - m_aPanelPos[i].x) * dragFactor,
-+                        m_aPanelPos[i].y + (m_aPanelTarget[i].y - m_aPanelPos[i].y) * dragFactor);
-+        }
-+        else
-+        {
-+                // Non-dragged panel: glide toward its slot home (supports drag-to-sort
-+                // swaps). When already at home this is a no-op.
-+                m_aPanelTarget[i] = home;
-+                m_aPanelPos[i] = vec2(
-+                        m_aPanelPos[i].x + (m_aPanelTarget[i].x - m_aPanelPos[i].x) * dragFactor,
-+                        m_aPanelPos[i].y + (m_aPanelTarget[i].y - m_aPanelPos[i].y) * dragFactor);
-+        }
-+        const vec2 current = m_aPanelPos[i];
-+                vec2 offscreen;
-+                if(m_aOffscreenValid[i])
-+                        offscreen = m_aOffscreenPos[i];
-+                else
-+                {
-+                        offscreen = PickRandomOffscreenPos(i, screenW, screenH);
-+                        m_aOffscreenPos[i] = offscreen;
-+                        m_aOffscreenValid[i] = true;
-+                }
-+                // Position = lerp(offscreen, current, eased).
-+                // When closed (eased=0), panel is fully offscreen; when open (eased=1),
-+                // panel is at its dragged/home position.
-+                const vec2 pos = vec2(
-+                        offscreen.x + (current.x - offscreen.x) * eased,
-+                        offscreen.y + (current.y - offscreen.y) * eased);
-+                RenderPanel(i, pos, alpha);
++                float cx, cy, cw, chh;
++                CsContentRect(cx, cy, cw, chh);
++                // Sync active panel's position to the content area (so drag/sort
++                // state doesn't fight the CS layout) and render only it.
++                m_aPanelPos[m_ActiveTab] = vec2(cx, cy);
++                m_aPanelTarget[m_ActiveTab] = vec2(cx, cy);
++                m_aPanelPosValid[m_ActiveTab] = true;
++                RenderPanel(m_ActiveTab, vec2(cx, cy), alpha);
 +        }
 +
 +        // Render dropdown popup ON TOP of all panels (if open).
@@ -3915,10 +3921,16 @@
 +                m_InputEditing = false; Input()->StopTextInput();
 +        }
 +
-+        // Iterate panels top-to-bottom (high z first) to find the topmost hit.
++        // v1.57: CS-cheat skin — sidebar tabs switch the active panel. Handle
++        // tab clicks BEFORE any row hit-testing (sidebar is left of content).
++        if(HandleSidebarClick(mousePos))
++                return;
++
++        // v1.57: CS-cheat skin — only the active tab is rendered/hit-tested.
 +        int clickOrder[NUM_PANELS];
-+        for(int i = 0; i < NUM_PANELS; ++i)
-+                clickOrder[i] = i;
++        clickOrder[0] = m_ActiveTab;
++        for(int i = 1; i < NUM_PANELS; ++i)
++                clickOrder[i] = -1;
 +        for(int a = 0; a < NUM_PANELS; ++a)
 +                for(int b = a + 1; b < NUM_PANELS; ++b)
 +                        if(m_aZOrder[clickOrder[b]] > m_aZOrder[clickOrder[a]])
@@ -3931,6 +3943,9 @@
 +        for(int idx = 0; idx < NUM_PANELS; ++idx)
 +        {
 +                const int i = clickOrder[idx];
++                if(i < 0)
++                        continue;
++                const vec2 ppos = m_aPanelPosValid[i] ? m_aPanelPos[i] : PanelHomePos(i);
 +                const vec2 ppos = m_aPanelPosValid[i] ? m_aPanelPos[i] : PanelHomePos(i);
 +
 +                // Check header hit (drag + collapse arrow).
@@ -4797,29 +4812,15 @@
 +                        m_FileBrowserScroll = maxScroll;
 +                return true;
 +        }
-+        // Iterate panels top-to-bottom (high z first).
-+        int order[NUM_PANELS];
-+        for(int i = 0; i < NUM_PANELS; ++i)
-+                order[i] = i;
-+        for(int a = 0; a < NUM_PANELS; ++a)
-+                for(int b = a + 1; b < NUM_PANELS; ++b)
-+                        if(m_aZOrder[order[b]] > m_aZOrder[order[a]])
-+                        {
-+                                int tmp = order[a];
-+                                order[a] = order[b];
-+                                order[b] = tmp;
-+                        }
-+        for(int idx = 0; idx < NUM_PANELS; ++idx)
++        // v1.57: CS-cheat skin — only the active tab can be scrolled.
++        const int i = m_ActiveTab;
++        if(m_aPanelPosValid[i])
 +        {
-+                const int i = order[idx];
-+                if(!m_aPanelPosValid[i])
-+                        continue;
 +                const vec2 p = m_aPanelPos[i];
 +                const float bodyTop = p.y + HEADER_HEIGHT;
 +                const float bodyBottom = p.y + HEADER_HEIGHT + MAX_BODY_HEIGHT + 50.0f;
 +                if(mousePos.x >= p.x && mousePos.x < p.x + PANEL_WIDTH && mousePos.y >= bodyTop && mousePos.y < bodyBottom)
 +                {
-+                        // Write to stored so the value survives panel collapse/expand.
 +                        m_aPanelScrollStored[i] += dir;
 +                        if(m_aPanelScrollStored[i] < 0.0f)
 +                                m_aPanelScrollStored[i] = 0.0f;
@@ -5683,6 +5684,55 @@
 +                        }
 +                }
 +        }
++}
++
++// v1.57: CS-cheat skin — draw the main window chrome (background + header bar).
++void CClickGui::RenderWindowChrome(float alpha)
++{
++        float wx, wy, ww, wh;
++        CsWindowRect(wx, wy, ww, wh);
++        DrawRoundedRect(wx, wy, ww, wh, 8.0f, 15, ColorRGBA(CS_COL_WINDOW_BG, true).WithAlpha(alpha));
++        // Header bar.
++        DrawRoundedRect(wx, wy, ww, CS_HEADER_H, 8.0f, 3, ColorRGBA(CS_COL_HEADER_BG, true).WithAlpha(alpha));
++        // Accent underline under the header.
++        DrawRoundedRect(wx, wy + CS_HEADER_H - 2.0f, ww, 2.0f, 0.0f, 0,
++                ColorRGBA(m_AccentColorRGBA, true).WithAlpha(alpha * 0.9f));
++        DrawText(wx + 12.0f, wy + 9.0f, 13.0f, "ZenithTee", ColorRGBA(CS_COL_TEXT, true).WithAlpha(alpha));
++        char aVer[64];
++        str_format(aVer, sizeof(aVer), "v1.2  |  %s", Client()->Version());
++        float vw = TextRender()->TextWidth(11.0f, aVer);
++        DrawText(wx + ww - 12.0f - vw, wy + 11.0f, 11.0f, aVer, ColorRGBA(CS_COL_TEXT_DIM, true).WithAlpha(alpha));
++}
++
++// v1.57: CS-cheat skin — draw the left sidebar of category tabs.
++void CClickGui::RenderSidebar(float alpha)
++{
++        float sx, sy, sw, shh;
++        CsSidebarRect(sx, sy, sw, shh);
++        DrawRoundedRect(sx, sy, sw, shh, 0.0f, 0, ColorRGBA(CS_COL_SIDEBAR_BG, true).WithAlpha(alpha));
++
++        for(int p = 0; p < NUM_PANELS; ++p)
++        {
++                float tx, ty, tw, th;
++                CsTabRect(p, tx, ty, tw, th);
++                const bool active = (p == m_ActiveTab);
++                const bool hover = PointInRect(m_MousePos, tx, ty, tw, th);
++                // Tab background.
++                if(active)
++                        DrawRoundedRect(tx, ty, tw, th, 0.0f, 0, ColorRGBA(CS_COL_SIDEBAR_HOVER, true).WithAlpha(alpha));
++                else if(hover)
++                        DrawRoundedRect(tx, ty, tw, th, 0.0f, 0, ColorRGBA(CS_COL_SIDEBAR_HOVER, true).WithAlpha(alpha * 0.6f));
++                // Accent bar on the left of the active tab.
++                if(active)
++                        DrawRoundedRect(tx, ty + 4.0f, 3.0f, th - 8.0f, 0.0f, 0,
++                                ColorRGBA(m_AccentColorRGBA, true).WithAlpha(alpha));
++                DrawText(tx + 14.0f, ty + 9.0f, 12.0f, g_Panels[p].pTitle,
++                        ColorRGBA(active ? CS_COL_TEXT : CS_COL_TEXT_DIM, true).WithAlpha(alpha));
++        }
++
++        // Vertical divider between sidebar and content.
++        float cx = sx + sw;
++        DrawRoundedRect(cx, sy, 1.0f, shh, 0.0f, 0, ColorRGBA(CS_COL_TEXT_DIM, true).WithAlpha(alpha * 0.35f));
 +}
 +
 +// ============================================================================
