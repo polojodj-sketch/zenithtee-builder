@@ -1,8 +1,8 @@
 diff --git a/src/game/client/gameclient.cpp b/src/game/client/gameclient.cpp
-index af9f751..49992f2 100644
+index af9f751..8f8fa56 100644
 --- a/src/game/client/gameclient.cpp
 +++ b/src/game/client/gameclient.cpp
-@@ -90,1229 +90,1616 @@ using namespace std::chrono_literals;
+@@ -90,1229 +90,1626 @@ using namespace std::chrono_literals;
  const char *CGameClient::Version() const { return GAME_VERSION; }
  const char *CGameClient::NetVersion() const { return GAME_NETVERSION; }
  const char *CGameClient::NetVersion7() const { return GAME_NETVERSION7; }
@@ -801,6 +801,17 @@ index af9f751..49992f2 100644
 -	}
 -
 -	m_LocalServer.Update();
+-}
+-
+-void CGameClient::OnInput(const IInput::CEvent &Event)
+-{
+-	for(auto &pComponent : m_vpInput)
+-	{
+-		// Events with flag `FLAG_RELEASE` must always be forwarded to all components so keys being
+-		// released can be handled in all components also after some components have been disabled.
+-		if(pComponent->OnInput(Event) && (Event.m_Flags & ~IInput::FLAG_RELEASE) != 0)
+-			break;
+-	}
 +        HandleLanguageChanged();
 +
 +        CUIElementBase::Init(Ui()); // update static pointer because game and editor use separate UI
@@ -859,16 +870,18 @@ index af9f751..49992f2 100644
 +        m_LocalServer.Update();
  }
  
--void CGameClient::OnInput(const IInput::CEvent &Event)
-+void CGameClient::OnDummySwap()
+ void CGameClient::OnDummySwap()
  {
--	for(auto &pComponent : m_vpInput)
+-	if(g_Config.m_ClDummyResetOnSwitch)
 -	{
--		// Events with flag `FLAG_RELEASE` must always be forwarded to all components so keys being
--		// released can be handled in all components also after some components have been disabled.
--		if(pComponent->OnInput(Event) && (Event.m_Flags & ~IInput::FLAG_RELEASE) != 0)
--			break;
+-		int PlayerOrDummy = (g_Config.m_ClDummyResetOnSwitch == 2) ? g_Config.m_ClDummy : (!g_Config.m_ClDummy);
+-		m_Controls.ResetInput(PlayerOrDummy);
+-		m_Controls.m_aInputData[PlayerOrDummy].m_Hook = 0;
 -	}
+-	const int PrevDummyFire = m_DummyInput.m_Fire;
+-	m_DummyInput = m_Controls.m_aInputData[!g_Config.m_ClDummy];
+-	m_Controls.m_aInputData[g_Config.m_ClDummy].m_Fire = PrevDummyFire;
+-	m_IsDummySwapping = 1;
 +        if(g_Config.m_ClDummyResetOnSwitch)
 +        {
 +                // DDNet: PlayerOrDummy = (reset==2) ? ClDummy : (!ClDummy)
@@ -924,20 +937,42 @@ index af9f751..49992f2 100644
 +        m_IsDummySwapping = 1;
  }
  
--void CGameClient::OnDummySwap()
-+int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
+ int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
 +        const int Conn = Dummy ? 1 : 0;
  {
--	if(g_Config.m_ClDummyResetOnSwitch)
+-	if(!Dummy)
 -	{
--		int PlayerOrDummy = (g_Config.m_ClDummyResetOnSwitch == 2) ? g_Config.m_ClDummy : (!g_Config.m_ClDummy);
--		m_Controls.ResetInput(PlayerOrDummy);
--		m_Controls.m_aInputData[PlayerOrDummy].m_Hook = 0;
+-		return m_Controls.SnapInput(pData);
 -	}
--	const int PrevDummyFire = m_DummyInput.m_Fire;
--	m_DummyInput = m_Controls.m_aInputData[!g_Config.m_ClDummy];
--	m_Controls.m_aInputData[g_Config.m_ClDummy].m_Fire = PrevDummyFire;
--	m_IsDummySwapping = 1;
+-	if(m_aLocalIds[!g_Config.m_ClDummy] < 0)
+-	{
+-		return 0;
+-	}
+-
+-	if(!g_Config.m_ClDummyHammer)
+-	{
+-		if(m_DummyFire != 0)
+-		{
+-			m_DummyInput.m_Fire = (m_HammerInput.m_Fire + 1) & ~1;
+-			m_DummyFire = 0;
+-		}
+-
+-		if(!Force && (!m_DummyInput.m_Direction && !m_DummyInput.m_Jump && !m_DummyInput.m_Hook))
+-		{
+-			return 0;
+-		}
+-
+-		mem_copy(pData, &m_DummyInput, sizeof(m_DummyInput));
+-		return sizeof(m_DummyInput);
+-	}
+-	else
+-	{
+-		if(m_DummyFire % 25 != 0)
+-		{
+-			m_DummyFire++;
+-			return 0;
+-		}
+-		m_DummyFire++;
 +        if(Conn == g_Config.m_ClDummy)
 +        {
 +                // TAS fake world: the keyboard belongs to the fake tee. Run
@@ -1112,51 +1147,16 @@ index af9f751..49992f2 100644
 +                mem_copy(pData, &m_aHammerInput[Conn], sizeof(m_aHammerInput[Conn]));
 +                return sizeof(m_aHammerInput[Conn]);
 +        }
- }
++}
  
--int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
-+void CGameClient::ApplyCopyMovesTransforms(int D, const CNetObj_PlayerInput &SrcInput)
- {
--	if(!Dummy)
--	{
--		return m_Controls.SnapInput(pData);
--	}
--	if(m_aLocalIds[!g_Config.m_ClDummy] < 0)
--	{
--		return 0;
--	}
--
--	if(!g_Config.m_ClDummyHammer)
--	{
--		if(m_DummyFire != 0)
--		{
--			m_DummyInput.m_Fire = (m_HammerInput.m_Fire + 1) & ~1;
--			m_DummyFire = 0;
--		}
--
--		if(!Force && (!m_DummyInput.m_Direction && !m_DummyInput.m_Jump && !m_DummyInput.m_Hook))
--		{
--			return 0;
--		}
--
--		mem_copy(pData, &m_DummyInput, sizeof(m_DummyInput));
--		return sizeof(m_DummyInput);
--	}
--	else
--	{
--		if(m_DummyFire % 25 != 0)
--		{
--			m_DummyFire++;
--			return 0;
--		}
--		m_DummyFire++;
--
 -		m_HammerInput.m_Fire = (m_HammerInput.m_Fire + 1) | 1;
 -		m_HammerInput.m_WantedWeapon = WEAPON_HAMMER + 1;
 -		if(!g_Config.m_ClDummyRestoreWeapon)
 -		{
 -			m_DummyInput.m_WantedWeapon = WEAPON_HAMMER + 1;
 -		}
++void CGameClient::ApplyCopyMovesTransforms(int D, const CNetObj_PlayerInput &SrcInput)
++{
 +        // Only applies when copy moves is on; transforms the dummy's input in-place.
 +        if(!g_Config.m_ClDummyCopyMoves)
 +                return;
@@ -1588,24 +1588,24 @@ index af9f751..49992f2 100644
  			HandleMultiView();
  		}
 -		else if(Client()->State() == IClient::STATE_DEMOPLAYBACK && m_DemoSpecId != SPEC_FOLLOW && m_Snap.m_SpecInfo.m_SpectatorId != SPEC_FREEVIEW)
--		{
++		else if(PfSpecFollowCam)
+ 		{
 -			m_Snap.m_SpecInfo.m_Position = mix(
 -				vec2(m_Snap.m_aCharacters[m_Snap.m_SpecInfo.m_SpectatorId].m_Prev.m_X, m_Snap.m_aCharacters[m_Snap.m_SpecInfo.m_SpectatorId].m_Prev.m_Y),
 -				vec2(m_Snap.m_aCharacters[m_Snap.m_SpecInfo.m_SpectatorId].m_Cur.m_X, m_Snap.m_aCharacters[m_Snap.m_SpecInfo.m_SpectatorId].m_Cur.m_Y),
 -				Client()->IntraGameTick(g_Config.m_ClDummy));
--			m_Snap.m_SpecInfo.m_UsePosition = true;
--		}
++			m_Snap.m_SpecInfo.m_Position = PfSpecCam;
+ 			m_Snap.m_SpecInfo.m_UsePosition = true;
+ 		}
 -		else if(m_Snap.m_pSpectatorInfo && ((Client()->State() == IClient::STATE_DEMOPLAYBACK && m_DemoSpecId == SPEC_FOLLOW) || (Client()->State() != IClient::STATE_DEMOPLAYBACK && m_Snap.m_SpecInfo.m_SpectatorId != SPEC_FREEVIEW)))
-+		else if(PfSpecFollowCam)
- 		{
+-		{
 -			if(m_Snap.m_pPrevSpectatorInfo && m_Snap.m_pPrevSpectatorInfo->m_SpectatorId == m_Snap.m_pSpectatorInfo->m_SpectatorId)
 -				m_Snap.m_SpecInfo.m_Position = mix(vec2(m_Snap.m_pPrevSpectatorInfo->m_X, m_Snap.m_pPrevSpectatorInfo->m_Y),
 -					vec2(m_Snap.m_pSpectatorInfo->m_X, m_Snap.m_pSpectatorInfo->m_Y), Client()->IntraGameTick(g_Config.m_ClDummy));
 -			else
 -				m_Snap.m_SpecInfo.m_Position = vec2(m_Snap.m_pSpectatorInfo->m_X, m_Snap.m_pSpectatorInfo->m_Y);
-+			m_Snap.m_SpecInfo.m_Position = PfSpecCam;
- 			m_Snap.m_SpecInfo.m_UsePosition = true;
- 		}
+-			m_Snap.m_SpecInfo.m_UsePosition = true;
+-		}
 -	}
 -
 -	if(!m_MultiViewActivated && m_MultiView.m_IsInit)
@@ -1902,15 +1902,14 @@ index af9f751..49992f2 100644
 +        UpdateManagedTeeRenderInfos();
  }
  
--void CGameClient::OnDummyDisconnect()
-+void CGameClient::OnDummyDisconnect()
+ void CGameClient::OnDummyDisconnect()
  {
-+        const int Dummy = 1;
 -	m_aLocalIds[1] = -1;
 -	m_aDDRaceMsgSent[1] = false;
 -	m_aShowOthers[1] = SHOW_OTHERS_NOT_SET;
 -	m_aEnableSpectatorCount[1] = -1;
 -	m_aLastNewPredictedTick[1] = -1;
++        const int Dummy = 1;
 +        if(Dummy < 1 || Dummy >= MAX_DUMMIES)
 +                return;
 +        m_aLocalIds[Dummy] = -1;
@@ -1948,20 +1947,22 @@ index af9f751..49992f2 100644
  {
 -	return m_Snap.m_pGameInfoObj &&
 -	       (m_Snap.m_pGameInfoObj->m_GameFlags & GAMEFLAG_TEAMS) != 0;
--}
--
--int CGameClient::MinTeamSize() const
--{
--	// old servers only expose it if the map settings happen to contain it
--	return m_GameInfo.m_MinTeamSize != 0 ? m_GameInfo.m_MinTeamSize : Config()->m_SvMinTeamSize;
--}
--
--int CGameClient::MaxTeamSize() const
--{
--	// old servers only expose it if the map settings happen to contain it
--	return m_GameInfo.m_MaxTeamSize != 0 ? m_GameInfo.m_MaxTeamSize : Config()->m_SvMaxTeamSize;
 +        return m_Snap.m_pGameInfoObj &&
 +               (m_Snap.m_pGameInfoObj->m_GameFlags & GAMEFLAG_TEAMS) != 0;
+ }
+ 
+ int CGameClient::MinTeamSize() const
+ {
+-	// old servers only expose it if the map settings happen to contain it
+-	return m_GameInfo.m_MinTeamSize != 0 ? m_GameInfo.m_MinTeamSize : Config()->m_SvMinTeamSize;
++        return m_GameInfo.m_MinTeamSize != 0 ? m_GameInfo.m_MinTeamSize : Config()->m_SvMinTeamSize;
+ }
+ 
+ int CGameClient::MaxTeamSize() const
+ {
+-	// old servers only expose it if the map settings happen to contain it
+-	return m_GameInfo.m_MaxTeamSize != 0 ? m_GameInfo.m_MaxTeamSize : Config()->m_SvMaxTeamSize;
++        return m_GameInfo.m_MaxTeamSize != 0 ? m_GameInfo.m_MaxTeamSize : Config()->m_SvMaxTeamSize;
  }
  
  bool CGameClient::IsWorldPaused() const
@@ -2674,7 +2675,7 @@ index af9f751..49992f2 100644
  }
  
  void CGameClient::OnEnterGame()
-@@ -1321,205 +1705,208 @@ void CGameClient::OnEnterGame()
+@@ -1321,205 +1718,208 @@ void CGameClient::OnEnterGame()
  
  void CGameClient::OnGameOver()
  {
@@ -3035,7 +3036,7 @@ index af9f751..49992f2 100644
  }
  
  static CGameInfo GetGameInfo(const CNetObj_GameInfoEx *pInfoEx, int InfoExSize, const CServerInfo *pFallbackServerInfo)
-@@ -1715,2814 +2102,3895 @@ static CGameInfo GetGameInfo(const CNetObj_GameInfoEx *pInfoEx, int InfoExSize,
+@@ -1715,2814 +2115,3895 @@ static CGameInfo GetGameInfo(const CNetObj_GameInfoEx *pInfoEx, int InfoExSize,
  
  void CGameClient::InvalidateSnapshot()
  {
@@ -8365,6 +8366,7 @@ index af9f751..49992f2 100644
 -	if(m_Snap.m_LocalClientId < 0)
 -		return false;
 -	return m_aClients[m_Snap.m_LocalClientId].m_Super;
+-}
 +        if(m_ExtrasSkinLoaded)
 +        {
 +                Graphics()->UnloadTexture(&m_ExtrasSkin.m_SpriteParticleSnowflake);
@@ -8402,7 +8404,7 @@ index af9f751..49992f2 100644
 +                m_ExtrasSkinLoaded = true;
 +        }
 +        ImgInfo.Free();
- }
++}
  
  void CGameClient::RefreshSkin(const std::shared_ptr<CManagedTeeRenderInfo> &pManagedTeeRenderInfo)
  {
