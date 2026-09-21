@@ -1,5 +1,5 @@
 diff --git a/src/game/client/gameclient.h b/src/game/client/gameclient.h
-index f0227d1..c339388 100644
+index f0227d1..f52ee36 100644
 --- a/src/game/client/gameclient.h
 +++ b/src/game/client/gameclient.h
 @@ -30,10 +30,22 @@
@@ -25,7 +25,7 @@ index f0227d1..c339388 100644
  #include "components/console.h"
  #include "components/controls.h"
  #include "components/countryflags.h"
-@@ -78,934 +90,956 @@ class IMap;
+@@ -78,934 +90,957 @@ class IMap;
  class CGameInfo
  {
  public:
@@ -1472,6 +1472,7 @@ index f0227d1..c339388 100644
 +        CNetObj_PlayerInput m_aDummyInput[MAX_DUMMIES]; // per-dummy stored input (index 0 unused for main)
 +        CNetObj_PlayerInput &m_DummyInput = m_aDummyInput[1]; // alias for upstream compat (only conn 1 used by controls.cpp)
 +        CNetObj_PlayerInput m_aHammerInput[MAX_DUMMIES]; // per-dummy hammerfly input
++        CNetObj_PlayerInput &m_HammerInput = m_aHammerInput[1]; // alias for upstream compat (players.cpp)
 +        unsigned int m_aDummyFire[MAX_DUMMIES]; // per-dummy fire counter
 +        int m_aDummyLastFireTick[MAX_DUMMIES] = {};
 +        bool m_ReceivedDDNetPlayer;
