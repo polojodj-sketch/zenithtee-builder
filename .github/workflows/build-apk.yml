@@ -82,6 +82,7 @@ jobs:
         echo "=== Verify ==="
         grep -c "CBotControl m_BotControl" src/game/client/gameclient.h
         grep -c "m_BotControl" src/game/client/gameclient.cpp
+        grep -c "ClBackButton" src/engine/shared/config_variables.h
         echo "=== Patched OK ==="
 
     - name: Build Android app (arm64)
