@@ -36,6 +36,8 @@ jobs:
         rm -rf ddnet
         git clone --depth 1000 https://github.com/ddnet/ddnet.git ddnet
         cd ddnet
+        git fetch --depth 1000 7cbcf36af5acd6a36c57952000f7e46c19f91ebf
+        git checkout 7cbcf36af5acd6a36c57952000f7e46c19f91ebf
         for sm in $(git submodule status | awk '{print $2}'); do
           git submodule update --init --depth 1000 "$sm"
         done
