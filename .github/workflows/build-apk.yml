@@ -83,6 +83,12 @@ jobs:
         grep -c "CBotControl m_BotControl" src/game/client/gameclient.h
         grep -c "m_BotControl" src/game/client/gameclient.cpp
         grep -c "ClBackButton" src/engine/shared/config_variables.h
+        echo "--- config_variables.h ClBackButton lines ---"
+        grep -n "ClBackButton" src/engine/shared/config_variables.h
+        echo "--- config_variables.h size ---"
+        wc -l src/engine/shared/config_variables.h
+        echo "--- CConfig class member count ---"
+        grep -c "int m_" src/engine/shared/config_variables.h || true
         echo "=== Patched OK ==="
 
     - name: Build Android app (arm64)
