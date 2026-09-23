@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index e48fce9..2481ab9 100644
+index e48fce9..c6bc052 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -1,26 +1,8 @@
@@ -707,32 +707,7 @@ index e48fce9..2481ab9 100644
      pickup_data.cpp
      pickup_data.h
      prediction/entities/character.cpp
-@@ -2790,7 +2702,6 @@ if(CLIENT)
-     ui.h
-     ui_listbox.cpp
-     ui_listbox.h
--    ui_popups.cpp
-     ui_rect.cpp
-     ui_rect.h
-     ui_scrollregion.cpp
-@@ -2821,7 +2732,6 @@ if(CLIENT)
-     editor_ui.h
-     enums.h
-     envelope_editor.cpp
--    envelope_editor.h
-     explanations.cpp
-     explanations.h
-     file_browser.cpp
-@@ -2839,8 +2749,6 @@ if(CLIENT)
-     mapitems.h
-     mapitems/envelope.cpp
-     mapitems/envelope.h
--    mapitems/envelope_evaluator.cpp
--    mapitems/envelope_evaluator.h
-     mapitems/image.cpp
-     mapitems/image.h
-     mapitems/layer.cpp
-@@ -2916,7 +2824,7 @@ if(CLIENT)
+@@ -2916,7 +2828,7 @@ if(CLIENT)
    )
    set(CLIENT_SRC ${ENGINE_CLIENT} ${PLATFORM_CLIENT} ${GAME_CLIENT} ${GAME_EDITOR} ${GAME_MAP} ${GAME_GENERATED_CLIENT})
  
@@ -741,7 +716,7 @@ index e48fce9..2481ab9 100644
  
    # Libraries
    set(LIBS_CLIENT
-@@ -2941,6 +2849,11 @@ if(CLIENT)
+@@ -2941,6 +2853,11 @@ if(CLIENT)
      ${LIBS}
    )
  
@@ -753,7 +728,7 @@ index e48fce9..2481ab9 100644
    if(DISCORD)
      if(NOT DISCORD_DYNAMIC)
        list(APPEND LIBS_CLIENT discord-shared)
-@@ -2983,20 +2896,6 @@ if(CLIENT)
+@@ -2983,20 +2900,6 @@ if(CLIENT)
        $<TARGET_OBJECTS:rust-bridge-shared>
        # tidy-alphabetical-end
      )
@@ -774,7 +749,7 @@ index e48fce9..2481ab9 100644
    else()
      add_executable(game-client WIN32
        ${CLIENT_SRC}
-@@ -3013,41 +2912,20 @@ if(CLIENT)
+@@ -3013,41 +2916,20 @@ if(CLIENT)
      )
    endif()
    add_dependencies(game-client generate_content_types)
@@ -819,7 +794,7 @@ index e48fce9..2481ab9 100644
      ${DISCORDSDK_INCLUDE_DIRS}
      ${FFMPEG_INCLUDE_DIRS}
      ${FREETYPE_INCLUDE_DIRS}
-@@ -3069,6 +2947,27 @@ if(CLIENT)
+@@ -3069,6 +2951,27 @@ if(CLIENT)
      set_own_rpath(game-client)
    endif()
  
@@ -847,7 +822,7 @@ index e48fce9..2481ab9 100644
    if(GLEW_BUNDLED)
      target_compile_definitions(game-client PRIVATE CONF_GLEW_HAS_CONTEXT_INIT)
    endif()
-@@ -3317,7 +3216,6 @@ if(TOOLS)
+@@ -3317,7 +3220,6 @@ if(TOOLS)
      map_extract.cpp
      map_find_env.cpp
      map_optimize.cpp
@@ -855,7 +830,7 @@ index e48fce9..2481ab9 100644
      map_replace_area.cpp
      map_replace_image.cpp
      map_resave.cpp
-@@ -3333,9 +3231,6 @@ if(TOOLS)
+@@ -3333,9 +3235,6 @@ if(TOOLS)
      file(RELATIVE_PATH T "${PROJECT_SOURCE_DIR}/src/tools/" ${ABS_T})
      if(T MATCHES "\\.cpp$")
        string(REGEX REPLACE "\\.cpp$" "" TOOL "${T}")
@@ -865,7 +840,7 @@ index e48fce9..2481ab9 100644
        set(TOOL_DEPS ${DEPS})
        set(TOOL_LIBS ${LIBS})
        unset(EXTRA_TOOL_SRC)
-@@ -3347,11 +3242,6 @@ if(TOOLS)
+@@ -3347,11 +3246,6 @@ if(TOOLS)
        if(TOOL MATCHES "^config_")
          list(APPEND EXTRA_TOOL_SRC "src/tools/config_common.h")
        endif()
@@ -877,7 +852,7 @@ index e48fce9..2481ab9 100644
        set(EXCLUDE_FROM_ALL)
        if(DEV)
          set(EXCLUDE_FROM_ALL EXCLUDE_FROM_ALL)
-@@ -3363,36 +3253,11 @@ if(TOOLS)
+@@ -3363,36 +3257,11 @@ if(TOOLS)
          # tidy-alphabetical-start
          $<TARGET_OBJECTS:engine-shared>
          $<TARGET_OBJECTS:game-shared>
@@ -915,7 +890,7 @@ index e48fce9..2481ab9 100644
        list(APPEND TARGETS_TOOLS ${TOOL})
      endif()
    endforeach()
-@@ -3468,15 +3333,12 @@ if((GTEST_FOUND OR DOWNLOAD_GTEST) AND SERVER)
+@@ -3468,15 +3337,12 @@ if((GTEST_FOUND OR DOWNLOAD_GTEST) AND SERVER)
      mapitems_test.cpp
      math_test.cpp
      mem_test.cpp
@@ -931,7 +906,7 @@ index e48fce9..2481ab9 100644
      score_test.cpp
      secure_random_test.cpp
      server_test.cpp
-@@ -3508,8 +3370,6 @@ if((GTEST_FOUND OR DOWNLOAD_GTEST) AND SERVER)
+@@ -3508,8 +3374,6 @@ if((GTEST_FOUND OR DOWNLOAD_GTEST) AND SERVER)
      src/engine/client/serverbrowser_ping_cache.cpp
      src/engine/client/serverbrowser_ping_cache.h
      src/engine/client/sqlite.cpp
@@ -940,7 +915,7 @@ index e48fce9..2481ab9 100644
      # tidy-alphabetical-end
    )
  
-@@ -3533,7 +3393,7 @@ if((GTEST_FOUND OR DOWNLOAD_GTEST) AND SERVER)
+@@ -3533,7 +3397,7 @@ if((GTEST_FOUND OR DOWNLOAD_GTEST) AND SERVER)
    list(APPEND TARGETS_LINK ${TARGET_TESTRUNNER})
  
    add_custom_target(run_cxx_tests
@@ -949,7 +924,7 @@ index e48fce9..2481ab9 100644
      COMMENT Running unit tests
      DEPENDS ${TARGET_TESTRUNNER}
      USES_TERMINAL
-@@ -3541,34 +3401,16 @@ if((GTEST_FOUND OR DOWNLOAD_GTEST) AND SERVER)
+@@ -3541,34 +3405,16 @@ if((GTEST_FOUND OR DOWNLOAD_GTEST) AND SERVER)
    add_custom_target(run_tests
      DEPENDS run_cxx_tests
    )
@@ -985,7 +960,7 @@ index e48fce9..2481ab9 100644
  add_library(rust_test STATIC EXCLUDE_FROM_ALL
    # tidy-alphabetical-start
    $<TARGET_OBJECTS:engine-gfx>
-@@ -3727,11 +3569,13 @@ set(CPACK_SOURCE_FILES
+@@ -3727,11 +3573,13 @@ set(CPACK_SOURCE_FILES
    datasrc/
    ddnet-libs/
    license.txt
@@ -999,7 +974,7 @@ index e48fce9..2481ab9 100644
    valgrind.supp
    # tidy-alphabetical-end
  )
-@@ -3763,9 +3607,6 @@ if(TOOLS)
+@@ -3763,9 +3611,6 @@ if(TOOLS)
      map_extract
      # tidy-alphabetical-end
    )
@@ -1009,7 +984,7 @@ index e48fce9..2481ab9 100644
  else()
    set(TARGET_TOOLS)
  endif()
-@@ -3833,31 +3674,27 @@ if(NOT DEV)
+@@ -3833,31 +3678,27 @@ if(NOT DEV)
        install(FILES other/icons/DDNet-Server_${SIZE}x${SIZE}x32.png DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/${SIZE}x${SIZE}/apps RENAME ddnet-server.png COMPONENT server)
      endif()
    endforeach()
@@ -1050,7 +1025,7 @@ index e48fce9..2481ab9 100644
  
    set(DMG_TMPDIR pack_${CPACK_PACKAGE_FILE_NAME}_dmg)
    set(DMG_MKDIRS
-@@ -3867,20 +3704,14 @@ if(CLIENT AND DMGBUILD_FOUND)
+@@ -3867,20 +3708,14 @@ if(CLIENT AND DMGBUILD_FOUND)
      ${CLIENT_EXECUTABLE}.app/Contents/Frameworks
      ${CLIENT_EXECUTABLE}.app/Contents/MacOS
      ${CLIENT_EXECUTABLE}.app/Contents/Resources
@@ -1077,7 +1052,7 @@ index e48fce9..2481ab9 100644
    set(DMG_MKDIR_COMMANDS)
    foreach(dir ${DMG_MKDIRS})
      list(APPEND DMG_MKDIR_COMMANDS COMMAND ${CMAKE_COMMAND} -E make_directory ${DMG_TMPDIR}/${dir})
-@@ -3897,7 +3728,7 @@ if(CLIENT AND DMGBUILD_FOUND)
+@@ -3897,7 +3732,7 @@ if(CLIENT AND DMGBUILD_FOUND)
      set(STEAM_API_DYLIB_FOR_PACKAGE "${PROJECT_BINARY_DIR}/libsteam_api.dylib")
    endif()
  
@@ -1086,7 +1061,7 @@ index e48fce9..2481ab9 100644
      set(CODESIGN_COMMANDS
          # tidy-alphabetical-start
          COMMAND codesign --force --options runtime --timestamp --sign "${MACOS_APP_IDENTITY}" ${DMG_TMPDIR}/${CLIENT_EXECUTABLE}.app/Contents/Frameworks/SDL2.framework
-@@ -3917,60 +3748,19 @@ if(CLIENT AND DMGBUILD_FOUND)
+@@ -3917,60 +3752,19 @@ if(CLIENT AND DMGBUILD_FOUND)
            COMMAND codesign --force --options runtime --timestamp --sign "${MACOS_APP_IDENTITY}" ${DMG_TMPDIR}/${CLIENT_EXECUTABLE}.app/Contents/MacOS/${target}
        )
      endforeach()
@@ -1152,7 +1127,7 @@ index e48fce9..2481ab9 100644
    endif()
  
    add_custom_command(OUTPUT ${CPACK_PACKAGE_FILE_NAME}.dmg
-@@ -3998,23 +3788,33 @@ if(CLIENT AND DMGBUILD_FOUND)
+@@ -3998,23 +3792,33 @@ if(CLIENT AND DMGBUILD_FOUND)
      COMMAND ${CMAKE_INSTALL_NAME_TOOL} -add_rpath @loader_path/../Frameworks ${DMG_TMPDIR}/${CLIENT_EXECUTABLE}.app/Contents/MacOS/${CLIENT_EXECUTABLE}
  
      # SERVER
@@ -1189,7 +1164,7 @@ index e48fce9..2481ab9 100644
        # tidy-alphabetical-end
    )
    add_custom_target(package_dmg DEPENDS ${CPACK_PACKAGE_FILE_NAME}.dmg)
-@@ -4146,11 +3946,9 @@ foreach(target ${TARGETS})
+@@ -4146,11 +3950,9 @@ foreach(target ${TARGETS})
    if(OUR_FLAGS)
      target_compile_options(${target} PRIVATE ${OUR_FLAGS})
    endif()
@@ -1202,7 +1177,7 @@ index e48fce9..2481ab9 100644
      else()
        target_compile_definitions(${target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:_FORTIFY_SOURCE=2>) # Detect some buffer overflows.
      endif()
-@@ -4158,9 +3956,6 @@ foreach(target ${TARGETS})
+@@ -4158,9 +3960,6 @@ foreach(target ${TARGETS})
    if(ENABLE_IPO)
      set_property(TARGET ${target} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
    endif()
@@ -1212,7 +1187,7 @@ index e48fce9..2481ab9 100644
    if(TARGET_OS STREQUAL "emscripten")
      # Preload data directory into the filesystem
      target_link_options(${target} PRIVATE --preload-file data)
-@@ -4172,6 +3967,7 @@ foreach(target ${TARGETS_LINK})
+@@ -4172,6 +3971,7 @@ foreach(target ${TARGETS_LINK})
      set_property(TARGET ${target} APPEND PROPERTY LINK_FLAGS /SAFESEH:NO) # Disable SafeSEH because the shipped libraries don't support it (would cause error LNK2026 otherwise).
    endif()
    if(TARGET_OS STREQUAL "mac")
@@ -1220,7 +1195,7 @@ index e48fce9..2481ab9 100644
      target_link_libraries(${target} "-framework SystemConfiguration") # Required by curl 7.79.0
    endif()
    if((MINGW OR TARGET_OS STREQUAL "linux") AND PREFER_BUNDLED_LIBS)
-@@ -4182,24 +3978,10 @@ foreach(target ${TARGETS_LINK})
+@@ -4182,24 +3982,10 @@ foreach(target ${TARGETS_LINK})
    endif()
  endforeach()
  
