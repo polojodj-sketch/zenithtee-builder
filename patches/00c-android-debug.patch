@@ -1,0 +1,16 @@
+--- a/scripts/android/cmake_android.sh
++++ b/scripts/android/cmake_android.sh
+@@ -267,6 +267,13 @@ log_info "Creating integrity index file..."
+ 
+ log_info "Preparing gradle build..."
+ rm -rf src/main/java/org
++echo "DEBUG: PWD=$(pwd)"
++echo "DEBUG: SCRIPT_DIR=${SCRIPT_DIR}"
++echo "DEBUG: Checking source paths..."
++ls "${SCRIPT_DIR}/../files/java/org/" 2>&1 || echo "SRC1 NOT FOUND"
++ls ../scripts/android/files/java/org/ 2>&1 || echo "SRC2 NOT FOUND"
++ls "${SCRIPT_DIR}/../../ddnet-libs/sdl/java/org/" 2>&1 || echo "SRC3 NOT FOUND"
++ls ../ddnet-libs/sdl/java/org/ 2>&1 || echo "SRC4 NOT FOUND"
+ mkdir -p src/main/java
+ cp -R ../scripts/android/files/java/org src/main/java/
+ cp -R ../ddnet-libs/sdl/java/org src/main/java/
