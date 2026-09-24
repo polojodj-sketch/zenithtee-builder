@@ -1,0 +1,11 @@
+diff --git a/scripts/android/files/build.sh b/scripts/android/files/build.sh
+index 321b1c87..401ac0db 100644
+--- a/scripts/android/files/build.sh
++++ b/scripts/android/files/build.sh
+@@ -1,5 +1,6 @@
+ #!/bin/bash
+ 
++set -x
+ COLOR_RED="\e[1;31m"
+ COLOR_RESET="\e[0m"
+ 
