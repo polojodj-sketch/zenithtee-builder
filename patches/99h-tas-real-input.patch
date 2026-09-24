@@ -1,0 +1,18 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -512,6 +512,15 @@
+ 	if(!Send)
+ 		return 0;
+ 
++	// ZenithTee (kinetix): TAS real-world replay. CTas::TogglePlay arms
++	// m_RealPlaying, but nothing ever fed the recording into the send path,
++	// so Play-on-server silently did nothing. Applied HERE (after the Send
++	// gate) so a recorded tick is consumed exactly when its packet leaves —
++	// consuming earlier would desync the take on dropped (unsent) ticks.
++	// Wins over the aim spoofs above: a replay must reach the server verbatim.
++	if(GameClient()->m_Tas.IsRealPlaying())
++		GameClient()->m_Tas.ApplyTasRealInput(&m_aInputData[g_Config.m_ClDummy]);
++
+ 	m_LastSendTime = time_get();
+ 	mem_copy(pData, &m_aInputData[g_Config.m_ClDummy], sizeof(m_aInputData[0]));
+ 	return sizeof(m_aInputData[0]);

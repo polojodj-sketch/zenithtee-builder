@@ -1,0 +1,1666 @@
+--- a/src/engine/shared/config_variables.h
++++ b/src/engine/shared/config_variables.h
+@@ -262,20 +262,6 @@
+ MACRO_CONFIG_INT(ClDummy, cl_dummy, 0, 0, 7, CFGFLAG_CLIENT | CFGFLAG_INSENSITIVE, "Which player you control (0 = main, 1-7 = dummies)")
+ MACRO_CONFIG_INT(ClDummyHammer, cl_dummy_hammer, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_INSENSITIVE, "Whether dummy is hammering for a hammerfly")
+ 
+-MACRO_CONFIG_INT(KxDummyHammerKeepInputs, kx_dummy_hammer_keep_inputs, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Preserve dummy movement inputs (direction/jump/hook) during hammerfly; aim is still overridden for hammer direction")
+-MACRO_CONFIG_INT(KxDummyHammerCustomLatency, kx_dummy_hammer_custom_latency, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Use custom hammer latency instead of default 500ms")
+-MACRO_CONFIG_INT(KxDummyHammerLatencyMs, kx_dummy_hammer_latency_ms, 500, 50, 2000, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Hammer latency in milliseconds (only used when kx_dummy_hammer_custom_latency is on)")
+-MACRO_CONFIG_INT(KxDummyHammerAuto, kx_dummy_hammer_auto, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Auto-hammer: dummy hammers the active player every tick when in hammer radius (overrides custom latency)")
+-MACRO_CONFIG_INT(KxDummyHammerAutoMaxDist, kx_dummy_hammer_auto_max_dist, 50, 5, 63, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Auto Fly: max distance (in world units) between dummy and active player for hammer to fire. Real DDNet hammer max reach = 63 center-to-center (ProjStartPos offset 21 + FindEntities radius 14 + target ProximityRadius 28). Default 50 = small safety margin. Max 63 = exact real reach.")
+-MACRO_CONFIG_INT(KxDummyHammerAutoPredict, kx_dummy_hammer_auto_predict, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Auto Fly: predict next-tick position of active player before range check. When on, hammer fires if the player WILL be in range next tick (even if currently slightly out of range). Catches fast-moving players.")
+-MACRO_CONFIG_INT(KxFlyRide, kx_fly_ride, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Fly Ride: pilot (active dummy) hooks/hammers nearest dummy, WASD moves anchor point")
+-MACRO_CONFIG_INT(KxTripleFly, kx_triple_fly, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Auto Triple Fly: acting dummy auto-hooks a target that enters trigger radius and holds hook while farther than radius")
+-MACRO_CONFIG_INT(KxTripleFlyDummyMode, kx_triple_fly_dummy_mode, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Auto Triple Fly: acting dummy selection (0 = closest to active dummy, 1 = by ID)")
+-MACRO_CONFIG_INT(KxTripleFlyDummyId, kx_triple_fly_dummy_id, 1, 0, 7, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Auto Triple Fly: acting dummy index when dummy mode = ID (0 = main, 1-7 = dummies)")
+-MACRO_CONFIG_INT(KxTripleFlyTargetMode, kx_triple_fly_target_mode, 0, 0, 2, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Auto Triple Fly: target selection (0 = closest to acting dummy, 1 = closest to active dummy aim, 2 = server IDs)")
+-MACRO_CONFIG_STR(KxTripleFlyTargetIds, kx_triple_fly_target_ids, 64, "", CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Auto Triple Fly: comma-separated server IDs of targets when target mode = IDs")
+-MACRO_CONFIG_INT(KxTripleFlyTriggerRadius, kx_triple_fly_trigger_radius, 380, 32, 380, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Auto Triple Fly: start radius (units) around acting dummy — function engages when target enters it")
+-MACRO_CONFIG_INT(KxTripleFlyRadius, kx_triple_fly_radius, 128, 32, 256, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Auto Triple Fly: hold radius (units) — hook releases when target is closer than this")
+ MACRO_CONFIG_INT(KxEdgeBind, kx_edge_bind, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Edge Bind: listed keys release after a fixed hold time — the release fires after Edge in ms even if the key is still held")
+ MACRO_CONFIG_STR(KxEdgeBindButtons, kx_edge_bind_buttons, 128, "", CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Edge Bind: comma-separated key names (a,b,c,f1,mouse5)")
+ MACRO_CONFIG_INT(KxEdgeBindMs, kx_edge_bind_ms, 100, 1, 1000, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Edge Bind: hold duration in ms before the release is sent")
+@@ -284,15 +270,6 @@
+ MACRO_CONFIG_INT(ClDummyRestoreWeapon, cl_dummy_restore_weapon, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Whether dummy should switch to last weapon after hammerfly")
+ MACRO_CONFIG_INT(ClDummyCopyMoves, cl_dummy_copy_moves, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_INSENSITIVE, "Whether dummy should copy your moves")
+ 
+-MACRO_CONFIG_INT(KxDummyCopyMovesFilter, kx_dummy_copy_moves_filter, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "When on with copy_moves, only copy selected inputs (jump/direction/hook/aim/fire) instead of all")
+-MACRO_CONFIG_INT(KxDummyCopyMovesFilterJump, kx_dummy_copy_moves_filter_jump, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Copy Moves Filter: copy jump")
+-MACRO_CONFIG_INT(KxDummyCopyMovesFilterDirection, kx_dummy_copy_moves_filter_direction, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Copy Moves Filter: copy direction")
+-MACRO_CONFIG_INT(KxDummyCopyMovesFilterHook, kx_dummy_copy_moves_filter_hook, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Copy Moves Filter: copy hook")
+-MACRO_CONFIG_INT(KxDummyCopyMovesFilterAim, kx_dummy_copy_moves_filter_aim, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Copy Moves Filter: copy aim (target X/Y)")
+-MACRO_CONFIG_INT(KxDummyCopyMovesFilterFire, kx_dummy_copy_moves_filter_fire, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Copy Moves Filter: copy fire")
+-MACRO_CONFIG_INT(KxDummyCopyMovesFilterWeapon, kx_dummy_copy_moves_filter_weapon, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Copy Moves Filter: copy weapon (wanted/next/prev weapon)")
+-MACRO_CONFIG_INT(KxCopyMovesLatency, kx_copy_moves_latency, 0, 0, 5000, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Copy Moves Latency: delay (ms) per dummy index before inactive dummies replay active player's input. N = latency_ms * dummy_index. Only applies when kx_copy_moves_latency_enabled is on.")
+-MACRO_CONFIG_INT(KxCopyMovesLatencyEnabled, kx_copy_moves_latency_enabled, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Copy Moves Latency master toggle. When off, no latency is applied (live copy). When on, inactive dummies replay active player's input from N ms ago (N = kx_copy_moves_latency * dummy_index).")
+ MACRO_CONFIG_INT(KxDummyCopyMirrorDir, kx_dummy_copy_mirror_dir, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Mirror direction of inactive dummies by XOR when copy moves is on")
+ MACRO_CONFIG_INT(KxDummyCopyAimMode, kx_dummy_copy_aim_mode, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Aim mode for copy moves: 0 = Smart (world coords), 1 = Mirror")
+ MACRO_CONFIG_INT(KxDummyCopyMirrorAimX, kx_dummy_copy_mirror_aim_x, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Mirror aim X of inactive dummies when copy moves is on (mirror mode)")
+@@ -1081,8 +1058,6 @@
+ 
+ // Attack / botnet on/off flags
+ MACRO_CONFIG_INT(KxAttack, kx_attack, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Attack Mode: 1=on 0=off")
+-MACRO_CONFIG_INT(KxRandomAim, kx_random_aim, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Random Aim: 1=on 0=off")
+-MACRO_CONFIG_INT(KxRandomAimInterval, kx_random_aim_interval, 100, 0, 10000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Random Aim: change interval in ms (0=default)")
+ MACRO_CONFIG_INT(KxCopyMoves, kx_copy_moves, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Copy Moves: 1=on 0=off")
+ MACRO_CONFIG_INT(KxCopyTargetId, kx_copy_target_id, -1, -1, 127, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Copy Moves: target player ID (-1=disabled)")
+ MACRO_CONFIG_INT(KxTargetAll, kx_target_all, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Attack all (targets become blacklist): 1=on 0=off")
+--- a/src/game/client/components/kinetix/kinetix.h
++++ b/src/game/client/components/kinetix/kinetix.h
+@@ -191,9 +191,6 @@
+         vec2 m_PilotGoalPos;         // current resolved goal (world units)
+         bool m_PilotGoalValid;       // whether m_PilotGoalPos is usable
+ 
+-        // Random aim timing
+-        int64_t m_NextRandomAimTick;
+-
+         // Kinodynamic A* cache
+         CKinodynamicCache m_KinoCache;
+ 
+@@ -237,7 +234,6 @@
+                 m_PilotLastPlanTick = 0;
+                 m_PilotGoalPos = vec2(0, 0);
+                 m_PilotGoalValid = false;
+-                m_NextRandomAimTick = 0;
+                 m_LastTargetAttackTick = -1;
+                 m_MacroRecording = false;
+                 m_MacroPlaying = false;
+@@ -486,14 +482,6 @@
+         void UpdateFakeAim();               // called from OnUpdate; fake aim for fun
+         // v1.56.151: Fly Ride — pilot (active dummy) hooks/hammers nearest dummy.
+         // WASD moves anchor point. Called from OnUpdate (per-frame); anchor update gated per-tick.
+-        void UpdateFlyRide();
+-        void RenderFlyRideAnchor(); // called from OnRender — draws red semi-transparent tile at anchor
+-        int m_FlyRideLastAnchorTick = -1;   // last tick anchor was updated (per-tick gate)
+-        bool m_FlyRideWasActive = false;    // for init-on-enable + cleanup-on-disable
+-        vec2 m_FlyRideAnchor = vec2(0, 0);  // anchor point (pilot pos at enable; WASD moves it)
+-        int m_FlyRidePilotDir = 0;          // -1 left, 0 none, +1 right (read by CControls::SnapInput)
+-        int m_FlyRidePilotHook = 0;         // 0 or 1 (read by CControls::SnapInput)
+-        int m_FlyRideTargetDummy = -1;      // nearest dummy index (for cleanup)
+         // ZenithTee v1.1: BalanceBot / HookRide / JetRide — FlyRide-pattern dummy controls.
+         void UpdateBalanceBot();            // dummy copies pilot input (optional mirror)
+         void UpdateHookRide();              // dummy hooks pilot + follows A/D (drags pilot)
+@@ -502,10 +490,6 @@
+         bool m_HookRideWasActive = false;
+         bool m_JetRideWasActive = false;
+         int m_JetRideLastJumpTick = -1;     // last tick dummy jumped (interval gate)
+-        void UpdateTripleFly();
+-        bool m_TripleFlyWasActive = false;
+-        int m_TripleFlyDummy = -1;
+-        bool m_TripleFlyHooking = false;
+ 
+         // Laser unfreeze path storage (for Show attempt rendering)
+         std::vector<vec2> m_LaserUnfreezePath;
+@@ -563,7 +547,6 @@
+ 	bool PfSpectateUpdateCamera(vec2 &outCamPos);
+ 
+         // --- Console commands ---
+-        static void ConRandomAim(IConsole::IResult *pResult, void *pUserData);
+         static void ConCopyMoves(IConsole::IResult *pResult, void *pUserData);
+         static void ConAttackEnable(IConsole::IResult *pResult, void *pUserData);
+         static void ConSetMain(IConsole::IResult *pResult, void *pUserData);
+@@ -675,7 +658,7 @@
+         // Continuous loop: resolve a goal (finish / cursor / player), rebuild the
+         // flow field every kx_pf_pilot_sequence_length ticks within a CPU budget,
+         // and steer the character toward it every tick. Returns true when active.
+-        bool ProcessPilotBot(CGameClient *pGame, CNetObj_PlayerInput *pInput, int Dummy, CBotNetDummy &State, int LocalID);        void ProcessRandomAim(int Dummy, CBotNetDummy &State, int64_t CurTick); // fall-through (void)
++        bool ProcessPilotBot(CGameClient *pGame, CNetObj_PlayerInput *pInput, int Dummy, CBotNetDummy &State, int LocalID);
+ 
+         // Shared A* engine for ComputePathfinder / ComputePathfinderRescue.
+         // Multi-source BFS-style Dijkstra/A* from `sources` toward bot tile.
+--- a/src/game/client/components/kinetix/kinetix.cpp
++++ b/src/game/client/components/kinetix/kinetix.cpp
+@@ -200,7 +200,6 @@
+ {
+         g_Config.m_KxAttack = false;
+         g_Config.m_KxCopyMoves = false;
+-        g_Config.m_KxRandomAim = false;
+         g_Config.m_KxKinodynamic = false;
+         for(int D = 0; D < MAX_DUMMIES; D++)
+         {
+@@ -244,9 +243,6 @@
+         PfClearSearchState();
+         m_PfVPath.clear();
+ 
+-        m_TripleFlyHooking = false;
+-        m_TripleFlyWasActive = false;
+-        m_TripleFlyDummy = -1;
+ 
+         CGameClient *pGame = GameClient();
+         if(pGame)
+@@ -353,15 +349,10 @@
+         // Runs on the active player's input (not dummies).
+         UpdateLaserUnfreeze();
+ 
+-        // v1.56.151: Fly Ride — pilot hooks/hammers nearest dummy, WASD moves anchor.
+-        UpdateFlyRide();
+-
+         // ZenithTee v1.1: BalanceBot / HookRide / JetRide.
+         UpdateBalanceBot();
+         UpdateHookRide();
+         UpdateJetRide();
+-
+-        UpdateTripleFly();
+ 
+         UpdatePfTileEditor();
+ 
+@@ -409,7 +400,7 @@
+         // ONLY "Pathfinder Enabled" or Pilot follow is on, silently killing
+         // the attack-pathfinder (process_dummy.cpp uses m_KxAtkPathfinder) and
+         // the Pilot Bot (ProcessPilotBot). Mode 0 = off (see HandleNoFeatureIdle).
+-        bool anyBotnetFeature = g_Config.m_KxAttack || g_Config.m_KxCopyMoves || g_Config.m_KxRandomAim || g_Config.m_KxAtkPathfinder || g_Config.m_KxPfPilotMode >= 1;
++        bool anyBotnetFeature = g_Config.m_KxAttack || g_Config.m_KxCopyMoves || g_Config.m_KxAtkPathfinder || g_Config.m_KxPfPilotMode >= 1;
+         if(!anyBotnetFeature)
+         {
+                 for(int D = 0; D < MAX_DUMMIES; D++)
+@@ -468,9 +459,6 @@
+         // Laser unfreeze: render successful laser path (Show attempt)
+         RenderLaserUnfreezePath();
+ 
+-        // v1.56.159: Fly Ride — render red tile at anchor (debug visual).
+-        RenderFlyRideAnchor();
+-
+         if(!g_Config.m_KxKinodynamic)
+                 return;
+ 
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -18,7 +18,7 @@
+ bool CBotNet::HandleNoFeatureIdle(CGameClient *pGame, CNetObj_PlayerInput *pInput, int Dummy, CBotNetDummy &State)
+ {
+         // Nothing to do this tick — clear inputs and return.
+-        if(!g_Config.m_KxAttack && !g_Config.m_KxCopyMoves && !g_Config.m_KxRandomAim && !State.m_MacroPlaying && !State.m_PathfinderGoActive && g_Config.m_KxPfPilotMode == 0)
++        if(!g_Config.m_KxAttack && !g_Config.m_KxCopyMoves && !State.m_MacroPlaying && !State.m_PathfinderGoActive && g_Config.m_KxPfPilotMode == 0)
+         {
+                 ResetAndCommitInput(pGame, pInput, Dummy);
+                 return true;
+@@ -485,19 +485,3 @@
+         return true;
+ }
+ 
+-void CBotNet::ProcessRandomAim(int Dummy, CBotNetDummy &State, int64_t CurTick)
+-{
+-        // Fall-through (no return): override aim to a random point on a schedule.
+-        // Guarded by !g_Config.m_KxAttack && !g_Config.m_KxCopyMoves — not redundant with the
+-        // no-feature-idle check because CopyMoves may fall through with an inactive
+-        // target while g_Config.m_KxCopyMoves is still true.
+-        if(!(g_Config.m_KxRandomAim && !g_Config.m_KxAttack && !g_Config.m_KxCopyMoves))
+-                return;
+-
+-        if(CurTick >= State.m_NextRandomAimTick)
+-        {
+-                GameClient()->m_BotControl.ActionOverrideAim((rand() % 2001) - 1000, (rand() % 2001) - 1000, Dummy);
+-                int TS = Client()->GameTickSpeed();
+-                State.m_NextRandomAimTick = CurTick + (int64_t)(TS != 0 ? TS : 50) * g_Config.m_KxRandomAimInterval / 1000;
+-        }
+-}
+--- a/src/game/client/components/kinetix/dummies/dummy_management.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_management.cpp
+@@ -6,7 +6,7 @@
+         // NOTE: must mirror the anyBotnetFeature gate in CBotNet::OnUpdate
+         // (kinetix.cpp) — Pilot Bot follow modes (1/2) steer dummies from
+         // ProcessDummy, so they count as active here too (mode 0 = off).
+-        if(g_Config.m_KxAttack || g_Config.m_KxCopyMoves || g_Config.m_KxRandomAim || g_Config.m_KxAtkPathfinder || g_Config.m_KxPfPilotMode >= 1)
++        if(g_Config.m_KxAttack || g_Config.m_KxCopyMoves || g_Config.m_KxAtkPathfinder || g_Config.m_KxPfPilotMode >= 1)
+                 return true;
+         if(Dummy >= 0 && Dummy < MAX_DUMMIES)
+         {
+--- a/src/game/client/components/kinetix/dummies/process_dummy.cpp
++++ b/src/game/client/components/kinetix/dummies/process_dummy.cpp
+@@ -648,9 +648,6 @@
+                 }
+         }
+ 
+-        // Random aim (fall-through — overrides aim on a schedule, does not return).
+-        ProcessRandomAim(Dummy, State, CurTick);
+-
+         // Always copy back at end
+         pGame->m_Controls.m_aInputData[Dummy] = *pInput;
+ }
+--- a/src/game/client/components/kinetix/zenith_hud.cpp
++++ b/src/game/client/components/kinetix/zenith_hud.cpp
+@@ -125,14 +125,11 @@
+ 	KX_ADD_IF("Fake Aim", g_Config.m_KxFakeAim)
+ 	KX_ADD_IF("Avoid Freeze", g_Config.m_KxAvoidFreezeBot)
+ 	KX_ADD_IF("Laser Unfreeze", g_Config.m_KxLaserUnfreeze)
+-	KX_ADD_IF("Fly Ride", g_Config.m_KxFlyRide)
+-	KX_ADD_IF("Triple Fly", g_Config.m_KxTripleFly)
+ 	KX_ADD_IF("Copy Moves", g_Config.m_KxCopyMoves)
+ 	KX_ADD_IF("Attack Bot", g_Config.m_KxAttack)
+ 	KX_ADD_IF("Zoom Hack", g_Config.m_KxZoomHack)
+ 	KX_ADD_IF("Spectator list", g_Config.m_KxSpectatorList)
+ 	KX_ADD_IF("Admin Alarm", g_Config.m_KxAdminAlarm)
+-	KX_ADD_IF("Random Aim", g_Config.m_KxRandomAim)
+ #undef KX_ADD_IF
+ 	if(Count == 0)
+ 		return;
+--- a/src/game/client/components/kinetix/attack/attack_commands.cpp
++++ b/src/game/client/components/kinetix/attack/attack_commands.cpp
+@@ -166,13 +166,6 @@
+         g_Config.m_KxMain = pResult->GetInteger(0);
+ }
+ 
+-void CBotNet::ConRandomAim(IConsole::IResult *pResult, void *pUserData)
+-{
+-        CBotNet *pSelf = (CBotNet *)pUserData;
+-        g_Config.m_KxRandomAim = pResult->GetInteger(0) != 0;
+-        if(pResult->NumArguments() > 1)
+-                g_Config.m_KxRandomAimInterval = pResult->GetInteger(1);
+-}
+ 
+ void CBotNet::ConCopyMoves(IConsole::IResult *pResult, void *pUserData)
+ {
+--- a/src/game/client/components/kinetix/code_exec/code_exec_bindings.cpp
++++ b/src/game/client/components/kinetix/code_exec/code_exec_bindings.cpp
+@@ -1433,12 +1433,9 @@
+                 "m_ClDummyRestoreWeapon", &CConfig::m_ClDummyRestoreWeapon,
+                 "m_KxAttack", &CConfig::m_KxAttack,
+                 "m_KxCopyMoves", &CConfig::m_KxCopyMoves,
+-                "m_KxRandomAim", &CConfig::m_KxRandomAim,
+                 "m_KxAtkPathfinder", &CConfig::m_KxAtkPathfinder,
+-                "m_KxFlyRide", &CConfig::m_KxFlyRide,
+                 "m_KxDummyAim", &CConfig::m_KxDummyAim,
+-                "m_KxDummyDirection", &CConfig::m_KxDummyDirection,
+-                "m_KxDummyCopyMovesFilter", &CConfig::m_KxDummyCopyMovesFilter
++                "m_KxDummyDirection", &CConfig::m_KxDummyDirection
+         );
+ 
+         auto con = lua["console"].get_or_create<sol::table>();
+--- a/src/game/client/components/kinetix/clickgui.cpp
++++ b/src/game/client/components/kinetix/clickgui.cpp
+@@ -41,7 +41,7 @@
+ namespace {
+ // Total number of ClickGUI panels. Must match CClickGui::NUM_PANELS in .h.
+ // v1.56.177: was stale at 5 — caused "too many initializers" on g_Panels[6].
+-constexpr int NUM_PANELS = 8;
++constexpr int NUM_PANELS = 7;
+ } // namespace
+ 
+ // ============================================================================
+@@ -97,43 +97,6 @@
+ };
+ 
+ // ---------- Functions panel (4) ----------
+-// "Custom latency" expandable: 1 slider child.
+-static SRow g_CustomLatencyChildren[] = {
+-        {ERowType::Slider, "Latency (ms)", nullptr, false, false, 50.0f, 2000.0f, 10.0f, 500.0f, "ms", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-};
+-// v1.56.186: "Copy Moves Latency" expandable — staggered input replay delay.
+-// When >0, inactive dummies replay active player's input from N ms ago, where
+-// N = latency_ms * dummy_index (D1: 1x, D2: 2x, D3: 3x...). 0 = live copy.
+-static SRow g_CopyMovesLatencyChildren[] = {
+-        {ERowType::Slider, "Latency (ms)", nullptr, false, false, 50.0f, 5000.0f, 10.0f, 500.0f, "ms", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-};
+-// v1.56.189: "Auto Fly" expandable — configurable auto-hammer for hammerfly.
+-// Children: Max Distance slider (5-63, default 50, real hammer max reach = 63
+-// = ProjStartPos offset 21 + FindEntities radius 14 + target ProximityRadius 28),
+-// Predict toggle (next-tick position prediction).
+-static SRow g_AutoFlyChildren[] = {
+-        {ERowType::Slider, "Max Distance", nullptr, false, false, 5.0f, 63.0f, 1.0f, 50.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Toggle, "Predict", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-};
+-static const char *const g_TripleFlyDummyModeOpts[] = {"Closest to me", "ID"};
+-static const char *const g_TripleFlyTargetModeOpts[] = {"Closest to me", "Closest to Aim", "IDs"};
+-static SRow g_TripleFlyChildren[] = {
+-        {ERowType::Dropdown, "Dummy mode", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, g_TripleFlyDummyModeOpts, 2, 0, nullptr, 0},
+-        {ERowType::Input, "Dummy ID", nullptr, false, false, 0, 0, 0, 0, nullptr, "1", "id...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Dropdown, "Target mode", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, g_TripleFlyTargetModeOpts, 3, 0, nullptr, 0},
+-        {ERowType::Input, "Target IDs", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "1,2,3...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Slider, "Trigger radius", nullptr, false, false, 32.0f, 380.0f, 1.0f, 380.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Slider, "Radius", nullptr, false, false, 32.0f, 256.0f, 1.0f, 128.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-};
+-// "Copy Moves Filter" expandable: 6 sub-toggles.
+-static SRow g_CopyMovesFilterChildren[] = {
+-        {ERowType::Toggle, "Filter: Jump", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Toggle, "Filter: Direction", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Toggle, "Filter: Hook", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Toggle, "Filter: Aim", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Toggle, "Filter: Fire", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Toggle, "Filter: Weapon", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-};
+ // Aim mode dropdown options.
+ static const char *const g_AimModeOpts[] = {"Smart", "Mirror"};
+ // v1.56.83: AimBot/TriggerBot dropdown options (unique prefix AB/TB to avoid collisions).
+@@ -203,17 +166,6 @@
+ // MAX_DUMMIES=8 (D1..D7, index 0 = main). Layout: Connect/Disconnect button +
+ // Switch button per dummy. Plus top "Connect Dummy 1" (first connect) and
+ // "Switch to Main Player" (only visible when not on main).
+-static SRow g_DummiesChildren[] = {
+-        {ERowType::Button, "Connect Dummy", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Button, "Switch to Main", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::DoubleButton, "D1 Connect", "D1 Switch", false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::DoubleButton, "D2 Connect", "D2 Switch", false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::DoubleButton, "D3 Connect", "D3 Switch", false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::DoubleButton, "D4 Connect", "D4 Switch", false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::DoubleButton, "D5 Connect", "D5 Switch", false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::DoubleButton, "D6 Connect", "D6 Switch", false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::DoubleButton, "D7 Connect", "D7 Switch", false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-};
+ // v1.56.90: Block expandable — all attack settings (37 children).
+ static SRow g_BlockChildren[] = {
+         {ERowType::Toggle, "Attack Main", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+@@ -257,28 +209,19 @@
+         {ERowType::Toggle, "Hook Enabled", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+ };
+ static SRow g_FunctionsRows[] = {
+-        {ERowType::Expandable, "Dummies", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_DummiesChildren, 9},
+         {ERowType::Expandable, "Block", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_BlockChildren, 38},
+-        {ERowType::Toggle, "Random Aim", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         // v1.56.83: AimBot + TriggerBot expandables
+         {ERowType::Expandable, "AimBot", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_AimBotChildren, 19},
+         {ERowType::Expandable, "TriggerBot", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_TriggerBotChildren, 19},
+         // Fly sub-section
+-        {ERowType::Toggle, "Preserve input", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Expandable, "Custom latency", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_CustomLatencyChildren, 1},
+         // v1.56.189: Auto fly is now an expandable with Max Distance + Predict children.
+-        {ERowType::Expandable, "Auto fly", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_AutoFlyChildren, 2},
+-        {ERowType::Expandable, "Auto Triple Fly", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_TripleFlyChildren, 6},
+         // Copy Moves sub-section
+-        {ERowType::Expandable, "Copy Moves Filter", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_CopyMovesFilterChildren, 6},
+         {ERowType::Toggle, "Mirror direction", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         {ERowType::Dropdown, "Aim mode", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, g_AimModeOpts, 2, 0, nullptr, 0},
+         // Conditional aim options (visibility based on Aim mode)
+         {ERowType::Toggle, "Mirror aim X", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         {ERowType::Toggle, "Mirror aim Y", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         {ERowType::Toggle, "Smart aim", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        // v1.56.151: Fly Ride — pilot hooks/hammers nearest dummy, WASD moves anchor.
+-        {ERowType::Toggle, "Fly Ride", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         // ZenithTee v1.1: BalanceBot / HookRide / JetRide — FlyRide-pattern dummy controls.
+         {ERowType::Toggle, "BalanceBot", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         {ERowType::Toggle, "HookRide", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+@@ -286,7 +229,6 @@
+         {ERowType::Toggle, "Mirror", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         {ERowType::Slider, "Jump delay", nullptr, false, false, 5.0f, 100.0f, 1.0f, 20.0f, "t", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         // v1.56.186: Copy Moves Latency — staggered input replay delay for inactive dummies.
+-        {ERowType::Expandable, "Copy Moves Latency", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_CopyMovesLatencyChildren, 1},
+ };
+ 
+ // ---------- Advanced panel (5) ----------
+@@ -485,46 +427,6 @@
+         int rowCount;
+ };
+ 
+-// v1.56.89: Binds panel — input fields for binding keys to toggle commands.
+-// On input commit (focus lost), executes: bind <input_value> toggle <cmd> 1 0
+-static SRow g_BindsTasChildren[] = {
+-        {ERowType::Input, "Record", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "Pause", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "Rewind", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "Forward", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-};
+-
+-static SRow g_BindsEdgeChildren[] = {
+-        {ERowType::Input, "Buttons", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "a,b,c...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Slider, "Edge in ms", nullptr, false, false, 1.0f, 1000.0f, 10.0f, 100.0f, "ms", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-};
+-static const char *const g_BindsModeOpts[] = {"Merge", "Override"};
+-static const char *const g_SdsModeOpts[] = {"Loop all", "Order targets"};
+-static SRow g_BindsSdsChildren[] = {
+-        {ERowType::Input, "Button", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Dropdown, "Mode", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, g_SdsModeOpts, 2, 0, nullptr, 0},
+-        {ERowType::Input, "Dummy IDs", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "0,1,3,5...", nullptr, 0, 0, nullptr, 0},
+-};
+-
+-static SRow g_BindsRows[] = {
+-        {ERowType::Dropdown, "Bind Mode", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, g_BindsModeOpts, 2, 0, nullptr, 0},
+-        {ERowType::Input, "ClickGUI", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "AimBot", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "TriggerBot", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "Fake Aim", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "Laser Unfreeze", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "Copy Moves Filter", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "Copy Moves Latency", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "Trajectory", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "ESP", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "Avoid Freeze", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "Block", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Input, "Auto Triple Fly", nullptr, false, false, 0, 0, 0, 0, nullptr, "", "bind...", nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Expandable, "TAS", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_BindsTasChildren, 4},
+-        {ERowType::Expandable, "Edge bind", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_BindsEdgeChildren, 2},
+-        {ERowType::Expandable, "Smart dummy switch", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, g_BindsSdsChildren, 3},
+-};
+-
+ // v1.56.176: Info panel — client identity + version + FPS + social links.
+ // Content is dynamic: depends on Show spoofed toggle and live FPS.
+ // We keep static SRow array with pName pointing into g_InfoDynamicBuffers,
+@@ -647,7 +549,6 @@
+         {"Visuals", g_AdvancedRows, sizeof(g_AdvancedRows) / sizeof(g_AdvancedRows[0])},
+         {"Settings", g_SettingsRows, sizeof(g_SettingsRows) / sizeof(g_SettingsRows[0])},
+         {"Pathfinder", g_PathfinderRows, sizeof(g_PathfinderRows) / sizeof(g_PathfinderRows[0])},
+-        {"Binds", g_BindsRows, sizeof(g_BindsRows) / sizeof(g_BindsRows[0])},
+         {"Info", g_InfoRows, sizeof(g_InfoRows) / sizeof(g_InfoRows[0])},
+         {"Code Execution (Lua)", g_CodeExecRows, sizeof(g_CodeExecRows) / sizeof(g_CodeExecRows[0])},
+         {"TAS", g_TasRows, sizeof(g_TasRows) / sizeof(g_TasRows[0])},
+@@ -2182,8 +2083,6 @@
+                                 SRow &row = g_Panels[p].pRows[r];
+                                 if(str_comp(row.pName, "Block") == 0)
+                                         row.on = g_Config.m_KxAttack;
+-                                else if(str_comp(row.pName, "Random Aim") == 0)
+-                                        row.on = g_Config.m_KxRandomAim;
+                                 else if(str_comp(row.pName, "Trajectory") == 0)
+                                         row.on = g_Config.m_KxShowTrajectory != 0;
+                                 // Advanced → Laser unfreeze expandable is master toggle.
+@@ -2205,14 +2104,6 @@
+                                 else if(str_comp(row.pName, "Avoid Freeze") == 0)
+                                         row.on = g_Config.m_KxAvoidFreezeBot != 0;
+                                 // Functions panel — Fly/Copy Moves sub-section
+-                                else if(str_comp(row.pName, "Preserve input") == 0)
+-                                        row.on = g_Config.m_KxDummyHammerKeepInputs != 0;
+-                                else if(str_comp(row.pName, "Custom latency") == 0)
+-                                        row.on = g_Config.m_KxDummyHammerCustomLatency != 0;
+-                                else if(str_comp(row.pName, "Auto fly") == 0)
+-                                        row.on = g_Config.m_KxDummyHammerAuto != 0;
+-                                else if(str_comp(row.pName, "Auto Triple Fly") == 0)
+-                                        row.on = g_Config.m_KxTripleFly != 0;
+                                 else if(str_comp(row.pName, "Mirror direction") == 0)
+                                         row.on = g_Config.m_KxDummyCopyMirrorDir != 0;
+                                 else if(str_comp(row.pName, "Aim mode") == 0)
+@@ -2223,9 +2114,6 @@
+                                         row.on = g_Config.m_KxDummyCopyMirrorAimY != 0;
+                                 else if(str_comp(row.pName, "Smart aim") == 0)
+                                         row.on = g_Config.m_KxDummyCopySmartAim != 0;
+-                                // v1.56.151: Fly Ride
+-                                else if(str_comp(row.pName, "Fly Ride") == 0)
+-                                        row.on = g_Config.m_KxFlyRide != 0;
+                                 // ZenithTee v1.1: BalanceBot / HookRide / JetRide.
+                                 else if(str_comp(row.pName, "BalanceBot") == 0)
+                                         row.on = g_Config.m_KxBalanceBot != 0;
+@@ -2237,12 +2125,6 @@
+                                         row.on = g_Config.m_KxBalanceBotMirror != 0;
+                                 else if(str_comp(row.pName, "Jump delay") == 0)
+                                         row.value = (float)g_Config.m_KxJetRideDelay;
+-                                // Functions → Copy Moves Filter expandable is master toggle.
+-                                else if(str_comp(row.pName, "Copy Moves Filter") == 0)
+-                                        row.on = g_Config.m_KxDummyCopyMovesFilter != 0;
+-                                // v1.56.187: Copy Moves Latency expandable is master toggle.
+-                                else if(str_comp(row.pName, "Copy Moves Latency") == 0)
+-                                        row.on = g_Config.m_KxCopyMovesLatencyEnabled != 0;
+                                 // Pathfinder top-level sliders/toggles
+                                 else if(str_comp(row.pName, "Hook angles") == 0)
+                                         row.value = (float)g_Config.m_KxPfHookAngles;
+@@ -2298,11 +2180,7 @@
+         continue;
+ if(str_comp(row.pName, "Smart dummy switch") == 0 && !BindsChildVisible(row.pChildren, row.childCount, c))
+         continue;
+-                                        if(str_comp(child.pName, "Latency (ms)") == 0 && str_comp(row.pName, "Custom latency") == 0)
+-                                                child.value = (float)g_Config.m_KxDummyHammerLatencyMs;
+-                                        else if(str_comp(child.pName, "Latency (ms)") == 0 && str_comp(row.pName, "Copy Moves Latency") == 0)
+-                                                child.value = (float)g_Config.m_KxCopyMovesLatency;
+-                                        else if(str_comp(child.pName, "Ratio") == 0 && str_comp(row.pName, "Freedom Path") == 0)
++                                        if(str_comp(child.pName, "Ratio") == 0 && str_comp(row.pName, "Freedom Path") == 0)
+                                                 child.value = (float)g_Config.m_KxPfFreedomRatio / 10.0f;
+                                         // v1.57: Pilot Bot children (read config -> UI)
+                                         else if(str_comp(child.pName, "Mode") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
+@@ -2315,31 +2193,6 @@
+                                                 child.value = (float)g_Config.m_KxPfPilotTopK;
+                                         else if(str_comp(child.pName, "Sequence Length") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
+                                                 child.value = (float)g_Config.m_KxPfPilotSequenceLength;
+-                                        else if(str_comp(child.pName, "Filter: Jump") == 0)
+-                                                child.on = g_Config.m_KxDummyCopyMovesFilterJump != 0;
+-                                        else if(str_comp(child.pName, "Filter: Direction") == 0)
+-                                                child.on = g_Config.m_KxDummyCopyMovesFilterDirection != 0;
+-                                        else if(str_comp(child.pName, "Filter: Hook") == 0)
+-                                                child.on = g_Config.m_KxDummyCopyMovesFilterHook != 0;
+-                                        else if(str_comp(child.pName, "Filter: Aim") == 0)
+-                                                child.on = g_Config.m_KxDummyCopyMovesFilterAim != 0;
+-                                        else if(str_comp(child.pName, "Filter: Fire") == 0)
+-                                                child.on = g_Config.m_KxDummyCopyMovesFilterFire != 0;
+-                                        else if(str_comp(child.pName, "Filter: Weapon") == 0)
+-                                                child.on = g_Config.m_KxDummyCopyMovesFilterWeapon != 0;
+-                                        // v1.56.189: Auto Fly children — Max Distance slider + Predict toggle.
+-                                        else if(str_comp(child.pName, "Max Distance") == 0 && str_comp(row.pName, "Auto fly") == 0)
+-                                                child.value = (float)g_Config.m_KxDummyHammerAutoMaxDist;
+-                                        else if(str_comp(child.pName, "Predict") == 0 && str_comp(row.pName, "Auto fly") == 0)
+-                                                child.on = g_Config.m_KxDummyHammerAutoPredict != 0;
+-                                        else if(str_comp(child.pName, "Dummy mode") == 0 && str_comp(row.pName, "Auto Triple Fly") == 0)
+-                                                child.valueIdx = g_Config.m_KxTripleFlyDummyMode;
+-                                        else if(str_comp(child.pName, "Target mode") == 0 && str_comp(row.pName, "Auto Triple Fly") == 0)
+-                                                child.valueIdx = g_Config.m_KxTripleFlyTargetMode;
+-                                        else if(str_comp(child.pName, "Trigger radius") == 0 && str_comp(row.pName, "Auto Triple Fly") == 0)
+-                                                child.value = (float)g_Config.m_KxTripleFlyTriggerRadius;
+-                                        else if(str_comp(child.pName, "Radius") == 0 && str_comp(row.pName, "Auto Triple Fly") == 0)
+-                                                child.value = (float)g_Config.m_KxTripleFlyRadius;
+                                         // Settings → IRC children
+                                         else if(str_comp(child.pName, "Reveal join") == 0)
+                                                 child.on = g_Config.m_KxIrcRevealJoin != 0;
+@@ -2935,66 +2788,7 @@
+                                                 else if(str_comp(ch.pName, "Hook Enabled") == 0) ch.on = g_Config.m_KxPfHook;
+                                         }
+                                 }
+-                                else if(str_comp(row.pName, "Auto Triple Fly") == 0)
+-                                {
+-                                        for(int c = 0; c < row.childCount; ++c)
+-                                        {
+-                                                SRow &ch = row.pChildren[c];
+-                                                if(str_comp(ch.pName, "Dummy ID") == 0)
+-                                                {
+-                                                        if(!m_InputEditing || m_InputPanel != p || m_InputRow != r || m_InputChild != c)
+-                                                        {
+-                                                                char b[16]; str_format(b, sizeof(b), "%d", g_Config.m_KxTripleFlyDummyId);
+-                                                                str_copy(ch.m_aInputBuf, b, sizeof(ch.m_aInputBuf));
+-                                                                ch.m_InputInitialized = true;
+-                                                        }
+-                                                }
+-                                                else if(str_comp(ch.pName, "Target IDs") == 0)
+-                                                {
+-                                                        if(!m_InputEditing || m_InputPanel != p || m_InputRow != r || m_InputChild != c)
+-                                                        {
+-                                                                str_copy(ch.m_aInputBuf, g_Config.m_KxTripleFlyTargetIds, sizeof(ch.m_aInputBuf));
+-                                                                ch.m_InputInitialized = true;
+-                                                        }
+-                                                }
+-                                        }
+-                                }
+                                 // Dummies: hide "Switch to Main" if already on main player.
+-                                else if(str_comp(row.pName, "Dummies") == 0)
+-                                {
+-                                        // Update button labels + visibility dynamically.
+-                                        for(int c = 0; c < row.childCount; ++c)
+-                                        {
+-                                                SRow &ch = row.pChildren[c];
+-                                                if(str_comp(ch.pName, "Connect Dummy") == 0)
+-                                                {
+-                                                        // Label depends on connection state.
+-                                                        ch.on = GameClient()->Client()->AnyDummyConnected();
+-                                                }
+-                                                else if(str_comp(ch.pName, "Switch to Main") == 0)
+-                                                {
+-                                                        // Hide if already on main (g_Config.m_ClDummy == 0).
+-                                                        ch.on = (g_Config.m_ClDummy != 0);
+-                                                }
+-                                                else if(ch.pName && ch.pName[0] == 'D' && ch.pName[1] >= '1' && ch.pName[1] <= '7')
+-                                                {
+-                                                        int d = ch.pName[1] - '0';
+-                                                        if(strstr(ch.pName, "Connect"))
+-                                                                ch.on = GameClient()->Client()->DummyConnected(d);
+-                                                        else if(strstr(ch.pName, "Switch"))
+-                                                                ch.on = (g_Config.m_ClDummy == d);
+-                                                }
+-                                                // v1.56.90: DoubleButton (Connect+Switch+Send) — ch.on=connected, ch.value=active, ch.expanded=send
+-                                                else if(ch.type == ERowType::DoubleButton && ch.pName && ch.pName[0] == 'D')
+-                                                {
+-                                                        int d = ch.pName[1] - '0';
+-                                                        ch.on = GameClient()->Client()->DummyConnected(d);
+-                                                        ch.value = (g_Config.m_ClDummy == d) ? 1.0f : 0.0f;
+-                                                        if(d >= 1 && d < 8)
+-                                                                ch.expanded = m_aDummySendEnabled[d];
+-                                                }
+-                                        }
+-                                }
+                         }
+                 }
+         }
+@@ -3403,9 +3197,7 @@
+                                 else
+                                         pTarget->value = raw;
+                         }
+-                        if(str_comp(pTarget->pName, "Latency (ms)") == 0 && str_comp(row.pName, "Custom latency") == 0)
+-                                g_Config.m_KxDummyHammerLatencyMs = (int)pTarget->value;
+-                        else if(str_comp(pTarget->pName, "BG blackout") == 0)
++                        if(str_comp(pTarget->pName, "BG blackout") == 0)
+                                 m_BgBlackout = (int)pTarget->value;
+                         // v1.56.204: Line rendering per-component Speed slider (display = config/10)
+                         else if(str_comp(pTarget->pName, "Speed") == 0 && str_comp(row.pName, "Line rendering") == 0)
+@@ -3443,8 +3235,6 @@
+ case KX_LINE_SERVER_AIM: g_Config.m_KxLineServerAimGradientStep = rawVal; break;
+                                 }
+                         }
+-                        else if(str_comp(pTarget->pName, "Latency (ms)") == 0 && str_comp(row.pName, "Copy Moves Latency") == 0)
+-                                g_Config.m_KxCopyMovesLatency = (int)pTarget->value;
+                         else if(str_comp(pTarget->pName, "Ratio") == 0 && str_comp(row.pName, "Freedom Path") == 0)
+                                 g_Config.m_KxPfFreedomRatio = (int)(pTarget->value * 10.0f + 0.5f);
+                         // v1.57: Pilot Bot sliders (UI -> config)
+@@ -3456,12 +3246,6 @@
+                                 g_Config.m_KxPfPilotTopK = (int)pTarget->value;
+                         else if(str_comp(pTarget->pName, "Sequence Length") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
+                                 g_Config.m_KxPfPilotSequenceLength = (int)pTarget->value;
+-                        else if(str_comp(pTarget->pName, "Max Distance") == 0 && str_comp(row.pName, "Auto fly") == 0)
+-                                g_Config.m_KxDummyHammerAutoMaxDist = (int)pTarget->value;
+-                        else if(str_comp(pTarget->pName, "Trigger radius") == 0 && str_comp(row.pName, "Auto Triple Fly") == 0)
+-                                g_Config.m_KxTripleFlyTriggerRadius = (int)pTarget->value;
+-                        else if(str_comp(pTarget->pName, "Radius") == 0 && str_comp(row.pName, "Auto Triple Fly") == 0)
+-                                g_Config.m_KxTripleFlyRadius = (int)pTarget->value;
+                         else if(str_comp(pTarget->pName, "Edge in ms") == 0 && str_comp(row.pName, "Edge bind") == 0)
+                                 g_Config.m_KxEdgeBindMs = (int)pTarget->value;
+                         else if(str_comp(pTarget->pName, "Version ID") == 0)
+@@ -4037,8 +3821,6 @@
+                                         // Wire reference toggles to real subsystems.
+                                         if(str_comp(pTarget->pName, "Block") == 0)
+                                                 g_Config.m_KxAttack = pTarget->on;
+-                                        else if(str_comp(pTarget->pName, "Random Aim") == 0)
+-                                                g_Config.m_KxRandomAim = pTarget->on;
+                                         else if(str_comp(pTarget->pName, "Trajectory") == 0)
+                                                 g_Config.m_KxShowTrajectory = pTarget->on ? 1 : 0;
+                                         // Advanced → Laser unfreeze expandable is master toggle.
+@@ -4068,14 +3850,6 @@
+                                         else if(str_comp(pTarget->pName, "Avoid Freeze") == 0)
+                                                 g_Config.m_KxAvoidFreezeBot = pTarget->on ? 1 : 0;
+                                         // Functions panel — Fly/Copy Moves sub-section
+-                                        else if(str_comp(pTarget->pName, "Preserve input") == 0)
+-                                                g_Config.m_KxDummyHammerKeepInputs = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Custom latency") == 0)
+-                                                g_Config.m_KxDummyHammerCustomLatency = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Auto fly") == 0)
+-                                                g_Config.m_KxDummyHammerAuto = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Auto Triple Fly") == 0)
+-                                                g_Config.m_KxTripleFly = pTarget->on ? 1 : 0;
+                                         else if(str_comp(pTarget->pName, "Edge bind") == 0)
+                                                 g_Config.m_KxEdgeBind = pTarget->on ? 1 : 0;
+                                         else if(str_comp(pTarget->pName, "Mirror direction") == 0)
+@@ -4086,9 +3860,6 @@
+                                                 g_Config.m_KxDummyCopyMirrorAimY = pTarget->on ? 1 : 0;
+                                         else if(str_comp(pTarget->pName, "Smart aim") == 0)
+                                                 g_Config.m_KxDummyCopySmartAim = pTarget->on ? 1 : 0;
+-                                        // v1.56.151: Fly Ride
+-                                        else if(str_comp(pTarget->pName, "Fly Ride") == 0)
+-                                                g_Config.m_KxFlyRide = pTarget->on ? 1 : 0;
+                                         // ZenithTee v1.1: BalanceBot / HookRide / JetRide.
+                                         else if(str_comp(pTarget->pName, "BalanceBot") == 0)
+                                                 g_Config.m_KxBalanceBot = pTarget->on ? 1 : 0;
+@@ -4194,28 +3965,6 @@
+                                                 else if(str_comp(pTarget->pName, "Hook Enabled") == 0) g_Config.m_KxPfHook = pTarget->on;
+                                                 else if(str_comp(pTarget->pName, "SPS (Push)") == 0) g_Config.m_KxAtkPathfinderSps = pTarget->on ? 1 : 0;
+                                         }
+-                                        // Copy Moves Filter expandable is master toggle.
+-                                        else if(str_comp(pTarget->pName, "Copy Moves Filter") == 0)
+-                                                g_Config.m_KxDummyCopyMovesFilter = pTarget->on ? 1 : 0;
+-                                        // v1.56.187: Copy Moves Latency expandable is master toggle.
+-                                        else if(str_comp(pTarget->pName, "Copy Moves Latency") == 0)
+-                                                g_Config.m_KxCopyMovesLatencyEnabled = pTarget->on ? 1 : 0;
+-                                        // Copy Moves Filter sub-toggles
+-                                        else if(str_comp(pTarget->pName, "Filter: Jump") == 0)
+-                                                g_Config.m_KxDummyCopyMovesFilterJump = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Filter: Direction") == 0)
+-                                                g_Config.m_KxDummyCopyMovesFilterDirection = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Filter: Hook") == 0)
+-                                                g_Config.m_KxDummyCopyMovesFilterHook = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Filter: Aim") == 0)
+-                                                g_Config.m_KxDummyCopyMovesFilterAim = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Filter: Fire") == 0)
+-                                                g_Config.m_KxDummyCopyMovesFilterFire = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Filter: Weapon") == 0)
+-                                                g_Config.m_KxDummyCopyMovesFilterWeapon = pTarget->on ? 1 : 0;
+-                                        // v1.56.189: Auto Fly Predict toggle.
+-                                        else if(str_comp(pTarget->pName, "Predict") == 0 && str_comp(row.pName, "Auto fly") == 0)
+-                                                g_Config.m_KxDummyHammerAutoPredict = pTarget->on ? 1 : 0;
+                                         // Settings → IRC children
+                                         else if(str_comp(pTarget->pName, "Reveal join") == 0)
+                                                 g_Config.m_KxIrcRevealJoin = pTarget->on ? 1 : 0;
+@@ -4550,58 +4299,7 @@
+                                         return;
+                                 }
+                                 // v1.56.90: Dummies Button (Connect Dummy, Switch to Main)
+-                                else if(str_comp(row.pName, "Dummies") == 0 && pTarget->type == ERowType::Button)
+-                                {
+-                                        if(str_comp(pTarget->pName, "Connect Dummy") == 0)
+-                                        {
+-                                                if(GameClient()->Client()->AnyDummyConnected())
+-                                                {
+-                                                        for(int D = 1; D < MAX_DUMMIES; D++)
+-                                                                if(GameClient()->Client()->DummyConnected(D))
+-                                                                        GameClient()->Client()->DummyDisconnect(D, nullptr);
+-                                                }
+-                                                else
+-                                                        GameClient()->Client()->DummyConnect(1);
+-                                        }
+-                                        else if(str_comp(pTarget->pName, "Switch to Main") == 0)
+-                                                g_Config.m_ClDummy = 0;
+-                                }
+                                 // v1.56.90: Dummies DoubleButton (Connect+Switch+Send)
+-                                else if(str_comp(row.pName, "Dummies") == 0 && pTarget->type == ERowType::DoubleButton)
+-                                {
+-                                        int d = pTarget->pName[1] - '0';
+-                                        if(!GameClient()->Client()->DummyConnected(d))
+-                                        {
+-                                                // Not connected — any click = Connect.
+-                                                GameClient()->Client()->DummyConnect(d);
+-                                        }
+-                                        else
+-                                        {
+-                                                // Connected — 3 zones: Disconnect | Switch | Send toggle (square checkbox)
+-                                                const float checkSide = rh - 4.0f;
+-                                                const float btnW = (rw - 8.0f - checkSide - 4.0f) * 0.5f;
+-                                                const float zone1End = rx + 2.0f + btnW;
+-                                                const float zone2End = zone1End + 2.0f + btnW;
+-                                                if(mousePos.x < zone1End)
+-                                                {
+-                                                        // Left = Disconnect
+-                                                        GameClient()->Client()->DummyDisconnect(d, nullptr);
+-                                                }
+-                                                else if(mousePos.x < zone2End)
+-                                                {
+-                                                        // Middle = Switch
+-                                                        if(g_Config.m_ClDummy != d)
+-                                                                g_Config.m_ClDummy = d;
+-                                                }
+-                                                else
+-                                                {
+-                                                        // Right = Send toggle
+-                                                        pTarget->expanded = !pTarget->expanded;
+-                                                        if(d >= 1 && d < 8)
+-                                                                m_aDummySendEnabled[d] = pTarget->expanded;
+-                                        }
+-                                }
+-                        }
+                                 return;
+                         }
+                         if(pTarget->type == ERowType::Expandable)
+@@ -4631,11 +4329,7 @@
+                                         else
+                                                 pTarget->value = raw;
+                                 }
+-                                if(str_comp(pTarget->pName, "Latency (ms)") == 0 && str_comp(row.pName, "Custom latency") == 0)
+-                                        g_Config.m_KxDummyHammerLatencyMs = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Latency (ms)") == 0 && str_comp(row.pName, "Copy Moves Latency") == 0)
+-                                        g_Config.m_KxCopyMovesLatency = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Ratio") == 0 && str_comp(row.pName, "Freedom Path") == 0)
++                                if(str_comp(pTarget->pName, "Ratio") == 0 && str_comp(row.pName, "Freedom Path") == 0)
+                                         g_Config.m_KxPfFreedomRatio = (int)(pTarget->value * 10.0f + 0.5f);
+                                 // v1.57: Pilot Bot sliders (UI -> config)
+                                 else if(str_comp(pTarget->pName, "Population") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
+@@ -4646,12 +4340,6 @@
+                                         g_Config.m_KxPfPilotTopK = (int)pTarget->value;
+                                 else if(str_comp(pTarget->pName, "Sequence Length") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
+                                         g_Config.m_KxPfPilotSequenceLength = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Max Distance") == 0 && str_comp(row.pName, "Auto fly") == 0)
+-                                        g_Config.m_KxDummyHammerAutoMaxDist = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Trigger radius") == 0 && str_comp(row.pName, "Auto Triple Fly") == 0)
+-                                        g_Config.m_KxTripleFlyTriggerRadius = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Radius") == 0 && str_comp(row.pName, "Auto Triple Fly") == 0)
+-                                        g_Config.m_KxTripleFlyRadius = (int)pTarget->value;
+                                 else if(str_comp(pTarget->pName, "Edge in ms") == 0 && str_comp(row.pName, "Edge bind") == 0)
+                                         g_Config.m_KxEdgeBindMs = (int)pTarget->value;
+                                 else if(str_comp(pTarget->pName, "Version ID") == 0)
+@@ -4916,10 +4604,6 @@
+                                         target.valueIdx = o;
+                                         if(str_comp(target.pName, "Aim mode") == 0)
+                                                 g_Config.m_KxDummyCopyAimMode = o;
+-                                        else if(str_comp(target.pName, "Dummy mode") == 0)
+-                                                g_Config.m_KxTripleFlyDummyMode = o;
+-                                        else if(str_comp(target.pName, "Target mode") == 0)
+-                                                g_Config.m_KxTripleFlyTargetMode = o;
+                                         // v1.56.111: Line rendering Component dropdown
+                                         else if(str_comp(target.pName, "Component") == 0)
+                                                 g_Config.m_KxLineComponent = o;
+@@ -5036,10 +4720,6 @@
+                                                         target.valueIdx = o;
+                                                         if(str_comp(target.pName, "Aim mode") == 0)
+                                                                 g_Config.m_KxDummyCopyAimMode = o;
+-                                                        else if(str_comp(target.pName, "Dummy mode") == 0)
+-                                                                g_Config.m_KxTripleFlyDummyMode = o;
+-                                                        else if(str_comp(target.pName, "Target mode") == 0)
+-                                                                g_Config.m_KxTripleFlyTargetMode = o;
+                                                         // v1.56.111: Line rendering Component dropdown
+                                                         else if(str_comp(target.pName, "Component") == 0)
+                                                                 g_Config.m_KxLineComponent = o;
+@@ -5643,10 +5323,6 @@
+         // Block children: string IDs.
+         else if(str_comp(pRow->pName, "Main ID") == 0)
+                 g_Config.m_KxMain = atoi(pRow->m_aInputBuf);
+-        else if(str_comp(pRow->pName, "Dummy ID") == 0)
+-                g_Config.m_KxTripleFlyDummyId = atoi(pRow->m_aInputBuf);
+-        else if(str_comp(pRow->pName, "Target IDs") == 0 && m_InputPanel >= 0 && m_InputPanel < NUM_PANELS && m_InputRow >= 0 && m_InputRow < g_Panels[m_InputPanel].rowCount && str_comp(g_Panels[m_InputPanel].pRows[m_InputRow].pName, "Auto Triple Fly") == 0)
+-                str_copy(g_Config.m_KxTripleFlyTargetIds, pRow->m_aInputBuf, sizeof(g_Config.m_KxTripleFlyTargetIds));
+         else if(str_comp(pRow->pName, "Target IDs") == 0)
+                 str_copy(GameClient()->m_BotNet.m_aTargetIDsStr, pRow->m_aInputBuf, sizeof(GameClient()->m_BotNet.m_aTargetIDsStr));
+         else if(str_comp(pRow->pName, "Rescue IDs") == 0)
+--- a/src/game/client/components/kinetix/clickgui.h
++++ b/src/game/client/components/kinetix/clickgui.h
+@@ -49,7 +49,7 @@
+         bool OnCursorMove(float x, float y, IInput::ECursorType CursorType) override;
+         bool OnTouchState(std::vector<IInput::CTouchFingerState> &vTouchFingerStates) override;
+ 
+-        static constexpr int NUM_PANELS = 8;
++        static constexpr int NUM_PANELS = 7;
+ 
+ private:
+         // Animation state: 0.0 = fully closed, 1.0 = fully open.
+@@ -103,7 +103,7 @@
+         // that slot. Default identity {0,1,2,3,4,5}. Dragging a panel over another
+         // panel's slot swaps them in this array; the swapped-out panel glides to
+         // the dragged panel's old slot. Slot positions come from SlotHomePos().
+-        int m_aPanelOrder[NUM_PANELS] = {0, 1, 2, 3, 4, 5, 6, 7};
++        int m_aPanelOrder[NUM_PANELS] = {0, 1, 2, 3, 4, 5, 6};
+ 
+         // v1.56.176: per-panel current rendered height (HEADER_HEIGHT + visible body).
+         // Updated each frame in RenderPanel. Used by SlotHomePos to stack the Info
+@@ -208,7 +208,7 @@
+                 unsigned signature = 0;
+         };
+         SLayoutCache m_aLayoutCache[NUM_PANELS];
+-        bool m_aLayoutCacheDirty[NUM_PANELS] = {true, true, true, true, true, true, true, true}; // v1.56.176: 8 panels
++        bool m_aLayoutCacheDirty[NUM_PANELS] = {true, true, true, true, true, true, true}; // 7 panels
+ 
+         // v1.56.90: Dummies Send toggle state (per-dummy, ClickGUI-local).
+         bool m_aDummySendEnabled[8] = {};
+--- a/src/game/client/gameclient.cpp
++++ b/src/game/client/gameclient.cpp
+@@ -672,108 +672,22 @@
+         }
+         else
+         {
+-                // Determine if auto-fly is active: dummy auto-hammers every tick when
+-                // the active player is within hammer radius.
+-                const bool autoFly = g_Config.m_KxDummyHammerAuto != 0;
+                 bool canHammerNow = true;
+-                if(autoFly)
+-                {
+-                        const int activeId = m_aLocalIds[g_Config.m_ClDummy];
+-                        if(activeId < 0)
+-                        {
+-                                canHammerNow = false;
+-                        }
+-                        else
+-                        {
+-                                // Use m_Predicted.m_Pos (server-accurate) instead of m_RenderPos
+-                                // (interpolated, lags 2-5 ticks). m_RenderPos caused spurious
+-                                // hammer fires when the dummy appeared in-range visually but had
+-                                // already moved out of range on the server. DDNet uses
+-                                // m_Predicted.m_Pos for the same reason.
+-                                const vec2 activePos = m_aClients[activeId].m_Predicted.m_Pos;
+-                                const vec2 dummyPos = m_aClients[m_aLocalIds[Conn]].m_Predicted.m_Pos;
+-
+-                                // v1.56.189: Configurable max distance (replaces hardcoded 50).
+-                                // Real DDNet hammer max reach center-to-center = ProjStartPos offset
+-                                // (PhysicalSize*0.75 = 21) + FindEntities radius (PhysicalSize*0.5 = 14)
+-                                // + target ProximityRadius (28) = 63. Slider max = 63 (v1.56.190).
+-                                const float maxDist = (float)g_Config.m_KxDummyHammerAutoMaxDist;
+-
+-                                // v1.56.189 (fixed v1.56.191): Predict — simulate next tick.
+-                                // m_Vel is in units/tick, so nextPos = curPos + m_Vel.
+-                                // BOTH active and dummy positions are predicted (v1.56.189 only
+-                                // predicted active, leaving dummy at current pos — wrong, since
+-                                // both move every tick). Now we check the distance between the
+-                                // two predicted positions, which is the actual next-tick distance.
+-                                vec2 activeTestPos = activePos;
+-                                vec2 dummyTestPos = dummyPos;
+-                                if(g_Config.m_KxDummyHammerAutoPredict)
+-                                {
+-                                        activeTestPos = activePos + m_aClients[activeId].m_Predicted.m_Vel;
+-                                        dummyTestPos = dummyPos + m_aClients[m_aLocalIds[Conn]].m_Predicted.m_Vel;
+-                                }
+-
+-                                const vec2 delta = activeTestPos - dummyTestPos;
+-                                const float distSq = delta.x * delta.x + delta.y * delta.y;
+-                                if(distSq > maxDist * maxDist)
+-                                        canHammerNow = false;
+-                        }
+-                        // Auto fly overrides custom latency — hammers every tick when in range.
+-                }
+-                else if(g_Config.m_KxDummyHammerCustomLatency)
+-                {
+-                        const int latencyTicks = std::max(1, (g_Config.m_KxDummyHammerLatencyMs + 19) / 20);
+-                        if(m_aDummyFire[Conn] % latencyTicks != 0)
+-                                canHammerNow = false;
+-                }
+-                else
+-                {
+-                        if(m_aDummyFire[Conn] % 25 != 0)
+-                                canHammerNow = false;
+-                }
+-
+-                // v1.56.188: Auto Fly — when dummy is out of hammer range, behave
+-                // as if cl_dummy_hammer is off: send normal dummy input so the user
+-                // can control the dummy (movement/jump/hook/weapon). Hammer input
+-                // (m_aHammerInput) and fire counter (m_aDummyFire) are NOT touched —
+-                // they stay ready for seamless resume when the dummy re-enters range.
+-                // Without this, dummy was stuck on hammer weapon with no user control
+-                // whenever autoFly was on, even when nowhere near the active player.
+-                if(autoFly && canHammerNow)
+-                {
+-                        const int FireDelayTicks = m_aTuning[Conn].GetWeaponFireDelay(WEAPON_HAMMER) * Client()->GameTickSpeed();
+-                        if(Client()->GameTick(g_Config.m_ClDummy) - m_aDummyLastFireTick[Conn] < FireDelayTicks)
+-                                canHammerNow = false;
+-                }
+-
+-                if(autoFly && !canHammerNow)
+-                {
+-                        if(!Force && (!m_aDummyInput[Conn].m_Direction && !m_aDummyInput[Conn].m_Jump && !m_aDummyInput[Conn].m_Hook))
+-                                return 0;
+-                        mem_copy(pData, &m_aDummyInput[Conn], sizeof(m_aDummyInput[Conn]));
+-                        return sizeof(m_aDummyInput[Conn]);
+-                }
++                // Vanilla DDNet hammer cadence: attempt a hammer hit every 25 ticks.
++                if(m_aDummyFire[Conn] % 25 != 0)
++                        canHammerNow = false;
+ 
+                 // Always send a fresh packet every tick (not just on hammer hits).
+-                // Without this, when KxDummyHammerKeepInputs is on, the server holds
++                // Without this, the server holds
+                 // the last sent hammer input (with stale direction/jump/hook) until
+                 // the next hammer hit — so dummy movement lags by up to 25 ticks
+-                // (default) or the full custom-latency interval. Fire parity ONLY
++                // (default). Fire parity ONLY
+                 // flips when we actually fire (canHammerNow); otherwise we keep the
+                 // same parity, which the server treats as "no change" (no new press,
+                 // no release) but still updates direction/jump/hook fields.
+                 m_aHammerInput[Conn].m_WantedWeapon = WEAPON_HAMMER + 1;
+                 if(!g_Config.m_ClDummyRestoreWeapon)
+                         m_aDummyInput[Conn].m_WantedWeapon = WEAPON_HAMMER + 1;
+-
+-                // Preserve inputs: when on, keep dummy's movement inputs (direction/jump/hook)
+-                // from m_aDummyInput EVERY tick. When off, hammer input fully overrides.
+-                if(g_Config.m_KxDummyHammerKeepInputs)
+-                {
+-                        m_aHammerInput[Conn].m_Direction = m_aDummyInput[Conn].m_Direction;
+-                        m_aHammerInput[Conn].m_Jump = m_aDummyInput[Conn].m_Jump;
+-                        m_aHammerInput[Conn].m_Hook = m_aDummyInput[Conn].m_Hook;
+-                }
+ 
+                 if(canHammerNow)
+                 {
+@@ -867,47 +781,11 @@
+ // * 7 dummies = 35000ms = 1750 ticks needed, 2200 gives a safety margin. Old
+ // entries past the back are pruned. The vector is treated as a ring (oldest
+ // first) — we search back-to-front because recent entries are at the end.
+-void CGameClient::RecordActiveInput(const CNetObj_PlayerInput &Input)
+-{
+-        const int CurTick = Client()->GameTick(g_Config.m_ClDummy);
+-        SInputHistoryEntry Entry;
+-        Entry.m_Tick = CurTick;
+-        Entry.m_Input = Input;
+-        m_ActiveInputHistory.push_back(Entry);
+-
+-        // Prune. Keep at most 2200 entries (~44s @ 50tps). Max needed depth:
+-        // KxCopyMovesLatency(5000ms) * MAX_DUMMIES(7) / tick_time(20ms) = 1750 ticks.
+-        constexpr size_t MAX_HISTORY = 2200;
+-        if(m_ActiveInputHistory.size() > MAX_HISTORY)
+-        {
+-                const size_t Excess = m_ActiveInputHistory.size() - MAX_HISTORY;
+-                m_ActiveInputHistory.erase(m_ActiveInputHistory.begin(), m_ActiveInputHistory.begin() + Excess);
+-        }
+-}
+ 
+ // Returns the most recent entry with tick <= (CurTick - DelayTicks), i.e. the
+ // input that was active `DelayTicks` ticks ago. If no entry is old enough,
+ // returns false (caller should fall back to live input — e.g. right after
+ // connect when the history is still filling).
+-bool CGameClient::GetDelayedActiveInput(int DelayTicks, CNetObj_PlayerInput &Out) const
+-{
+-        if(DelayTicks <= 0 || m_ActiveInputHistory.empty())
+-                return false;
+-
+-        const int CurTick = Client()->GameTick(g_Config.m_ClDummy);
+-        const int TargetTick = CurTick - DelayTicks;
+-
+-        // Search back-to-front — recent entries are at the end.
+-        for(auto it = m_ActiveInputHistory.rbegin(); it != m_ActiveInputHistory.rend(); ++it)
+-        {
+-                if(it->m_Tick <= TargetTick)
+-                {
+-                        Out = it->m_Input;
+-                        return true;
+-                }
+-        }
+-        return false;
+-}
+ 
+ void CGameClient::OnConnected()
+ {
+@@ -968,10 +846,6 @@
+ 
+         std::fill(std::begin(m_aLastPos), std::end(m_aLastPos), vec2(0.0f, 0.0f));
+         std::fill(std::begin(m_aLastActive), std::end(m_aLastActive), false);
+-
+-        // v1.56.186: clear Copy Moves Latency input history on reset (map change /
+-        // reconnect resets the tick counter, so old entries would be invalid).
+-        m_ActiveInputHistory.clear();
+ 
+         m_GameOver = false;
+         m_GamePaused = false;
+--- a/src/game/client/gameclient.h
++++ b/src/game/client/gameclient.h
+@@ -651,21 +651,6 @@
+         // so mirror/smart aim is replayed with the same delay as movement/fire.
+         void ApplyCopyMovesTransforms(int D, const CNetObj_PlayerInput &SrcInput);
+ 
+-        // v1.56.186: Copy Moves Latency — buffer of recent active-player inputs.
+-        // When kx_copy_moves_latency > 0, inactive dummies replay the active player's
+-        // input from N ticks ago (N = latency_ms * dummy_index / tick_time_ms).
+-        // Recording happens once per SnapInput; lookup is per-dummy.
+-        // GetDelayedActiveInput returns the entry with tick >= (current - delayTicks)
+-        // closest to that target — i.e. the most recent entry older than delayTicks.
+-        // Returns false if no suitable entry exists (caller should fall back to live).
+-        struct SInputHistoryEntry
+-        {
+-                int m_Tick; // game tick when entry was recorded
+-                CNetObj_PlayerInput m_Input;
+-        };
+-        std::vector<SInputHistoryEntry> m_ActiveInputHistory;
+-        void RecordActiveInput(const CNetObj_PlayerInput &Input);
+-        bool GetDelayedActiveInput(int DelayTicks, CNetObj_PlayerInput &Out) const;
+         void OnShutdown() override;
+         void OnEnterGame() override;
+         void OnRconType(bool UsernameReq) override;
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -2601,8 +2601,6 @@
+     components/kinetix/kinodynamic/kinodynamic.cpp
+     components/kinetix/kinodynamic/kinodynamic_render.cpp
+     components/kinetix/laser_unfreeze.cpp
+-    components/kinetix/fly_ride.cpp
+-    components/kinetix/triple_fly.cpp
+     components/kinetix/tas.cpp
+     components/kinetix/tas.h
+     components/kinetix/trajectory.cpp
+--- a/src/game/client/components/kinetix/fly_ride.cpp
++++ /dev/null
+@@ -1,228 +0,0 @@
+-#include <game/client/components/kinetix/kinetix.h>
+-#include <game/client/components/kinetix/kinetix_internal.h>
+-
+-#include <game/client/prediction/entities/character.h>
+-#include <game/client/prediction/gameworld.h>
+-
+-#include <base/vmath.h>
+-#include <base/math.h>
+-#include <engine/keys.h>
+-
+-// v1.56.151: Fly Ride
+-//
+-// Pilot = active dummy (g_Config.m_ClDummy). Dummy = nearest connected dummy.
+-// Anchor = pilot position at enable time; WASD moves it per-tick (1.0f / tick).
+-//
+-// Per-tick (50Hz):
+-//   W: anchor.y -= 1   (DDNet Y grows downward, so -= = up)
+-//   S: anchor.y += 1
+-//   A: anchor.x += 1   (note: inverted vs intuition — user spec)
+-//   D: anchor.x -= 1
+-//
+-// Per-frame (consumed by CControls::SnapInput):
+-//   X threshold: pilot.y < anchor.y → X=120 (up); pilot.y > anchor.y → X=80 (down); else X=65
+-//   direction: |pilot.x - anchor.x| <= 32 → 0; pilot.x < anchor.x → +1 (right); pilot.x > anchor.x → -1 (left)
+-//   auto fly (dist<=75): dummy hammer ON (aim at pilot)
+-//   hook+aim (dist<=X OR dist>275): pilot silent aim at dummy + hook=1
+-//   middle (X<dist<=275): hook=0, no aim
+-//
+-// Pilot direction/hook/jump override injected in CControls::SnapInput (block normal WASD).
+-
+-void CBotNet::UpdateFlyRide()
+-{
+-        CGameClient *pGame = GameClient();
+-        if(!pGame)
+-                return;
+-
+-        const bool enabled = g_Config.m_KxFlyRide != 0;
+-
+-        // Init on enable / cleanup on disable.
+-        if(enabled && !m_FlyRideWasActive)
+-        {
+-                // Just turned on — init anchor to pilot position.
+-                m_FlyRideAnchor = pGame->m_PredictedChar.m_Pos;
+-                m_FlyRideWasActive = true;
+-                m_FlyRideLastAnchorTick = -1;
+-                m_FlyRideTargetDummy = -1;
+-        }
+-        else if(!enabled && m_FlyRideWasActive)
+-        {
+-                // Just turned off — release hammer on target dummy.
+-                if(m_FlyRideTargetDummy >= 0 && m_FlyRideTargetDummy < MAX_DUMMIES)
+-                {
+-                        CNetObj_PlayerInput *pDummy = &pGame->m_aDummyInput[m_FlyRideTargetDummy];
+-                        if(pDummy->m_Fire & 1)
+-                                pDummy->m_Fire = (pDummy->m_Fire + 1) & ~1; // release
+-                        pGame->m_Controls.m_aInputData[m_FlyRideTargetDummy] = *pDummy;
+-                }
+-                m_FlyRideWasActive = false;
+-                m_FlyRideTargetDummy = -1;
+-                m_FlyRidePilotDir = 0;
+-                m_FlyRidePilotHook = 0;
+-                return;
+-        }
+-
+-        if(!enabled)
+-                return;
+-
+-        // Need a local character (pilot) to fly.
+-        if(!pGame->m_Snap.m_pLocalInfo)
+-                return;
+-
+-        const vec2 pilotPos = pGame->m_PredictedChar.m_Pos;
+-
+-        // ── Per-tick anchor update (WASD) ───────────────────────────────
+-        // Gate by GameTick (50Hz / TPS) — matches user spec "в цикле (секунда/TPS (50))".
+-        // KeyIsPressed = held state, so holding WASD produces 1.0f movement per tick.
+-        const int curTick = Client()->GameTick(g_Config.m_ClDummy);
+-        if(m_FlyRideLastAnchorTick != curTick)
+-        {
+-                m_FlyRideLastAnchorTick = curTick;
+-                // Raw key state (bind-agnostic — works even if user remapped W/A/S/D).
+-                if(Input()->KeyIsPressed(KEY_W))
+-                        m_FlyRideAnchor.y -= 8.0f;
+-                if(Input()->KeyIsPressed(KEY_S))
+-                        m_FlyRideAnchor.y += 8.0f;
+-                // A/D via logical bind state (touch-compatible: +left/+right fire
+-                // from touch buttons, physical KEY_A/KEY_D do not exist on phones).
+-                // W/S stay physical-key only (no movement-bind equivalent exists
+-                // for anchor up/down).
+-                if(pGame->m_Controls.m_aInputDirectionLeft[g_Config.m_ClDummy] != 0)
+-                        m_FlyRideAnchor.x -= 8.0f; // left
+-                if(pGame->m_Controls.m_aInputDirectionRight[g_Config.m_ClDummy] != 0)
+-                        m_FlyRideAnchor.x += 8.0f; // right
+-        }
+-
+-
+-        // ── Find nearest dummy ─────────────────────────────────────────────
+-        int nearestD = -1;
+-        float nearestDistSq = 1e18f;
+-        vec2 nearestDummyPos = pilotPos;
+-        const int activeD = g_Config.m_ClDummy;
+-
+-        for(int D = 0; D < MAX_DUMMIES; D++)
+-        {
+-                if(D == activeD)
+-                        continue; // skip pilot
+-                if(D != 0 && !Client()->DummyConnected(D))
+-                        continue; // skip disconnected
+-                const int cid = pGame->m_aLocalIds[D];
+-                if(cid < 0 || cid >= 128)
+-                        continue;
+-                if(!pGame->m_aClients[cid].m_Active)
+-                        continue;
+-
+-                const vec2 dPos = pGame->m_aClients[cid].m_Predicted.m_Pos;
+-                const float dsq = length_squared(dPos - pilotPos);
+-                if(dsq < nearestDistSq)
+-                {
+-                        nearestDistSq = dsq;
+-                        nearestD = D;
+-                        nearestDummyPos = dPos;
+-                }
+-        }
+-
+-        if(nearestD < 0)
+-        {
+-                // No dummy to fly — reset outputs, keep anchor.
+-                m_FlyRidePilotDir = 0;
+-                m_FlyRidePilotHook = 0;
+-                m_FlyRideTargetDummy = -1;
+-                return;
+-        }
+-
+-        m_FlyRideTargetDummy = nearestD;
+-
+-        // ── Compute X threshold (vertical) ─────────────────────────────────
+-        // ±32px deadzone around anchor.y → X=120 (default/hover).
+-        float X = 100.0f;
+-        const float dy = pilotPos.y - m_FlyRideAnchor.y;
+-        if(std::abs(dy) <= 32.0f)
+-                X = 100.0f; // pilot within deadzone → hover
+-        else if(pilotPos.y < m_FlyRideAnchor.y)
+-                X = 125.0f; // pilot above anchor → "need up"
+-        else
+-                X = 55.0f; // pilot below anchor → "need down"
+-
+-        // ── Compute direction (horizontal) ─────────────────────────────────
+-        int dir = 0;
+-        const float dx = pilotPos.x - m_FlyRideAnchor.x;
+-        if(std::abs(dx) <= 32.0f)
+-                dir = 0;
+-        else if(pilotPos.x < m_FlyRideAnchor.x)
+-                dir = 1; // pilot left of anchor → right
+-        else
+-                dir = -1; // pilot right of anchor → left
+-
+-        m_FlyRidePilotDir = dir;
+-
+-        // ── Set dummy direction (non-active dummy → via m_aDummyInput) ────
+-        SetDirection(pGame, nearestD, dir < 0, dir > 0);
+-
+-        // ── Compute distance pilot↔dummy ───────────────────────────────────
+-        const float dist = std::sqrt(nearestDistSq);
+-
+-        // ── Hammer/hook/aim logic (3 independent conditions) ──────────────
+-        // v1.56.153: auto fly zone (<=75px): pilot aim at dummy + dummy hammer.
+-        //            hook: separate threshold (X), independent of hammer.
+-        CNetObj_PlayerInput *pDummy = &pGame->m_aDummyInput[nearestD];
+-
+-        // Auto fly zone: dummy within 75px → dummy hammer ON (only hammer, no pilot aim).
+-        if(dist <= 70.0f)
+-        {
+-                // Dummy: hammer on — switch to hammer, aim at pilot, fire.
+-                pDummy->m_WantedWeapon = WEAPON_HAMMER + 1;
+-                const vec2 aim = pilotPos - nearestDummyPos;
+-                pDummy->m_TargetX = (int)aim.x;
+-                pDummy->m_TargetY = (int)aim.y;
+-                pDummy->m_Fire = (pDummy->m_Fire + 1) | 1; // press (parity flip, bit0=1)
+-        }
+-        else
+-        {
+-                // Outside auto fly zone — release hammer if was pressed.
+-                if(pDummy->m_Fire & 1)
+-                        pDummy->m_Fire = (pDummy->m_Fire + 1) & ~1; // release
+-        }
+-
+-        // Hook + aim: dist >= X → pilot aim at dummy + hook on. Else hook off.
+-        if(dist >= X)
+-        {
+-                // Pilot: silent aim at dummy (reuses laser-unfreeze channel — highest priority).
+-                pGame->m_Controls.m_LaserUnfreezeAimActive = true;
+-                pGame->m_Controls.m_LaserUnfreezeAimOffset = nearestDummyPos - pilotPos;
+-                m_FlyRidePilotHook = 1;
+-        }
+-        else
+-        {
+-                m_FlyRidePilotHook = 0;
+-        }
+-
+-        pDummy->m_Direction = dir;
+-        pGame->m_Controls.m_aInputData[nearestD] = *pDummy; // sync for prediction
+-}
+-
+-// v1.56.159: Render red semi-transparent tile at anchor position (debug visual).
+-// Tile size = 32px (one DDNet tile). Alpha = 0.5.
+-void CBotNet::RenderFlyRideAnchor()
+-{
+-        if(!g_Config.m_KxFlyRide)
+-                return;
+-
+-        CGameClient *pGame = GameClient();
+-        if(!pGame)
+-                return;
+-
+-        // Center the tile on anchor.
+-        const vec2 p = m_FlyRideAnchor;
+-        const float s = 16.0f; // half-tile (32px / 2)
+-
+-        pGame->Graphics()->TextureClear();
+-        pGame->Graphics()->BlendNormal();
+-        pGame->Graphics()->QuadsBegin();
+-        pGame->Graphics()->SetColor(1.0f, 0.0f, 0.0f, 0.5f); // red, 50% alpha
+-        IGraphics::CFreeformItem Quad(
+-                p.x - s, p.y - s, p.x + s, p.y - s,
+-                p.x - s, p.y + s, p.x + s, p.y + s);
+-        pGame->Graphics()->QuadsDrawFreeform(&Quad, 1);
+-        pGame->Graphics()->QuadsEnd();
+-}
+--- a/src/game/client/components/kinetix/triple_fly.cpp
++++ /dev/null
+@@ -1,386 +0,0 @@
+-#include <game/client/components/kinetix/kinetix.h>
+-#include <game/client/components/kinetix/kinetix_internal.h>
+-
+-#include <game/client/prediction/entities/character.h>
+-#include <game/client/prediction/gameworld.h>
+-
+-#include <base/vmath.h>
+-#include <base/math.h>
+-#include <stdlib.h>
+-
+-static void TripleFlyReleaseHook(CGameClient *pGame, int Dummy)
+-{
+-        if(!pGame || Dummy < 0 || Dummy >= MAX_DUMMIES)
+-                return;
+-        CNetObj_PlayerInput *pDummy = &pGame->m_aDummyInput[Dummy];
+-        if(pDummy->m_Hook)
+-        {
+-                pDummy->m_Hook = 0;
+-                pGame->m_Controls.m_aInputData[Dummy] = *pDummy;
+-        }
+-}
+-
+-constexpr int MAX_PREDICT_TICKS = 20;
+-
+-static vec2 TripleFlyPredictHookPos(CGameClient *pGame, int TargetCid, vec2 MyPos)
+-{
+-        const CTuningParams *pT = pGame->m_PredictedWorld.GlobalTuning();
+-        if(!pT || pT->m_HookFireSpeed <= 1.0f)
+-                return pGame->m_aClients[TargetCid].m_Predicted.m_Pos;
+-
+-        CGameWorld *pPredWorld = new CGameWorld;
+-        pPredWorld->CopyWorld(&pGame->m_PredictedWorld);
+-
+-        vec2 aPositions[MAX_CLIENTS][MAX_PREDICT_TICKS + 1];
+-        bool aValid[MAX_CLIENTS] = {};
+-        for(int c = 0; c < MAX_CLIENTS; c++)
+-        {
+-                if(CCharacter *pChar = pPredWorld->GetCharacterById(c))
+-                {
+-                        aPositions[c][0] = pChar->Core()->m_Pos;
+-                        aValid[c] = true;
+-                }
+-        }
+-
+-        const int startTick = pPredWorld->GameTick();
+-        for(int t = 1; t <= MAX_PREDICT_TICKS; t++)
+-        {
+-                for(int c = 0; c < MAX_CLIENTS; c++)
+-                {
+-                        CCharacter *pChar = pPredWorld->GetCharacterById(c);
+-                        if(!pChar)
+-                                continue;
+-                        CNetObj_PlayerInput inp = pChar->Core()->m_Input;
+-                        pChar->OnDirectInput(&inp);
+-                }
+-                pPredWorld->m_GameTick = startTick + t;
+-                for(int c = 0; c < MAX_CLIENTS; c++)
+-                {
+-                        CCharacter *pChar = pPredWorld->GetCharacterById(c);
+-                        if(!pChar)
+-                                continue;
+-                        CNetObj_PlayerInput inp = pChar->Core()->m_Input;
+-                        pChar->OnPredictedInput(&inp);
+-                }
+-                pPredWorld->Tick();
+-                for(int c = 0; c < MAX_CLIENTS; c++)
+-                {
+-                        if(CCharacter *pChar = pPredWorld->GetCharacterById(c))
+-                                aPositions[c][t] = pChar->Core()->m_Pos;
+-                        else
+-                                aValid[c] = false;
+-                }
+-        }
+-
+-        vec2 predictedPos = aPositions[TargetCid][0];
+-        if(aValid[TargetCid])
+-        {
+-                bool foundPrediction = false;
+-                float prevFlightTime = -1.0f;
+-                for(int t = 0; t <= MAX_PREDICT_TICKS; t++)
+-                {
+-                        float dist = length(aPositions[TargetCid][t] - MyPos);
+-                        if(dist < 1.0f)
+-                        {
+-                                predictedPos = aPositions[TargetCid][t];
+-                                foundPrediction = true;
+-                                break;
+-                        }
+-                        const float flightTime = dist / pT->m_HookFireSpeed;
+-                        if(flightTime <= (float)t)
+-                        {
+-                                if(t == 0 || prevFlightTime < 0.0f)
+-                                {
+-                                        predictedPos = aPositions[TargetCid][t];
+-                                }
+-                                else
+-                                {
+-                                        const float prevTick = (float)(t - 1);
+-                                        const float numerator = prevFlightTime - prevTick;
+-                                        const float denominator = 1.0f - (flightTime - prevFlightTime);
+-                                        float u;
+-                                        if(denominator > 0.001f)
+-                                                u = numerator / denominator;
+-                                        else
+-                                                u = 0.5f;
+-                                        if(u < 0.0f)
+-                                                u = 0.0f;
+-                                        if(u > 1.0f)
+-                                                u = 1.0f;
+-                                        predictedPos = mix(aPositions[TargetCid][t - 1], aPositions[TargetCid][t], u);
+-                                }
+-                                foundPrediction = true;
+-                                break;
+-                        }
+-                        prevFlightTime = flightTime;
+-                }
+-                if(!foundPrediction)
+-                        predictedPos = aPositions[TargetCid][MAX_PREDICT_TICKS];
+-        }
+-
+-        delete pPredWorld;
+-        return predictedPos;
+-}
+-
+-static bool TripleFlyHookPathClear(CGameClient *pGame, vec2 From, vec2 To, int SelfCid, int TargetCid)
+-{
+-        CGameWorld *pWorld = &pGame->m_PredictedWorld;
+-        vec2 NewPos = vec2(0, 0);
+-        CCharacter *pHit = pWorld->IntersectCharacter(From, To, CCharacterCore::PhysicalSize() * 0.5f, NewPos,
+-                pWorld->GetCharacterById(SelfCid));
+-        if(!pHit)
+-                return true;
+-        return pHit->GetCid() == TargetCid;
+-}
+-
+-void CBotNet::UpdateTripleFly()
+-{
+-        CGameClient *pGame = GameClient();
+-        if(!pGame)
+-                return;
+-
+-        const bool enabled = g_Config.m_KxTripleFly != 0;
+-        if(!enabled)
+-        {
+-                if(m_TripleFlyWasActive)
+-                {
+-                        TripleFlyReleaseHook(pGame, m_TripleFlyDummy);
+-                        m_TripleFlyWasActive = false;
+-                        m_TripleFlyDummy = -1;
+-                        m_TripleFlyHooking = false;
+-                }
+-                return;
+-        }
+-
+-        const bool copyMovesLeavesHookAim = g_Config.m_ClDummyCopyMoves != 0 &&
+-                                            g_Config.m_KxDummyCopyMovesFilter != 0;
+-        const bool hammerLeavesHook = g_Config.m_ClDummyHammer == 0 ||
+-                                      g_Config.m_KxDummyHammerAuto != 0;
+-        if(!hammerLeavesHook || g_Config.m_KxFlyRide != 0 ||
+-           g_Config.m_KxCopyMoves != 0 || g_Config.m_KxAttack != 0 ||
+-           (!copyMovesLeavesHookAim && g_Config.m_ClDummyCopyMoves != 0) ||
+-           g_Config.m_ClDummyControl != 0)
+-        {
+-                if(m_TripleFlyHooking)
+-                {
+-                        TripleFlyReleaseHook(pGame, m_TripleFlyDummy);
+-                        m_TripleFlyHooking = false;
+-                }
+-                return;
+-        }
+-
+-        if(!pGame->m_Snap.m_pLocalInfo)
+-                return;
+-
+-        const int activeD = g_Config.m_ClDummy;
+-        int actingD = -1;
+-        if(g_Config.m_KxTripleFlyDummyMode == 0)
+-        {
+-                const int activeCid = pGame->m_aLocalIds[activeD];
+-                if(activeCid < 0 || activeCid >= 128 || !pGame->m_aClients[activeCid].m_Active)
+-                {
+-                        if(m_TripleFlyHooking)
+-                        {
+-                                TripleFlyReleaseHook(pGame, m_TripleFlyDummy);
+-                                m_TripleFlyHooking = false;
+-                        }
+-                        return;
+-                }
+-                const vec2 activePos = pGame->m_aClients[activeCid].m_Predicted.m_Pos;
+-                float bestSq = 1e18f;
+-                for(int D = 0; D < MAX_DUMMIES; D++)
+-                {
+-                        if(D == activeD)
+-                                continue;
+-                        if(D != 0 && !Client()->DummyConnected(D))
+-                                continue;
+-                        const int cid = pGame->m_aLocalIds[D];
+-                        if(cid < 0 || cid >= 128 || !pGame->m_aClients[cid].m_Active)
+-                                continue;
+-                        const float dsq = length_squared(pGame->m_aClients[cid].m_Predicted.m_Pos - activePos);
+-                        if(dsq < bestSq)
+-                        {
+-                                bestSq = dsq;
+-                                actingD = D;
+-                        }
+-                }
+-        }
+-        else
+-        {
+-                const int wantD = g_Config.m_KxTripleFlyDummyId;
+-                if(wantD >= 0 && wantD < MAX_DUMMIES && wantD != activeD &&
+-                   (wantD == 0 || Client()->DummyConnected(wantD)))
+-                        actingD = wantD;
+-        }
+-
+-        if(actingD < 0 || m_aDummies[actingD].m_MacroPlaying || m_aDummies[actingD].m_PathfinderGoActive)
+-        {
+-                if(m_TripleFlyHooking)
+-                {
+-                        TripleFlyReleaseHook(pGame, m_TripleFlyDummy);
+-                        m_TripleFlyHooking = false;
+-                }
+-                return;
+-        }
+-
+-        if(m_TripleFlyHooking && m_TripleFlyDummy != actingD)
+-        {
+-                TripleFlyReleaseHook(pGame, m_TripleFlyDummy);
+-                m_TripleFlyHooking = false;
+-        }
+-
+-        const int actingCid = pGame->m_aLocalIds[actingD];
+-        if(actingCid < 0 || actingCid >= 128 || !pGame->m_aClients[actingCid].m_Active)
+-        {
+-                if(m_TripleFlyHooking)
+-                {
+-                        TripleFlyReleaseHook(pGame, actingD);
+-                        m_TripleFlyHooking = false;
+-                }
+-                return;
+-        }
+-        const vec2 actingPos = pGame->m_aClients[actingCid].m_Predicted.m_Pos;
+-
+-        if(g_Config.m_KxDummyHammerAuto != 0)
+-        {
+-                const int autoId = pGame->m_aLocalIds[activeD];
+-                bool canHammerNow = false;
+-                if(autoId >= 0 && autoId < 128 && pGame->m_aClients[autoId].m_Active)
+-                {
+-                        vec2 activeTestPos = pGame->m_aClients[autoId].m_Predicted.m_Pos;
+-                        vec2 dummyTestPos = actingPos;
+-                        if(g_Config.m_KxDummyHammerAutoPredict)
+-                        {
+-                                activeTestPos += pGame->m_aClients[autoId].m_Predicted.m_Vel;
+-                                dummyTestPos += pGame->m_aClients[actingCid].m_Predicted.m_Vel;
+-                        }
+-                        const vec2 delta = activeTestPos - dummyTestPos;
+-                        const float maxDist = (float)g_Config.m_KxDummyHammerAutoMaxDist;
+-                        if(length_squared(delta) <= maxDist * maxDist)
+-                                canHammerNow = true;
+-                }
+-                if(canHammerNow)
+-                {
+-                        const int FireDelayTicks = pGame->m_aTuning[actingD].GetWeaponFireDelay(WEAPON_HAMMER) * Client()->GameTickSpeed();
+-                        if(Client()->GameTick(g_Config.m_ClDummy) - pGame->m_aDummyLastFireTick[actingD] < FireDelayTicks)
+-                                canHammerNow = false;
+-                }
+-                if(canHammerNow)
+-                {
+-                        if(m_TripleFlyHooking)
+-                        {
+-                                TripleFlyReleaseHook(pGame, actingD);
+-                                m_TripleFlyHooking = false;
+-                        }
+-                        return;
+-                }
+-        }
+-
+-        int targetCid = -1;
+-        const int targetMode = g_Config.m_KxTripleFlyTargetMode;
+-        if(targetMode == 0 || targetMode == 1)
+-        {
+-                vec2 refPos = actingPos;
+-                if(targetMode == 1)
+-                {
+-                        const int activeCid = pGame->m_aLocalIds[activeD];
+-                        if(activeCid < 0 || activeCid >= 128 || !pGame->m_aClients[activeCid].m_Active)
+-                        {
+-                                if(m_TripleFlyHooking)
+-                                {
+-                                        TripleFlyReleaseHook(pGame, actingD);
+-                                        m_TripleFlyHooking = false;
+-                                }
+-                                return;
+-                        }
+-                        refPos = pGame->m_aClients[activeCid].m_Predicted.m_Pos + pGame->m_Controls.m_aMousePos[activeD];
+-                }
+-                float bestSq = 1e18f;
+-                for(int cid = 0; cid < 128; cid++)
+-                {
+-                        if(!pGame->m_aClients[cid].m_Active)
+-                                continue;
+-                        if(cid == actingCid || cid == pGame->m_aLocalIds[activeD])
+-                                continue;
+-                        const float dsq = length_squared(pGame->m_aClients[cid].m_Predicted.m_Pos - refPos);
+-                        if(dsq < bestSq)
+-                        {
+-                                bestSq = dsq;
+-                                targetCid = cid;
+-                        }
+-                }
+-        }
+-        else
+-        {
+-                const char *pIds = g_Config.m_KxTripleFlyTargetIds;
+-                while(*pIds)
+-                {
+-                        while(*pIds && (*pIds == ' ' || *pIds == ',' || *pIds == ';'))
+-                                pIds++;
+-                        if(!*pIds)
+-                                break;
+-                        if(*pIds < '0' || *pIds > '9')
+-                        {
+-                                while(*pIds && *pIds != ' ' && *pIds != ',' && *pIds != ';')
+-                                        pIds++;
+-                                continue;
+-                        }
+-                        const int id = atoi(pIds);
+-                        while(*pIds && *pIds != ' ' && *pIds != ',' && *pIds != ';')
+-                                pIds++;
+-                        if(id >= 0 && id < 128 && pGame->m_aClients[id].m_Active)
+-                        {
+-                                targetCid = id;
+-                                break;
+-                        }
+-                }
+-        }
+-
+-        if(targetCid < 0)
+-        {
+-                if(m_TripleFlyHooking)
+-                {
+-                        TripleFlyReleaseHook(pGame, actingD);
+-                        m_TripleFlyHooking = false;
+-                }
+-                return;
+-        }
+-
+-        const vec2 targetPos = pGame->m_aClients[targetCid].m_Predicted.m_Pos;
+-        const float dist = length(targetPos - actingPos);
+-
+-        if(!m_MapGridLoaded)
+-                LoadMapGrid();
+-
+-        if(dist > (float)g_Config.m_KxTripleFlyTriggerRadius ||
+-           (m_MapGridLoaded &&
+-            !HasLineOfSightTiles((int)(actingPos.y / 32.0f), (int)(actingPos.x / 32.0f),
+-                                 (int)(targetPos.y / 32.0f), (int)(targetPos.x / 32.0f))) ||
+-           !TripleFlyHookPathClear(pGame, actingPos, targetPos, actingCid, targetCid))
+-        {
+-                if(m_TripleFlyHooking)
+-                {
+-                        TripleFlyReleaseHook(pGame, actingD);
+-                        m_TripleFlyHooking = false;
+-                }
+-                return;
+-        }
+-
+-        CNetObj_PlayerInput *pDummy = &pGame->m_aDummyInput[actingD];
+-        if(dist > (float)g_Config.m_KxTripleFlyRadius)
+-        {
+-                const vec2 aim = TripleFlyPredictHookPos(pGame, targetCid, actingPos) - actingPos;
+-                pDummy->m_TargetX = (int)aim.x;
+-                pDummy->m_TargetY = (int)aim.y;
+-                pDummy->m_Hook = 1;
+-                m_TripleFlyHooking = true;
+-        }
+-        else
+-        {
+-                pDummy->m_Hook = 0;
+-                m_TripleFlyHooking = false;
+-        }
+-        pGame->m_Controls.m_aInputData[actingD] = *pDummy;
+-        m_TripleFlyWasActive = true;
+-        m_TripleFlyDummy = actingD;
+-}
