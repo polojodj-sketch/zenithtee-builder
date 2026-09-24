@@ -1,0 +1,12 @@
+--- a/scripts/android/cmake_android.sh
++++ b/scripts/android/cmake_android.sh
+@@ -277,6 +277,9 @@ cp -R ../ddnet-libs/sdl/java/org src/main/java/
+ echo "DEBUG: after cp2"
+ ls -laR src/main/java/ 2>&1 || true
+ echo "DEBUG: about to source build.sh"
++echo "DEBUG: ls build.sh: $(ls -la ./build.sh 2>&1 || echo 'NOT FOUND')"
++echo "DEBUG: ls ddnet: $(ls -laR src/main/java/org/ddnet/ 2>&1 || echo 'NOT FOUND')"
++echo "DEBUG: APK_PACKAGE_FOLDER should be org/zenith/client"
+ 
+ # shellcheck source=scripts/android/files/build.sh
+ source ./build.sh "$GAME_NAME" "$PACKAGE_NAME" "$BUILD_TYPE"
