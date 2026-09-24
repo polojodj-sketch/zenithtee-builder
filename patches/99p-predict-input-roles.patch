@@ -1,0 +1,38 @@
+--- a/src/game/client/gameclient.cpp
++++ b/src/game/client/gameclient.cpp
+@@ -3099,7 +3099,7 @@
+                         pLocalChar->m_CanMoveInFreeze = true;
+ 
+                 // apply inputs and tick - collect all inputs in CID order
+-                CNetObj_PlayerInput *pInputData = (CNetObj_PlayerInput *)Client()->GetInput(Tick, ActiveConn);
++                CNetObj_PlayerInput *pInputData = (CNetObj_PlayerInput *)Client()->GetInput(Tick, ActiveConn ^ g_Config.m_ClDummy);
+ 
+                 // Collect dummy input data
+                 // Use GetInput from the input buffer only. Do NOT fall back to
+@@ -3114,7 +3114,7 @@
+                                 continue;
+                         if(apDummyChars[D])
+                         {
+-                                apDummyInputData[D] = (CNetObj_PlayerInput *)Client()->GetInput(Tick, D);
++                                apDummyInputData[D] = (CNetObj_PlayerInput *)Client()->GetInput(Tick, D ^ g_Config.m_ClDummy);
+                         }
+                 }
+ 
+@@ -4069,7 +4069,7 @@
+         {
+                 for(int Tick = m_GameWorld.GameTick() + 1; Tick <= Client()->GameTick(g_Config.m_ClDummy); Tick++)
+                 {
+-                        CNetObj_PlayerInput *pInput = (CNetObj_PlayerInput *)Client()->GetInput(Tick, g_Config.m_ClDummy);
++                        CNetObj_PlayerInput *pInput = (CNetObj_PlayerInput *)Client()->GetInput(Tick, 0);
+                         // Collect dummy inputs for all connected dummies (including D=0 when not active)
+                         CNetObj_PlayerInput *apDummyInputs[MAX_DUMMIES] = {};
+                         for(int D = 0; D < MAX_DUMMIES; D++)
+@@ -4077,7 +4077,7 @@
+                                 if(D == g_Config.m_ClDummy)
+                                         continue;
+                                 if(apDummyChars[D])
+-                                        apDummyInputs[D] = (CNetObj_PlayerInput *)Client()->GetInput(Tick, D);
++                                        apDummyInputs[D] = (CNetObj_PlayerInput *)Client()->GetInput(Tick, D ^ g_Config.m_ClDummy);
+                         }
+ 
+                         // Sort all characters by CID for correct input processing order
