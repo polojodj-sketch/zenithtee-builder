@@ -1,0 +1,26 @@
+diff --git a/src/game/client/components/controls.cpp b/src/game/client/components/controls.cpp
+index 9f9ec70..e39b837 100644
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -371,6 +371,21 @@ int CControls::SnapInput(int *pData)
+ 		Send = Send || (GameClient()->m_Snap.m_pLocalCharacter && GameClient()->m_Snap.m_pLocalCharacter->m_Weapon == WEAPON_NINJA && (m_aInputData[g_Config.m_ClDummy].m_Direction || m_aInputData[g_Config.m_ClDummy].m_Jump || m_aInputData[g_Config.m_ClDummy].m_Hook));
+ 	}
+ 
++	// ── ZenithTee (kinetix): silent aim override ──────────────────────────
++	// AimBot / Laser Unfreeze / Avoid Freeze / Fly Ride write a relative aim
++	// vector into m_LaserUnfreezeAimOffset and raise m_LaserUnfreezeAimActive
++	// from their OnUpdate. They deliberately do NOT touch m_aMousePos so the
++	// visible crosshair stays put ("silent"). Here — right before the input is
++	// packed for the server — swap the outgoing m_TargetX/Y to that offset and
++	// consume the flag. Highest priority wins: avoid_freeze only claims the
++	// channel when no other subsystem already set it this tick.
++	if(m_LaserUnfreezeAimActive)
++	{
++		m_aInputData[g_Config.m_ClDummy].m_TargetX = (int)m_LaserUnfreezeAimOffset.x;
++		m_aInputData[g_Config.m_ClDummy].m_TargetY = (int)m_LaserUnfreezeAimOffset.y;
++		m_LaserUnfreezeAimActive = false;
++	}
++
+ 	// copy and return size
+ 	m_aLastData[g_Config.m_ClDummy] = m_aInputData[g_Config.m_ClDummy];
+ 
