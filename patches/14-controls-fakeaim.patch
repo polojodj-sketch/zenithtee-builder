@@ -1,0 +1,110 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -37,6 +37,9 @@
+ 	ResetInput(1);
+ 
+ 	std::fill(std::begin(m_aAmmoCount), std::end(m_aAmmoCount), 0);
++
++	// ZenithTee (kinetix): clear the fake-aim server line on reset.
++	m_FakeAimRenderActive = false;
+ 
+ 	m_LastSendTime = 0;
+ }
+@@ -371,6 +374,97 @@
+ 		Send = Send || (GameClient()->m_Snap.m_pLocalCharacter && GameClient()->m_Snap.m_pLocalCharacter->m_Weapon == WEAPON_NINJA && (m_aInputData[g_Config.m_ClDummy].m_Direction || m_aInputData[g_Config.m_ClDummy].m_Jump || m_aInputData[g_Config.m_ClDummy].m_Hook));
+ 	}
+ 
++	// ── ZenithTee (kinetix): Fake Aim spoof ───────────────────────────────
++	// kx_fake_aim sends a spoofed aim to the server while the visible
++	// crosshair (m_aMousePos) stays on the real aim. Modes (kx_fake_aim_mode):
++	// 0=Random 1=Robot 2=Spin 3=Lag 4=Chaos 5=Real (passthrough).
++	// Robot anchors on local fire-parity-flip / hook rising edge — detected
++	// here in the same call as the send (see fake_aim.cpp note).
++	// Silent aim (below) preempts Fake Aim for its tick so aimbot-type
++	// features keep sending the true aim they need to hit.
++	if(g_Config.m_KxFakeAim && g_Config.m_KxFakeAimMode != 5 && !m_LaserUnfreezeAimActive)
++	{
++		static vec2 s_RobotAnchor = vec2(0.0f, 0.0f);
++		static bool s_RobotInit = false;
++		static int s_PrevFire = 0;
++		static int s_PrevHook = 0;
++		static float s_LastRandomT = -1000.0f;
++		static vec2 s_RandomAim = vec2(200.0f, 0.0f);
++		static vec2 s_LagHeld = vec2(0.0f, 0.0f);
++		static bool s_LagInit = false;
++		static int s_LagCounter = 0;
++
++		const int FakeDummy = g_Config.m_ClDummy;
++		const vec2 Real((float)m_aInputData[FakeDummy].m_TargetX, (float)m_aInputData[FakeDummy].m_TargetY);
++		const int FakeMode = g_Config.m_KxFakeAimMode;
++		int FakeSpeed = g_Config.m_KxFakeAimSpeed;
++		if(FakeSpeed < 1)
++			FakeSpeed = 1;
++		if(FakeSpeed > 100)
++			FakeSpeed = 100;
++		float FakeDist = (float)g_Config.m_KxFakeAimDist;
++		if(FakeDist < 10.0f)
++			FakeDist = 10.0f;
++
++		vec2 Fake = Real;
++		if(FakeMode == 1)
++		{
++			// Robot: hold the real aim sampled at the last shot/hook edge.
++			if(!s_RobotInit)
++			{
++				s_RobotAnchor = Real;
++				s_RobotInit = true;
++			}
++			if(((m_aInputData[FakeDummy].m_Fire & 1) != (s_PrevFire & 1)) ||
++				(m_aInputData[FakeDummy].m_Hook != 0 && s_PrevHook == 0))
++				s_RobotAnchor = Real;
++			Fake = s_RobotAnchor;
++		}
++		else if(FakeMode == 2)
++		{
++			// Spin: constant rotation, frame-rate independent.
++			const float Angle = Client()->LocalTime() * (0.5f + (float)FakeSpeed / 100.0f * 6.0f);
++			Fake = vec2(cosf(Angle), sinf(Angle)) * FakeDist;
++		}
++		else if(FakeMode == 0 || FakeMode == 4)
++		{
++			// Random: new direction on an interval (higher Speed = more
++			// often); Chaos: new direction every call.
++			const float Now = Client()->LocalTime();
++			if(FakeMode == 4 || Now - s_LastRandomT >= 1.0f / (float)FakeSpeed)
++			{
++				s_LastRandomT = Now;
++				static unsigned s_Seed = 0x9E3779B9u;
++				s_Seed = s_Seed * 1664525u + 1013904223u;
++				const float Frac = (float)(s_Seed >> 8) * (1.0f / 16777216.0f);
++				const float RandAngle = Frac * 2.0f * (float)pi;
++				s_RandomAim = vec2(cosf(RandAngle), sinf(RandAngle)) * FakeDist;
++			}
++			Fake = s_RandomAim;
++		}
++		else if(FakeMode == 3)
++		{
++			// Lag: hold the real aim, refresh every Speed calls.
++			if(!s_LagInit || (s_LagCounter++ % FakeSpeed) == 0)
++			{
++				s_LagHeld = Real;
++				s_LagInit = true;
++			}
++			Fake = s_LagHeld;
++		}
++		s_PrevFire = m_aInputData[FakeDummy].m_Fire;
++		s_PrevHook = m_aInputData[FakeDummy].m_Hook;
++
++		m_aInputData[FakeDummy].m_TargetX = (int)Fake.x;
++		m_aInputData[FakeDummy].m_TargetY = (int)Fake.y;
++		m_FakeAimRenderActive = true;
++		m_FakeAimRenderOffset = Fake;
++	}
++	else
++	{
++		m_FakeAimRenderActive = false;
++	}
++
+ 	// ── ZenithTee (kinetix): silent aim override ──────────────────────────
+ 	// AimBot / Laser Unfreeze / Avoid Freeze / Fly Ride write a relative aim
+ 	// vector into m_LaserUnfreezeAimOffset and raise m_LaserUnfreezeAimActive
