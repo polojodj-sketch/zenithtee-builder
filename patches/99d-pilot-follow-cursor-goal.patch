@@ -1,0 +1,26 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -308,13 +308,16 @@
+         bool goalValid = false;
+         if(PilotMode == 1)
+         {
+-                // Follow cursor: aim the flow field at the local player's current
+-                // aim point (world coords). The crosshair is the steering target.
+-                const auto &TChar = pGame->m_Snap.m_aCharacters[LocalID];
+-                if(TChar.m_HasExtendedData)
+-                {
+-                        Goal.x = (float)TChar.m_ExtendedData.m_TargetX;
+-                        Goal.y = (float)TChar.m_ExtendedData.m_TargetY;
++                // Follow cursor: steer toward the PILOT's (active dummy) crosshair
++                // in world coords. NOTE: this used to read m_aCharacters[LocalID]
++                // (the driven dummy's OWN aim), pinning the goal onto the dummy
++                // itself — it "reached" the goal instantly and stood still forever.
++                // The pilot crosshair (m_aTargetPos, maintained client-side every
++                // render) is always available, unlike server extended data.
++                const int ActiveD = g_Config.m_ClDummy;
++                if(ActiveD >= 0 && ActiveD < NUM_DUMMIES)
++                {
++                        Goal = pGame->m_Controls.m_aTargetPos[ActiveD];
+                         goalValid = true;
+                 }
+         }
