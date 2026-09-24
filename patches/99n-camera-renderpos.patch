@@ -1,0 +1,11 @@
+--- a/src/game/client/components/camera.cpp
++++ b/src/game/client/components/camera.cpp
+@@ -343,7 +343,7 @@
+ 		if(GameClient()->m_Snap.m_SpecInfo.m_Active)
+ 			m_Center = GameClient()->m_Snap.m_SpecInfo.m_Position + m_aDyncamCurrentCameraOffset[g_Config.m_ClDummy];
+ 		else if(GameClient()->m_Tas.IsJoined() && !GameClient()->m_Tas.IsDead())
+-			m_Center = GameClient()->m_Tas.PlaygroundTeePos() + m_aDyncamCurrentCameraOffset[g_Config.m_ClDummy];
++			m_Center = GameClient()->m_Tas.PlaygroundTeeRenderPos() + m_aDyncamCurrentCameraOffset[g_Config.m_ClDummy];
+ 		else
+ 			m_Center = GameClient()->m_LocalCharacterPos + m_aDyncamCurrentCameraOffset[g_Config.m_ClDummy];
+ 	}
