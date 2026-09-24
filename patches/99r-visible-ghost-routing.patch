@@ -1,0 +1,41 @@
+--- a/src/game/client/components/kinetix/laser_unfreeze.cpp
++++ b/src/game/client/components/kinetix/laser_unfreeze.cpp
+@@ -308,12 +308,12 @@
+     }
+     else
+     {
+-        // Normal mode: set both m_aMousePos and m_TargetX/Y
+-        // TODO: remove ghost when show for me — visible crosshair moves to
+-        // laser bounce aim, but for a few frames the player's real angle
+-        // flickers through. Same issue as fake aim showForMe before
+-        // v1.56.135 sync.
+-        SetMousePos(pGame, g_Config.m_ClDummy, aimOffset);
++        // Normal mode: publish through the SnapInput visible-aim channel
++        // instead of poking m_aMousePos directly (same ghost fix as the
++        // aimbot: touch input and camera code overwrite m_aMousePos between
++        // OnUpdate and the send, flashing the real angle through).
++        pGame->m_Controls.m_VisibleAimActive = true;
++        pGame->m_Controls.m_VisibleAimOffset = aimOffset;
+     }
+ 
+     CNetObj_PlayerInput *pInput = &pGame->m_Controls.m_aInputData[g_Config.m_ClDummy];
+--- a/src/game/client/components/kinetix/avoid_freeze.cpp
++++ b/src/game/client/components/kinetix/avoid_freeze.cpp
+@@ -296,8 +296,15 @@
+ 			}
+ 			else
+ 			{
+-				// Visible: move the real crosshair via the shared helper.
+-				SetMousePos(pGame, g_Config.m_ClDummy, vec2((float)bestInput.m_TargetX, (float)bestInput.m_TargetY));
++				// Visible: apply directly — ApplyOverride already runs inside
++				// SnapInput right before packing, so no ghost window exists
++				// (unlike OnUpdate writers which must use the channel).
++				const vec2 avoAim(vec2((float)bestInput.m_TargetX, (float)bestInput.m_TargetY));
++				pGame->m_Controls.m_aMousePos[g_Config.m_ClDummy] = avoAim;
++				pInput->m_TargetX = (int)avoAim.x;
++				pInput->m_TargetY = (int)avoAim.y;
++				pGame->m_Controls.m_FakeAimRenderActive = true;
++				pGame->m_Controls.m_FakeAimRenderOffset = avoAim;
+ 			}
+ 		}
+ 	}
