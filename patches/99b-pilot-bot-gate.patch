@@ -1,0 +1,55 @@
+--- a/src/game/client/components/kinetix/kinetix.cpp
++++ b/src/game/client/components/kinetix/kinetix.cpp
+@@ -404,10 +404,12 @@
+         // Solution: skip the entire ProcessDummy loop when no botnet features are
+         // active. This makes the default dummy input pipeline byte-identical to DDNet.
+         // NOTE: must mirror CBotNet::IsDummyActive (dummy_management.cpp) — it
+-        // treats m_KxAtkPathfinder as an active feature. Omitting it here skips
+-        // ProcessDummy when ONLY "Pathfinder Enabled" is on, silently killing
+-        // the attack-pathfinder (process_dummy.cpp uses m_KxAtkPathfinder).
+-        bool anyBotnetFeature = g_Config.m_KxAttack || g_Config.m_KxCopyMoves || g_Config.m_KxRandomAim || g_Config.m_KxAtkPathfinder;
++        // treats m_KxAtkPathfinder and Pilot Bot follow modes (m_KxPfPilotMode
++        // >= 1) as active features. Omitting them here skips ProcessDummy when
++        // ONLY "Pathfinder Enabled" or Pilot follow is on, silently killing
++        // the attack-pathfinder (process_dummy.cpp uses m_KxAtkPathfinder) and
++        // the Pilot Bot (ProcessPilotBot). Mode 0 = off (see HandleNoFeatureIdle).
++        bool anyBotnetFeature = g_Config.m_KxAttack || g_Config.m_KxCopyMoves || g_Config.m_KxRandomAim || g_Config.m_KxAtkPathfinder || g_Config.m_KxPfPilotMode >= 1;
+         if(!anyBotnetFeature)
+         {
+                 for(int D = 0; D < MAX_DUMMIES; D++)
+--- a/src/game/client/components/kinetix/dummies/dummy_management.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_management.cpp
+@@ -3,7 +3,10 @@
+ 
+ bool CBotNet::IsDummyActive(int Dummy) const
+ {
+-        if(g_Config.m_KxAttack || g_Config.m_KxCopyMoves || g_Config.m_KxRandomAim || g_Config.m_KxAtkPathfinder)
++        // NOTE: must mirror the anyBotnetFeature gate in CBotNet::OnUpdate
++        // (kinetix.cpp) — Pilot Bot follow modes (1/2) steer dummies from
++        // ProcessDummy, so they count as active here too (mode 0 = off).
++        if(g_Config.m_KxAttack || g_Config.m_KxCopyMoves || g_Config.m_KxRandomAim || g_Config.m_KxAtkPathfinder || g_Config.m_KxPfPilotMode >= 1)
+                 return true;
+         if(Dummy >= 0 && Dummy < MAX_DUMMIES)
+         {
+--- a/src/game/client/components/kinetix/clickgui.cpp
++++ b/src/game/client/components/kinetix/clickgui.cpp
+@@ -441,7 +441,7 @@
+         {ERowType::Slider, "Ratio", nullptr, false, false, 0.1f, 10.0f, 0.1f, 1.0f, "x", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+ };
+ // v1.57: Pilot Bot — real-time navigation settings (KRX pilot-style).
+-static const char *const g_PilotModeOpts[] = {"Autonomous", "Follow cursor", "Follow player"};
++static const char *const g_PilotModeOpts[] = {"Off", "Follow cursor", "Follow player"};
+ static SRow g_PilotBotChildren[] = {
+         {ERowType::Dropdown, "Mode", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, g_PilotModeOpts, 3, 0, nullptr, 0},
+         {ERowType::Slider, "Population", nullptr, false, false, 1.0f, 1000.0f, 1.0f, 399.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+--- a/src/engine/shared/config_variables.h
++++ b/src/engine/shared/config_variables.h
+@@ -506,7 +506,7 @@
+ // then re-plan every kx_pf_pilot_sequence_length ticks with a hard CPU budget
+ // (kx_pf_pilot_cpu_ms) and emit input every tick. Follow modes aim the flow
+ // field at the cursor or a player instead of the finish tiles.
+-MACRO_CONFIG_INT(KxPfPilotMode, kx_pf_pilot_mode, 0, 0, 2, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Pilot Bot mode: 0=Autonomous (reach finish) 1=Follow cursor 2=Follow player")
++MACRO_CONFIG_INT(KxPfPilotMode, kx_pf_pilot_mode, 0, 0, 2, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Pilot Bot mode: 0=Off 1=Follow cursor 2=Follow player")
+ MACRO_CONFIG_INT(KxPfPilotPopulation, kx_pf_pilot_population, 399, 1, 1000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Pilot Bot: population size for the population search (more = smarter but heavier)")
+ MACRO_CONFIG_INT(KxPfPilotExplorationDepth, kx_pf_pilot_exploration_depth, 13, 1, 50, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Pilot Bot: exploration depth in ticks to simulate ahead per candidate")
+ MACRO_CONFIG_INT(KxPfPilotTopK, kx_pf_pilot_top_k, 22, 1, 128, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Pilot Bot: top-K candidates kept after each generation")
