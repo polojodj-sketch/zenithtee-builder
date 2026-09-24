@@ -1,0 +1,54 @@
+--- a/src/game/client/components/kinetix/zenith_ride.cpp
++++ b/src/game/client/components/kinetix/zenith_ride.cpp
+@@ -134,9 +134,12 @@
+         pDummy->m_TargetY = (int)aim.y;
+         pDummy->m_Hook = 1;
+ 
+-        // Dummy walks with the pilot's raw A/D keys (hook-ride steering).
+-        const bool left = Input()->KeyIsPressed(KEY_A);
+-        const bool right = Input()->KeyIsPressed(KEY_D);
++        // Dummy walks with the pilot's move input. NOTE: logical +left/+right
++        // bind state, NOT physical KEY_A/KEY_D — touch buttons execute binds
++        // without key events, so KeyIsPressed is always false on Android.
++        const int rideActiveD = g_Config.m_ClDummy;
++        const bool left = pGame->m_Controls.m_aInputDirectionLeft[rideActiveD] != 0;
++        const bool right = pGame->m_Controls.m_aInputDirectionRight[rideActiveD] != 0;
+         pDummy->m_Direction = right ? 1 : (left ? -1 : 0);
+         pGame->m_Controls.m_aInputData[dummy] = *pDummy;
+ }
+@@ -187,9 +190,11 @@
+ 
+         CNetObj_PlayerInput *pDummy = &pGame->m_aDummyInput[dummy];
+ 
+-        // Steer with the pilot's raw A/D keys.
+-        const bool left = Input()->KeyIsPressed(KEY_A);
+-        const bool right = Input()->KeyIsPressed(KEY_D);
++        // Steer with the pilot's move input (logical bind state — physical
++        // KEY_A/KEY_D never fire on touch screens, see HookRide note).
++        const int jetActiveD = g_Config.m_ClDummy;
++        const bool left = pGame->m_Controls.m_aInputDirectionLeft[jetActiveD] != 0;
++        const bool right = pGame->m_Controls.m_aInputDirectionRight[jetActiveD] != 0;
+         pDummy->m_Direction = right ? 1 : (left ? -1 : 0);
+ 
+         // Auto-jump when pilot is on/above the dummy (y grows downward in DDNet,
+--- a/src/game/client/components/kinetix/fly_ride.cpp
++++ b/src/game/client/components/kinetix/fly_ride.cpp
+@@ -83,10 +83,14 @@
+                         m_FlyRideAnchor.y -= 8.0f;
+                 if(Input()->KeyIsPressed(KEY_S))
+                         m_FlyRideAnchor.y += 8.0f;
+-                if(Input()->KeyIsPressed(KEY_A))
+-                        m_FlyRideAnchor.x -= 8.0f; // A = left
+-                if(Input()->KeyIsPressed(KEY_D))
+-                        m_FlyRideAnchor.x += 8.0f; // D = right
++                // A/D via logical bind state (touch-compatible: +left/+right fire
++                // from touch buttons, physical KEY_A/KEY_D do not exist on phones).
++                // W/S stay physical-key only (no movement-bind equivalent exists
++                // for anchor up/down).
++                if(pGame->m_Controls.m_aInputDirectionLeft[g_Config.m_ClDummy] != 0)
++                        m_FlyRideAnchor.x -= 8.0f; // left
++                if(pGame->m_Controls.m_aInputDirectionRight[g_Config.m_ClDummy] != 0)
++                        m_FlyRideAnchor.x += 8.0f; // right
+         }
+ 
+ 
