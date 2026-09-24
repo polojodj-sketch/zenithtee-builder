@@ -1,0 +1,79 @@
+--- a/src/game/client/components/controls.h
++++ b/src/game/client/components/controls.h
+@@ -40,6 +40,8 @@
+ 	// ZenithTee (kinetix): transient aim overrides consumed by SnapInput
+ 	bool m_LaserUnfreezeAimActive = false;
+ 	vec2 m_LaserUnfreezeAimOffset = vec2(0.0f, 0.0f);
++	bool m_VisibleAimActive = false;
++	vec2 m_VisibleAimOffset = vec2(0.0f, 0.0f);
+ 	bool m_FakeAimRenderActive = false;
+ 	vec2 m_FakeAimRenderOffset = vec2(0.0f, 0.0f);
+ 	int m_aInputDirectionLeft[NUM_DUMMIES];
+--- a/src/game/client/components/kinetix/aimbot.cpp
++++ b/src/game/client/components/kinetix/aimbot.cpp
+@@ -709,21 +709,22 @@
+         }
+         else
+         {
+-                // TODO: remove ghost when show for me — visible crosshair moves to
+-                // aimbot aim, but for a few frames the player's real angle flickers
+-                // through. Same issue as fake aim showForMe before v1.56.135 sync.
++                // Visible mode: publish through the SnapInput channel (controls.cpp)
++                // instead of writing m_aMousePos directly. Direct writes get
++                // overwritten by touch input / camera freeview save-restore before
++                // the send, so the real angle flickers through for a few frames
++                // (the "ghost"). The channel is consumed right before packing.
++                vec2 NewOffset = aimOffset;
+                 if(Settings.m_AimMode == AIMMODE_SMOOTH)
+                 {
+                         // Smooth mode: move the crosshair gradually — interpolate the current
+                         // aim offset toward the target aim point by m_Smooth per tick.
+                         float f = std::clamp(Settings.m_Smooth, 0.01f, 1.0f);
+                         vec2 cur = pGame->m_Controls.m_aMousePos[g_Config.m_ClDummy];
+-                        pGame->m_Controls.m_aMousePos[g_Config.m_ClDummy] = mix(cur, aimOffset, f);
+-                }
+-                else
+-                {
+-                        pGame->m_Controls.m_aMousePos[g_Config.m_ClDummy] = aimOffset;
+-                }
++                        NewOffset = mix(cur, aimOffset, f);
++                }
++                pGame->m_Controls.m_VisibleAimActive = true;
++                pGame->m_Controls.m_VisibleAimOffset = NewOffset;
+         }
+ }
+ 
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -382,7 +382,7 @@
+ 	// here in the same call as the send (see fake_aim.cpp note).
+ 	// Silent aim (below) preempts Fake Aim for its tick so aimbot-type
+ 	// features keep sending the true aim they need to hit.
+-	if(g_Config.m_KxFakeAim && g_Config.m_KxFakeAimMode != 5 && !m_LaserUnfreezeAimActive)
++	if(g_Config.m_KxFakeAim && g_Config.m_KxFakeAimMode != 5 && !m_LaserUnfreezeAimActive && !m_VisibleAimActive)
+ 	{
+ 		static vec2 s_RobotAnchor = vec2(0.0f, 0.0f);
+ 		static bool s_RobotInit = false;
+@@ -465,6 +465,22 @@
+ 		m_FakeAimRenderActive = false;
+ 	}
+ 
++	// ZenithTee (kinetix): visible aimbot aim. Visible (non-silent) AimBot
++	// publishes its aim from OnUpdate instead of poking m_aMousePos directly
++	// (touch input and camera freeview save/restore rewrite m_aMousePos before
++	// the send, flashing the real angle through — the "ghost"). Consuming the
++	// channel here pins m_aMousePos (crosshair/camera) and m_TargetX/Y (server)
++	// to the aimbot aim atomically. Silent aim (below) still wins if both set.
++	if(m_VisibleAimActive && !m_LaserUnfreezeAimActive)
++	{
++		m_aMousePos[g_Config.m_ClDummy] = m_VisibleAimOffset;
++		m_aInputData[g_Config.m_ClDummy].m_TargetX = (int)m_VisibleAimOffset.x;
++		m_aInputData[g_Config.m_ClDummy].m_TargetY = (int)m_VisibleAimOffset.y;
++		m_FakeAimRenderActive = true;
++		m_FakeAimRenderOffset = m_VisibleAimOffset;
++	}
++	m_VisibleAimActive = false;
++
+ 	// ── ZenithTee (kinetix): silent aim override ──────────────────────────
+ 	// AimBot / Laser Unfreeze / Avoid Freeze / Fly Ride write a relative aim
+ 	// vector into m_LaserUnfreezeAimOffset and raise m_LaserUnfreezeAimActive
