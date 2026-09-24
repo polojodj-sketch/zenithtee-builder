@@ -1,0 +1,26 @@
+--- a/src/game/client/components/kinetix/kinetix.cpp
++++ b/src/game/client/components/kinetix/kinetix.cpp
+@@ -356,6 +356,12 @@
+ 
+         UpdatePfTileEditor();
+ 
++        // TAS playground engine: record/pause cvar shadows, auto-step clock,
++        // auto-tiles. CTas is a plain member (not a registered component), so
++        // nothing ever called OnUpdate — recording toggles, auto-advance and
++        // auto-rewind were dead; only manual step buttons worked.
++        GameClient()->m_Tas.OnUpdate();
++
+         CGameClient *pGame = GameClient();
+         if(!pGame->m_Snap.m_pLocalInfo)
+                 return;
+@@ -459,6 +459,10 @@
+         // of g_Config.m_KxKinodynamic so the tab works even when kinodynamic A* is off.
+         RenderPfTileEditor();
+ 
++        // TAS playground visuals: path, sandbox tee (with Fake Aim masking),
++        // predicted events. Same missing-wire class as OnUpdate above.
++        GameClient()->m_Tas.OnRender();
++
+         if(m_PfState != PF_STATE_IDLE)
+                 RenderPathfinderPath();
+ 
