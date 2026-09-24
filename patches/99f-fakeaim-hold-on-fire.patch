@@ -1,0 +1,28 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -393,6 +393,7 @@
+ 		static vec2 s_LagHeld = vec2(0.0f, 0.0f);
+ 		static bool s_LagInit = false;
+ 		static int s_LagCounter = 0;
++		static float s_HoldUntil = -1000.0f;
+ 
+ 		const int FakeDummy = g_Config.m_ClDummy;
+ 		const vec2 Real((float)m_aInputData[FakeDummy].m_TargetX, (float)m_aInputData[FakeDummy].m_TargetY);
+@@ -407,7 +408,16 @@
+ 			FakeDist = 10.0f;
+ 
+ 		vec2 Fake = Real;
+-		if(FakeMode == 1)
++		// Hold the REAL aim for 1s after every hook/shot edge so hooks and
++		// shots land while spoofing (spin/random/chaos would otherwise deflect
++		// every shot). Same edges Robot anchors on; applies to all modes.
++		const float NowHold = Client()->LocalTime();
++		if(((m_aInputData[FakeDummy].m_Fire & 1) != (s_PrevFire & 1)) ||
++			(m_aInputData[FakeDummy].m_Hook != 0 && s_PrevHook == 0))
++			s_HoldUntil = NowHold + 1.0f;
++		if(NowHold < s_HoldUntil)
++			Fake = Real;
++		else if(FakeMode == 1)
+ 		{
+ 			// Robot: hold the real aim sampled at the last shot/hook edge.
+ 			if(!s_RobotInit)
