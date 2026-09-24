@@ -1,0 +1,29 @@
+--- a/src/game/client/components/camera.cpp
++++ b/src/game/client/components/camera.cpp
+@@ -342,6 +342,8 @@
+ 
+ 		if(GameClient()->m_Snap.m_SpecInfo.m_Active)
+ 			m_Center = GameClient()->m_Snap.m_SpecInfo.m_Position + m_aDyncamCurrentCameraOffset[g_Config.m_ClDummy];
++		else if(GameClient()->m_Tas.IsJoined() && !GameClient()->m_Tas.IsDead())
++			m_Center = GameClient()->m_Tas.PlaygroundTeePos() + m_aDyncamCurrentCameraOffset[g_Config.m_ClDummy];
+ 		else
+ 			m_Center = GameClient()->m_LocalCharacterPos + m_aDyncamCurrentCameraOffset[g_Config.m_ClDummy];
+ 	}
+--- a/src/game/client/gameclient.cpp
++++ b/src/game/client/gameclient.cpp
+@@ -651,6 +651,15 @@
+                 return 0;
+         if(m_aLocalIds[Conn] < 0)
+                 return 0;
++
++        // TAS playground joined: freeze server-side dummies too (the active
++        // slot is already zeroed above). Otherwise live keys leak to the
++        // second tee on the server while driving the sandbox tee.
++        if(m_Tas.IsJoined())
++        {
++                mem_zero(pData, sizeof(CNetObj_PlayerInput));
++                return sizeof(CNetObj_PlayerInput);
++        }
+ 
+         if(!g_Config.m_ClDummyHammer)
+         {
