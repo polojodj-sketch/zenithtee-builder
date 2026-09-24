@@ -1,0 +1,27 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -491,6 +491,24 @@
+ 	}
+ 	m_VisibleAimActive = false;
+ 
++	// ZenithTee (kinetix): Avoid Freeze bot. Its header mandates running here —
++	// at the very end of SnapInput, after the other manipulators — but nothing
++	// ever called ApplyOverride (same missing-consumer class as Fake Aim / TAS).
++	// It rewrites direction/jump/hook and takes the silent-aim channel (yielding
++	// to aimbot/laser via the BUG7 guard), so it must run BEFORE the silent
++	// consume below. Gated per game tick: SnapInput may run several times per
++	// tick (60+ fps vs 50 tps) and ApplyOverride copies + simulates the world.
++	if(g_Config.m_KxAvoidFreezeBot)
++	{
++		static int s_LastAvoidTick = -1;
++		const int CurAvoidTick = Client()->PredGameTick(g_Config.m_ClDummy);
++		if(CurAvoidTick != s_LastAvoidTick)
++		{
++			s_LastAvoidTick = CurAvoidTick;
++			GameClient()->m_AvoidFreeze.ApplyOverride();
++		}
++	}
++
+ 	// ── ZenithTee (kinetix): silent aim override ──────────────────────────
+ 	// AimBot / Laser Unfreeze / Avoid Freeze / Fly Ride write a relative aim
+ 	// vector into m_LaserUnfreezeAimOffset and raise m_LaserUnfreezeAimActive
