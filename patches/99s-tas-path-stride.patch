@@ -1,0 +1,68 @@
+--- a/src/game/client/components/kinetix/tas.cpp
++++ b/src/game/client/components/kinetix/tas.cpp
+@@ -374,6 +374,10 @@
+ 	const int TickCount = (int)vTicks.size();
+ 	if(TickCount == 0)
+ 		return;
++	// Perf: cap drawn path segments (~1000). Every segment is its own draw
++	// call, so long takes slideshow phones. Striding is visually identical
++	// on dense paths. Hook loops below stay unstrided (grab edges are sparse).
++	const int PathStride = (TickCount > 1000) ? (TickCount + 999) / 1000 : 1;
+ 
+ 	CGameClient *pGame = GameClient();
+ 	Graphics()->MapScreenToInterface(pGame->m_Camera.m_Center.x, pGame->m_Camera.m_Center.y, pGame->m_Camera.m_Zoom);
+@@ -395,9 +399,9 @@
+ 		if(LineSize > 0)
+ 		{
+ 			Graphics()->QuadsBegin();
+-			for(int i = 1; i < TickCount; i++)
++			for(int i = PathStride; i < TickCount; i += PathStride)
+ 			{
+-				const vec2 p0 = vTicks[i - 1].Core.m_Pos;
++				const vec2 p0 = vTicks[i - PathStride].Core.m_Pos;
+ 				const vec2 p1 = vTicks[i].Core.m_Pos;
+ 				vec2 Dir = p1 - p0;
+ 				const float Len = length(Dir);
+@@ -412,7 +416,7 @@
+ 					p1.x + Perp.x, p1.y + Perp.y);
+ 				if(g_Config.m_KxTasShowSpeed)
+ 				{
+-					float speed0 = (i > 1) ? distance(vTicks[i - 2].Core.m_Pos, vTicks[i - 1].Core.m_Pos) : distance(p0, p1);
++					float speed0 = (i > PathStride) ? distance(vTicks[i - PathStride - 1].Core.m_Pos, vTicks[i - PathStride].Core.m_Pos) : distance(p0, p1);
+ 					float speed1 = distance(p0, p1);
+ 					ColorRGBA c0 = fnSpeedColor(speed0);
+ 					ColorRGBA c1 = fnSpeedColor(speed1);
+@@ -424,7 +428,7 @@
+ 				}
+ 				else
+ 				{
+-					ColorRGBA segCol = ColorRGBA(KxLineColorAt(KX_LINE_TAS, i - 1), true);
++					ColorRGBA segCol = ColorRGBA(KxLineColorAt(KX_LINE_TAS, i - PathStride), true);
+ 					Graphics()->SetColor(segCol.r, segCol.g, segCol.b, Alpha);
+ 				}
+ 				Graphics()->QuadsDrawFreeform(&Quad, 1);
+@@ -434,20 +438,20 @@
+ 		else
+ 		{
+ 			Graphics()->LinesBegin();
+-			for(int i = 1; i < TickCount; i++)
++			for(int i = PathStride; i < TickCount; i += PathStride)
+ 			{
+ 				if(g_Config.m_KxTasShowSpeed)
+ 				{
+-					float speed = distance(vTicks[i - 1].Core.m_Pos, vTicks[i].Core.m_Pos);
++					float speed = distance(vTicks[i - PathStride].Core.m_Pos, vTicks[i].Core.m_Pos);
+ 					ColorRGBA c = fnSpeedColor(speed);
+ 					Graphics()->SetColor(c.r, c.g, c.b, Alpha);
+ 				}
+ 				else
+ 				{
+-					ColorRGBA segCol = ColorRGBA(KxLineColorAt(KX_LINE_TAS, i - 1), true);
++					ColorRGBA segCol = ColorRGBA(KxLineColorAt(KX_LINE_TAS, i - PathStride), true);
+ 					Graphics()->SetColor(segCol.r, segCol.g, segCol.b, Alpha);
+ 				}
+-				IGraphics::CLineItem Line(vTicks[i - 1].Core.m_Pos, vTicks[i].Core.m_Pos);
++				IGraphics::CLineItem Line(vTicks[i - PathStride].Core.m_Pos, vTicks[i].Core.m_Pos);
+ 				Graphics()->LinesDraw(&Line, 1);
+ 			}
+ 			Graphics()->LinesEnd();
