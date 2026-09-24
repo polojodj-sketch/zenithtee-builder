@@ -1,0 +1,29 @@
+--- a/src/game/client/components/kinetix/aimbot.cpp
++++ b/src/game/client/components/kinetix/aimbot.cpp
+@@ -529,10 +529,22 @@
+                         continue;
+                 if(!PassesFilters(i, LocalId, Settings))
+                         continue;
+-                vec2 prevPos = vec2((float)pGame->m_Snap.m_aCharacters[i].m_Prev.m_X, (float)pGame->m_Snap.m_aCharacters[i].m_Prev.m_Y);
+-                vec2 curPos = vec2((float)pGame->m_Snap.m_aCharacters[i].m_Cur.m_X, (float)pGame->m_Snap.m_aCharacters[i].m_Cur.m_Y);
+-                float intra = pGame->Client()->IntraGameTick(g_Config.m_ClDummy);
+-                vec2 targetCenter = mix(prevPos, curPos, intra);
++                // Prefer the predicted position: snapshot mix() is where the target
++                // WAS on the server 1-2 ticks ago (+render smoothing), so instant
++                // weapons (hammer/shotgun/laser) aimed from the predicted self at a
++                // snapshot target systematically miss movers. m_aClients[].m_Predicted
++                // is refreshed from the predicted world every prediction tick (same
++                // source the dummy-hammer aim uses instead of laggy m_RenderPos).
++                vec2 targetCenter;
++                if(CCharacter *pPredTarget = pGame->m_PredictedWorld.GetCharacterById(i))
++                        targetCenter = pPredTarget->Core()->m_Pos;
++                else
++                {
++                        vec2 prevPos = vec2((float)pGame->m_Snap.m_aCharacters[i].m_Prev.m_X, (float)pGame->m_Snap.m_aCharacters[i].m_Prev.m_Y);
++                        vec2 curPos = vec2((float)pGame->m_Snap.m_aCharacters[i].m_Cur.m_X, (float)pGame->m_Snap.m_aCharacters[i].m_Cur.m_Y);
++                        float intra = pGame->Client()->IntraGameTick(g_Config.m_ClDummy);
++                        targetCenter = mix(prevPos, curPos, intra);
++                }
+                 // v1.56.194: Real Predict — replace targetCenter with the predicted
+                 // position where the projectile will intersect the target. Walks the
+                 // pre-rolled position table forward one tick at a time.
