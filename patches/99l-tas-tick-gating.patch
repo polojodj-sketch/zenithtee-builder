@@ -1,0 +1,33 @@
+--- a/src/game/client/components/kinetix/tas.cpp
++++ b/src/game/client/components/kinetix/tas.cpp
+@@ -1036,6 +1036,30 @@
+ {
+ 	if(!m_RealPlaying || !pInput)
+ 		return false;
++	// Consume one recorded tick per GAME tick, not per send: the client sends
++	// input every frame (60+ fps) while the server ticks at 50 Hz, so naive
++	// per-call consume fast-forwards and desyncs the replay. Re-sends within
++	// the same game tick repeat the current recorded input verbatim (fire
++	// counter already rebased, no advance).
++	const int CurPredTick = Client()->PredGameTick(g_Config.m_ClDummy);
++	static int s_LastRealTick = -1;
++	if(CurPredTick == s_LastRealTick && m_RealIdx > 0 && !m_vSaved.empty())
++	{
++		// Same game tick re-sent: repeat verbatim (clamped to the last tick
++		// when the replay just finished this tick, so a duplicate send can
++		// never inject live input over the recorded take).
++		const int ri = std::min(m_RealIdx, (int)m_vSaved.size() - 1);
++		const CTasTick &TCur = m_vSaved[ri];
++		pInput->m_Direction = TCur.Input.m_Direction;
++		pInput->m_Jump = TCur.Input.m_Jump;
++		pInput->m_Hook = TCur.Input.m_Hook;
++		pInput->m_TargetX = TCur.Input.m_TargetX;
++		pInput->m_TargetY = TCur.Input.m_TargetY;
++		pInput->m_WantedWeapon = TCur.Input.m_WantedWeapon;
++		pInput->m_Fire = m_RealFire;
++		return true;
++	}
++	s_LastRealTick = CurPredTick;
+ 	if(m_RealIdx >= (int)m_vSaved.size())
+ 	{
+ 		m_RealPlaying = false;
