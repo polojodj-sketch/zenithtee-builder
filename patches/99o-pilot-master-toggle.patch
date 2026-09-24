@@ -1,0 +1,36 @@
+--- a/src/game/client/components/kinetix/clickgui.cpp
++++ b/src/game/client/components/kinetix/clickgui.cpp
+@@ -2123,6 +2123,10 @@
+                                         row.on = g_Config.m_KxJetRide != 0;
+                                 else if(str_comp(row.pName, "Mirror") == 0)
+                                         row.on = g_Config.m_KxBalanceBotMirror != 0;
++                                // Pilot Bot expandable doubles as master toggle (like AimBot/IRC):
++                                // header reflects whether any follow mode is active.
++                                else if(str_comp(row.pName, "Pilot Bot") == 0)
++                                        row.on = g_Config.m_KxPfPilotMode != 0;
+                                 else if(str_comp(row.pName, "Jump delay") == 0)
+                                         row.value = (float)g_Config.m_KxJetRideDelay;
+                                 // Pathfinder top-level sliders/toggles
+--- a/src/game/client/components/kinetix/clickgui.cpp
++++ b/src/game/client/components/kinetix/clickgui.cpp
+@@ -3878,6 +3878,10 @@
+                                                 g_Config.m_KxAimBot = pTarget->on;
+                                         else if(str_comp(pTarget->pName, "TriggerBot") == 0)
+                                                 g_Config.m_KxTriggerBot = pTarget->on;
++                                        // Pilot Bot expandable master toggle: header ON = Follow
++                                        // player, OFF = disabled. Finer choice via Mode dropdown.
++                                        else if(str_comp(pTarget->pName, "Pilot Bot") == 0)
++                                                g_Config.m_KxPfPilotMode = pTarget->on ? 2 : 0;
+                                         // v1.56.83: AimBot per-weapon child toggles (parent = "AimBot")
+                                         else if(str_comp(row.pName, "AimBot") == 0)
+                                         {
+--- a/src/game/client/components/kinetix/zenith_hud.cpp
++++ b/src/game/client/components/kinetix/zenith_hud.cpp
+@@ -126,6 +126,7 @@
+ 	KX_ADD_IF("Avoid Freeze", g_Config.m_KxAvoidFreezeBot)
+ 	KX_ADD_IF("Laser Unfreeze", g_Config.m_KxLaserUnfreeze)
+ 	KX_ADD_IF("Copy Moves", g_Config.m_KxCopyMoves)
++	KX_ADD_IF("Pilot Bot", g_Config.m_KxPfPilotMode != 0)
+ 	KX_ADD_IF("Attack Bot", g_Config.m_KxAttack)
+ 	KX_ADD_IF("Zoom Hack", g_Config.m_KxZoomHack)
+ 	KX_ADD_IF("Spectator list", g_Config.m_KxSpectatorList)
