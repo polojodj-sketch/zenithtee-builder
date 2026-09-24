@@ -1,7 +1,5 @@
-diff --git a/scripts/android/files/build.sh b/scripts/android/files/build.sh
-index 321b1c87..08511864 100644
---- a/scripts/android/files/build.sh
-+++ b/scripts/android/files/build.sh
+--- a/scripts/android/files/build.sh	2026-09-24 11:53:32.424998787 +0300
++++ b/scripts/android/files/build.sh	2026-09-24 11:53:32.732998787 +0300
 @@ -1,5 +1,6 @@
  #!/bin/bash
  
@@ -9,7 +7,7 @@ index 321b1c87..08511864 100644
  COLOR_RED="\e[1;31m"
  COLOR_RESET="\e[0m"
  
-@@ -58,7 +59,9 @@ sed -i "s/\"DDNet\"/\"${APK_BASENAME}\"/g" src/main/AndroidManifest.xml
+@@ -58,7 +59,9 @@
  sed -i "s/org.ddnet.client/${APK_PACKAGE_NAME}/g" src/main/AndroidManifest.xml
  
  if [ "${APK_PACKAGE_FOLDER}" != "org/ddnet/client" ]; then
