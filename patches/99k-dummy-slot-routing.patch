@@ -1,0 +1,41 @@
+--- a/src/game/client/gameclient.cpp
++++ b/src/game/client/gameclient.cpp
+@@ -625,7 +625,12 @@
+ 
+ int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
+ {
+-        const int Conn = Dummy ? 1 : 0;
++        // Slot (connection) index, NOT the loop role: Dummy==0 means "active
++        // slot" (i == ClDummy) and Dummy==1 means "inactive slot". The old
++        // `Dummy ? 1 : 0` assumed ClDummy==0, so after switching to the dummy
++        // both inputs were routed to the wrong tee (dummy frozen on stale
++        // input, main walking alone on live input).
++        const int Conn = g_Config.m_ClDummy ^ Dummy;
+         if(Conn == g_Config.m_ClDummy)
+         {
+                 // TAS fake world: the keyboard belongs to the fake tee. Run
+@@ -2438,6 +2443,24 @@
+                         m_Controls.OnPlayerDeath();
+                 }
+         }
++        // Kinetix: resolve the dummy's client id immediately instead of waiting
++        // for the first dummy switch. Upstream only assigns m_aLocalIds[ClDummy]
++        // from the active connection's snapshot, so a never-driven dummy keeps
++        // id -1 and every id-gated path (send, pilot, attack, hammer aim,
++        // prediction) silently skips it. Match by dummy name in this snapshot
++        // (excluding our own id); once driven, the snapshot itself refreshes it.
++        if(Client()->DummyConnected() && m_aLocalIds[1] < 0)
++        {
++                for(int i = 0; i < MAX_CLIENTS; i++)
++                {
++                        if(i != m_Snap.m_LocalClientId && m_Snap.m_apPlayerInfos[i] &&
++                                str_comp(m_aClients[i].m_aName, Client()->DummyName()) == 0)
++                        {
++                                m_aLocalIds[1] = i;
++                                break;
++                        }
++                }
++        }
+         if(Client()->State() == IClient::STATE_DEMOPLAYBACK)
+         {
+                 if(m_Snap.m_LocalClientId == -1 && m_DemoSpecId == SPEC_FOLLOW)
