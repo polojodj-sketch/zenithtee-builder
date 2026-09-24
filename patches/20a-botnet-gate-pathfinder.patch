@@ -1,0 +1,15 @@
+--- a/src/game/client/components/kinetix/kinetix.cpp
++++ b/src/game/client/components/kinetix/kinetix.cpp
+@@ -403,7 +403,11 @@
+         //
+         // Solution: skip the entire ProcessDummy loop when no botnet features are
+         // active. This makes the default dummy input pipeline byte-identical to DDNet.
+-        bool anyBotnetFeature = g_Config.m_KxAttack || g_Config.m_KxCopyMoves || g_Config.m_KxRandomAim;
++        // NOTE: must mirror CBotNet::IsDummyActive (dummy_management.cpp) — it
++        // treats m_KxAtkPathfinder as an active feature. Omitting it here skips
++        // ProcessDummy when ONLY "Pathfinder Enabled" is on, silently killing
++        // the attack-pathfinder (process_dummy.cpp uses m_KxAtkPathfinder).
++        bool anyBotnetFeature = g_Config.m_KxAttack || g_Config.m_KxCopyMoves || g_Config.m_KxRandomAim || g_Config.m_KxAtkPathfinder;
+         if(!anyBotnetFeature)
+         {
+                 for(int D = 0; D < MAX_DUMMIES; D++)
