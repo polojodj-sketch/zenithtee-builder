@@ -11,20 +11,3 @@
  		-DVIDEORECORDER=OFF
  	(
  		cd "${BUILD_FOLDER}/$ANDROID_SUB_BUILD_DIR/$1"
-@@ -267,8 +269,16 @@ python3 "${SCRIPT_DIR}/generate_asset_integrity_index.py"
- log_info "Preparing gradle build..."
- rm -rf src/main/java/org
- mkdir -p src/main/java
-+echo "DEBUG: before cp1"
-+ls -la src/main/java/ 2>&1 || echo "src/main/java NOT FOUND"
- cp -R ../scripts/android/files/java/org src/main/java/
-+echo "DEBUG: after cp1"
-+ls -laR src/main/java/ 2>&1 || true
- cp -R ../ddnet-libs/sdl/java/org src/main/java/
-+echo "DEBUG: after cp2"
-+ls -laR src/main/java/ 2>&1 || true
-+echo "DEBUG: about to source build.sh"
-+
- # shellcheck source=scripts/android/files/build.sh
- source ./build.sh "$GAME_NAME" "$PACKAGE_NAME" "$BUILD_TYPE"
- cd ..
