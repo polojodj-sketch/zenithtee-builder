@@ -1,0 +1,18 @@
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -564,11 +564,13 @@
+ 	{
+ 		float tx = wx + t * tabW;
+ 		bool active = (t == m_ZenTab);
+-		DrawText(tx + Z_PAD, wy + headerH + 11.0f, 16.0f, s_ZenTabs[t], ZCol(active ? Z_COL_TAB_ON : Z_COL_TAB, alpha));
++		const float tw = TextRender()->TextWidth(14.0f, s_ZenTabs[t]);
++		DrawText(tx + (tabW - tw) * 0.5f, wy + headerH + 11.0f, 14.0f, s_ZenTabs[t], ZCol(active ? Z_COL_TAB_ON : Z_COL_TAB, alpha));
+ 		if(active)
+ 		{
++			const float ux = tx + (tabW - tw) * 0.5f - 6.0f;
+ 			Graphics()->LinesBegin();
+-			const IGraphics::CLineItem uline(tx + Z_PAD, wy + headerH + Z_TABSH - 3.0f, tx + tabW - Z_PAD, wy + headerH + Z_TABSH - 3.0f);
++			const IGraphics::CLineItem uline(ux, wy + headerH + Z_TABSH - 3.0f, ux + tw + 12.0f, wy + headerH + Z_TABSH - 3.0f);
+ 			ColorRGBA acol((unsigned)m_AccentColorRGBA, true);
+ 			acol.a *= alpha;
+ 			Graphics()->SetColor(acol.r, acol.g, acol.b, acol.a);
