@@ -1,0 +1,216 @@
+--- a/src/game/client/components/kinetix/clickgui.h
++++ b/src/game/client/components/kinetix/clickgui.h
+@@ -194,6 +194,7 @@
+         bool m_ZenDownMoved = false;
+         vec2 m_ZenDownPos = vec2(0, 0);
+         int m_ZenDownIdx = -1;
++        int m_ZenTab = 0;
+         bool m_ZenTouchDown = false;
+         vec2 m_ZenTouchPos = vec2(0, 0);
+         vec2 m_ZenHitPos = vec2(0, 0);
+@@ -389,6 +390,7 @@
+         void ZenRowRect(ZenRow &row, int depth, float wx, float y, float ww, float h, float &rx, float &ry, float &rw, float &rh);
+         void ZenDrawRow(ZenRow &row, int depth, float rx, float ry, float rw, float rh, float alpha);
+         void ZenHitRow(ZenRow &row, int depth, float rx, float ry, float rw, float rh, int flatIdx);
++        ZenRow *ZenRowByFlat(int flatIdx);
+         float ZenWalk(float wx, float wy, float ww, float headerH, float scroll, float bodyH, bool draw, float alpha);
+         void ZenRender(float alpha);
+         bool ZenDown(vec2 pos);
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -13,6 +13,17 @@
+ namespace {
+ 
+ static const char *s_PilotModes[] = {"Off", "Follow cursor", "Follow player", "Autonomous"};
++static const char *s_FakeAimModeOpts[] = {"Random", "Robot", "Spin", "Lag", "Chaos", "Real"};
++static bool s_FakeOpen = true;
++static bool s_LaserOpen = true;
++static ZenRow s_FakeKids[] = {
++	{ZEN_CYCLE, "Mode", nullptr, 0, s_FakeAimModeOpts, 6, &g_Config.m_KxFakeAimMode, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Speed", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxFakeAimSpeed, 1, 100, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Distance", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxFakeAimDist, 10, 1000, 10, "px", 0, nullptr, 0, nullptr},
++};
++static ZenRow s_LaserKids[] = {
++	{ZEN_TOGGLE, "Silent", &g_Config.m_KxLaserUnfreezeSilent, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++};
+ static bool s_PilotOpen = true;
+ static bool s_BalOpen = true;
+ static bool s_AvoidOpen = true;
+@@ -46,21 +57,31 @@
+ 	{ZEN_TOGGLE, "AimBot", &g_Config.m_KxAimBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "TriggerBot", &g_Config.m_KxTriggerBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Copy Moves", &g_Config.m_KxCopyMoves, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_EXPAND, "Fake Aim", &g_Config.m_KxFakeAim, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_FakeKids, 3, &s_FakeOpen},
++	{ZEN_EXPAND, "Laser", &g_Config.m_KxLaserUnfreeze, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_LaserKids, 1, &s_LaserOpen},
++	{ZEN_TOGGLE, "ESP", &g_Config.m_KxEsp, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Connect Dummy", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Switch", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 1, nullptr, 0, nullptr},
+ };
+ static const int s_ZenRowCount = sizeof(s_ZenRows) / sizeof(s_ZenRows[0]);
+-
+-// Light theme.
+-static const unsigned Z_COL_BG = 0xfff4f5f7;
+-static const unsigned Z_COL_TEXT = 0xff16191d;
+-static const unsigned Z_COL_DIM = 0xff6b7280;
+-static const unsigned Z_COL_TRACK = 0xffd7dbe0;
++// Tab per top-level row: 0=Bots 1=Combat 2=Avoid 3=Visuals.
++static const int s_ZenRowTabs[] = {0, 0, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 3, 0, 0};
++static const char *s_ZenTabs[] = {"Bots", "Combat", "Avoid", "Visuals"};
++static const int s_ZenTabCount = 4;
++
++// Dark glass theme (translucency fakes blur; the renderer has no blur pass).
++static const unsigned Z_COL_BG = 0xe8181c22;
++static const unsigned Z_COL_TEXT = 0xffe8eaf0;
++static const unsigned Z_COL_DIM = 0xff9aa0ab;
++static const unsigned Z_COL_TRACK = 0xff3a3f47;
++static const unsigned Z_COL_TAB = 0xff8b93a1;
++static const unsigned Z_COL_TAB_ON = 0xffffffff;
+ 
+ static constexpr float Z_ROWH = 50.0f;
+ static constexpr float Z_KIDH = 46.0f;
+ static constexpr float Z_INDENT = 28.0f;
+ static constexpr float Z_PAD = 16.0f;
++static constexpr float Z_TABSH = 42.0f;
+ 
+ } // namespace
+ 
+@@ -140,11 +161,14 @@
+ 	}
+ 	else if(row.m_Kind == ZEN_SLIDER)
+ 	{
++		// Two-line layout (photo bugfix): label + value on top, full-width
++		// track below — never overlapping.
+ 		int v = row.m_pVal ? *row.m_pVal : 0;
+ 		str_format(aBuf, sizeof(aBuf), "%d%s", v, row.m_pUnit ? row.m_pUnit : "");
++		DrawText(rx, ry + 4.0f, 15.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
+ 		const float tw = TextRender()->TextWidth(15.0f, aBuf);
+-		DrawText(cx - tw, midY - 22.0f, 15.0f, aBuf, ZCol(Z_COL_DIM, alpha));
+-		const float tx = rx, tw2 = rw, ty = midY + 6.0f;
++		DrawText(cx - tw, ry + 4.0f, 15.0f, aBuf, ZCol(Z_COL_DIM, alpha));
++		const float tx = rx, tw2 = rw, ty = ry + rh - 16.0f;
+ 		DrawRoundedRect(tx, ty, tw2, 6.0f, 3.0f, 15, ZCol(Z_COL_TRACK, alpha));
+ 		float pct = (row.m_VMax > row.m_VMin) ? (float)(v - row.m_VMin) / (float)(row.m_VMax - row.m_VMin) : 0.0f;
+ 		if(pct < 0.0f)
+@@ -154,6 +178,7 @@
+ 		DrawRoundedRect(tx, ty, tw2 * pct, 6.0f, 3.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
+ 		const float kx = tx + tw2 * pct - 9.0f;
+ 		DrawRoundedRect(kx, ty - 6.0f, 18.0f, 18.0f, 9.0f, 15, ZCol(0xffffffff, alpha));
++		return;
+ 	}
+ 	else if(row.m_Kind == ZEN_BUTTON)
+ 	{
+@@ -173,19 +198,21 @@
+ // Shared layout walk for render + input.
+ float CClickGui::ZenWalk(float wx, float wy, float ww, float headerH, float scroll, float bodyH, bool draw, float alpha)
+ {
+-	float y = wy + headerH - scroll;
++	float y = wy + headerH + Z_TABSH - scroll;
+ 	float contentH = 0.0f;
+ 	for(int i = 0; i < s_ZenRowCount; i++)
+ 	{
++		if(s_ZenRowTabs[i] != m_ZenTab)
++			continue;
+ 		ZenRow &row = s_ZenRows[i];
+ 		float rx, ry, rw, rh;
+ 		ZenRowRect(row, 0, wx, y, ww, Z_ROWH, rx, ry, rw, rh);
+ 		if(draw)
+ 		{
+-			if(ry + rh >= wy + headerH && ry <= wy + headerH + bodyH)
++			if(ry + rh >= wy + headerH + Z_TABSH && ry <= wy + headerH + Z_TABSH + bodyH)
+ 				ZenDrawRow(row, 0, rx, ry, rw, rh, alpha);
+ 		}
+-		else
++		else if(ry + rh >= wy + headerH + Z_TABSH && ry <= wy + headerH + Z_TABSH + bodyH)
+ 			ZenHitRow(row, 0, rx, ry, rw, rh, i);
+ 		y += Z_ROWH;
+ 		contentH += Z_ROWH;
+@@ -197,10 +224,10 @@
+ 				ZenRowRect(kid, 1, wx, y, ww, Z_KIDH, rx, ry, rw, rh);
+ 				if(draw)
+ 				{
+-					if(ry + rh >= wy + headerH && ry <= wy + headerH + bodyH)
++					if(ry + rh >= wy + headerH + Z_TABSH && ry <= wy + headerH + Z_TABSH + bodyH)
+ 						ZenDrawRow(kid, 1, rx, ry, rw, rh, alpha);
+ 				}
+-				else
++				else if(ry + rh >= wy + headerH + Z_TABSH && ry <= wy + headerH + Z_TABSH + bodyH)
+ 					ZenHitRow(kid, 1, rx, ry, rw, rh, i * 100 + c);
+ 				y += Z_KIDH;
+ 				contentH += Z_KIDH;
+@@ -220,11 +247,31 @@
+ 	DrawText(wx + ww - 34.0f, wy + 15.0f, 20.0f, "X", ZCol(Z_COL_DIM, alpha));
+ 	Graphics()->LinesBegin();
+ 	const IGraphics::CLineItem sep(wx + Z_PAD, wy + headerH, wx + ww - Z_PAD, wy + headerH);
+-	Graphics()->SetColor(0.89f, 0.90f, 0.92f, alpha);
++	ColorRGBA scol(Z_COL_DIM, true);
++	scol.a *= alpha * 0.5f;
++	Graphics()->SetColor(scol.r, scol.g, scol.b, scol.a);
+ 	Graphics()->LinesDraw(&sep, 1);
+ 	Graphics()->LinesEnd();
+-	const float bodyY = wy + headerH;
+-	const float bodyH = wh - headerH;
++	// Tab strip.
++	float tabW = ww / (float)s_ZenTabCount;
++	for(int t = 0; t < s_ZenTabCount; t++)
++	{
++		float tx = wx + t * tabW;
++		bool active = (t == m_ZenTab);
++		DrawText(tx + Z_PAD, wy + headerH + 11.0f, 16.0f, s_ZenTabs[t], ZCol(active ? Z_COL_TAB_ON : Z_COL_TAB, alpha));
++		if(active)
++		{
++			Graphics()->LinesBegin();
++			const IGraphics::CLineItem uline(tx + Z_PAD, wy + headerH + Z_TABSH - 3.0f, tx + tabW - Z_PAD, wy + headerH + Z_TABSH - 3.0f);
++			ColorRGBA acol((unsigned)m_AccentColorRGBA, true);
++			acol.a *= alpha;
++			Graphics()->SetColor(acol.r, acol.g, acol.b, acol.a);
++			Graphics()->LinesDraw(&uline, 1);
++			Graphics()->LinesEnd();
++		}
++	}
++	const float bodyY = wy + headerH + Z_TABSH;
++	const float bodyH = wh - headerH - Z_TABSH;
+ 	ClipEnableVirtual(wx, bodyY, ww, bodyH);
+ 	float contentH = ZenWalk(wx, wy, ww, headerH, m_ZenScroll, bodyH, true, alpha);
+ 	Graphics()->ClipDisable();
+@@ -245,7 +292,7 @@
+ 		m_ZenHitIdx = flatIdx;
+ }
+ 
+-static ZenRow *ZenRowByFlat(int flatIdx)
++ZenRow *CClickGui::ZenRowByFlat(int flatIdx)
+ {
+ 	if(flatIdx < 0)
+ 		return nullptr;
+@@ -257,6 +304,8 @@
+ 	}
+ 	int i = flatIdx / 100, c = flatIdx % 100;
+ 	if(i < 0 || i >= s_ZenRowCount)
++		return nullptr;
++	if(s_ZenRowTabs[i] != m_ZenTab)
+ 		return nullptr;
+ 	ZenRow &row = s_ZenRows[i];
+ 	if(row.m_Kind != ZEN_EXPAND || !row.m_pExpanded || !*row.m_pExpanded)
+@@ -358,9 +407,22 @@
+ 		m_ZenWinDragOff = pos - vec2(wx, wy);
+ 		return true;
+ 	}
++	float tabW = ww / (float)s_ZenTabCount;
++	if(pos.y >= wy + headerH && pos.y < wy + headerH + Z_TABSH)
++	{
++		int t = (int)((pos.x - wx) / tabW);
++		if(t >= 0 && t < s_ZenTabCount && t != m_ZenTab)
++		{
++			m_ZenTab = t;
++			m_ZenScroll = 0.0f;
++			m_ZenSliderDrag = -1;
++		}
++		m_ZenDown = false;
++		return true;
++	}
+ 	m_ZenHitPos = pos;
+ 	m_ZenHitIdx = -1;
+-	float bodyH = wh - headerH;
++	float bodyH = wh - headerH - Z_TABSH;
+ 	ZenWalk(wx, wy, ww, headerH, m_ZenScroll, bodyH, false, 1.0f);
+ 	if(m_ZenHitIdx >= 0)
+ 	{
