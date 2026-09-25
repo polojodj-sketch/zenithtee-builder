@@ -254,12 +254,20 @@
          // "Go to position" pathfinder (A* + flow-field movement toward m_PathfinderGoPos).
 --- a/src/game/client/components/kinetix/kinetix.h
 +++ b/src/game/client/components/kinetix/kinetix.h
-@@ -656,7 +656,7 @@
+@@ -473,6 +473,7 @@
+ 
+         // Pathfinder tab (Kinetix→Pathfinder) — chunk-based mini TAS maker
+         void UpdatePathfinder();            // called from OnUpdate; runs one chunk if RUNNING
++        void ProcessPilotSelf(); // KRX-style autopilot: drives the ACTIVE player (modes 1-3), called from SnapInput
+         void RenderPathfinderPath();        // called from OnRender; draws m_PfVPath like RenderPackage
+         void PfResetRun();                  // clear vPath + sim state (start fresh from active player)
+         void PfClearSearchState();          // BUG4 v1.56.165: release A*/RHEA buffers (safe from any state)
+@@ -656,7 +657,7 @@
          // Continuous loop: resolve a goal (finish / cursor / player), rebuild the
          // flow field every kx_pf_pilot_sequence_length ticks within a CPU budget,
          // and steer the character toward it every tick. Returns true when active.
 -        bool ProcessPilotBot(CGameClient *pGame, CNetObj_PlayerInput *pInput, int Dummy, CBotNetDummy &State, int LocalID);
-+        void ProcessPilotSelf(); // KRX-style autopilot: drives the ACTIVE player (modes 1-3)
++        // (Pilot Bot moved to ProcessPilotSelf driving the active player.)
  
          // Shared A* engine for ComputePathfinder / ComputePathfinderRescue.
          // Multi-source BFS-style Dijkstra/A* from `sources` toward bot tile.
