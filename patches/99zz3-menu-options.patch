@@ -1,0 +1,69 @@
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -24,6 +24,19 @@
+ };
+ static ZenRow s_LaserKids[] = {
+ 	{ZEN_TOGGLE, "Silent", &g_Config.m_KxLaserUnfreezeSilent, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Auto", &g_Config.m_KxLaserUnfreezeAuto, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "FOV", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxLaserUnfreezeFov, 5, 360, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Angles", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxLaserUnfreezeAngles, 1, 144, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Ticks", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxLaserUnfreezeTicks, 1, 50, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Trigger ticks", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxLaserUnfreezeTriggerTicks, 1, 5, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Show attempt", &g_Config.m_KxLaserUnfreezeShowAttempt, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Rescue", &g_Config.m_KxLaserRescue, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Rescue dist", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxLaserRescueDist, 0, 10000, 50, "px", 0, nullptr, 0, nullptr},
++};
++static bool s_EspOpen = true;
++static ZenRow s_EspKids[] = {
++	{ZEN_TOGGLE, "Box", &g_Config.m_KxEspBox, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Hitboxes", &g_Config.m_KxEspHitboxes, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ };
+ static bool s_PilotOpen = true;
+ static bool s_BalOpen = true;
+@@ -74,11 +87,17 @@
+ 	{ZEN_TOGGLE, "Silent", &g_Config.m_KxAfSilent, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Ticks", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxAfTicks, 1, 20, 1, "", 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Trigger ticks", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxAfTriggerTicks, 1, 20, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Direction", &g_Config.m_KxAfDirection, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Jump", &g_Config.m_KxAfJump, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Hook", &g_Config.m_KxAfHook, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Aim", &g_Config.m_KxAfAim, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Aim FOV", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxAfFov, 5, 360, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Aim angles", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxAfAngles, 1, 144, 1, "", 0, nullptr, 0, nullptr},
+ };
+ static ZenRow s_ZenRows[] = {
+ 	{ZEN_EXPAND, "Pilot Bot", &g_Config.m_KxPfPilotMode, 2, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_PilotKids, 5, &s_PilotOpen},
+ 	{ZEN_EXPAND, "BalanceBot", &g_Config.m_KxBalanceBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_BalKids, 1, &s_BalOpen},
+-	{ZEN_EXPAND, "Avoid Freeze", &g_Config.m_KxAvoidFreezeBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_AvoidKids, 6, &s_AvoidOpen},
++	{ZEN_EXPAND, "Avoid Freeze", &g_Config.m_KxAvoidFreezeBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_AvoidKids, 12, &s_AvoidOpen},
+ 	{ZEN_TOGGLE, "HookRide", &g_Config.m_KxHookRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "JetRide", &g_Config.m_KxJetRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Jump delay", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxJetRideDelay, 5, 100, 1, "t", 0, nullptr, 0, nullptr},
+@@ -87,8 +106,8 @@
+ 	{ZEN_EXPAND, "TriggerBot", &g_Config.m_KxTriggerBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_TBKids, 3, &s_TBOpen},
+ 	{ZEN_TOGGLE, "Copy Moves", &g_Config.m_KxCopyMoves, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_EXPAND, "Fake Aim", &g_Config.m_KxFakeAim, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_FakeKids, 3, &s_FakeOpen},
+-	{ZEN_EXPAND, "Laser", &g_Config.m_KxLaserUnfreeze, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_LaserKids, 1, &s_LaserOpen},
+-	{ZEN_TOGGLE, "ESP", &g_Config.m_KxEsp, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_EXPAND, "Laser", &g_Config.m_KxLaserUnfreeze, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_LaserKids, 9, &s_LaserOpen},
++	{ZEN_EXPAND, "ESP", &g_Config.m_KxEsp, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_EspKids, 2, &s_EspOpen},
+ 	{ZEN_BUTTON, "Join TAS", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 110, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Play", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 111, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Pause", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 112, nullptr, 0, nullptr},
+@@ -97,13 +116,15 @@
+ 	{ZEN_BUTTON, "Rewind", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 115, nullptr, 0, nullptr},
+ 	{ZEN_CYCLE, "Effort", nullptr, 0, s_PfEffortOpts, 7, &g_Config.m_KxPfEffort, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_CYCLE, "Algorithm", nullptr, 0, s_PfAlgoOpts, 4, &g_Config.m_KxPfAlgorithm, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Beam width", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxPfBeamWidth, 8, 4096, 8, "", 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Hook", &g_Config.m_KxPfHook, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Pathfinding", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 116, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Connect Dummy", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Switch", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 1, nullptr, 0, nullptr},
+ };
+ static const int s_ZenRowCount = sizeof(s_ZenRows) / sizeof(s_ZenRows[0]);
+ // Tab per top-level row: 0=Bots 1=Combat 2=Avoid 3=Visuals 4=TAS 5=Pathfinder.
+-static const int s_ZenRowTabs[] = {0, 0, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 0, 0};
++static const int s_ZenRowTabs[] = {0, 0, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 0, 0};
+ 
+ // Dark frosted-glass theme (layered translucency fakes blur; the renderer
+ // has no blur pass, so true background blur would need engine changes).
