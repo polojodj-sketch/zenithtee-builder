@@ -1,0 +1,13 @@
+--- a/src/game/client/components/kinetix/clickgui.cpp
++++ b/src/game/client/components/kinetix/clickgui.cpp
+@@ -1236,6 +1236,10 @@
+                 if(PointInRect(mousePos, tx, ty, tw, th))
+                 {
+                         m_ActiveTab = p;
++                        // A popup/input left open in another tab would float over
++                        // the new tab as a stale "second menu" — close it here.
++                        m_DropdownOpen = false;
++                        m_DropdownPanel = -1;
+                         return true;
+                 }
+         }
