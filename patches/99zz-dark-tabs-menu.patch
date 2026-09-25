@@ -16,9 +16,19 @@
          float ZenWalk(float wx, float wy, float ww, float headerH, float scroll, float bodyH, bool draw, float alpha);
          void ZenRender(float alpha);
          bool ZenDown(vec2 pos);
+@@ -398,6 +400,9 @@
+         bool ZenTouch(std::vector<IInput::CTouchFingerState> &vFingers);
+         void ZenApplySlider(ZenRow &row, float x);
+         void ZenActivate(ZenRow &row, float x);
++        void ZenDrawAction(ZenRow &row, float rx, float ry, float rw, float rh, float alpha);
++        void ZenActivateAction(ZenRow &row);
++        void ZenApplySliderAction(ZenRow &row, float pct);
+ 
+         // Scroll the panel under mousePos (topmost hit) by dir (signed SCROLL_STEP).
+         // Returns true if a panel was scrolled. Shared by mouse wheel and touch swipe.
 --- a/src/game/client/components/kinetix/clickgui_zen.cpp
 +++ b/src/game/client/components/kinetix/clickgui_zen.cpp
-@@ -9,10 +9,50 @@
+@@ -9,14 +9,54 @@
  #include <game/client/gameclient.h>
  
  #include <cmath>
@@ -38,6 +48,10 @@
 +static ZenRow s_LaserKids[] = {
 +	{ZEN_TOGGLE, "Silent", &g_Config.m_KxLaserUnfreezeSilent, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
 +};
+ static bool s_PilotOpen = true;
+ static bool s_BalOpen = true;
+ static bool s_AvoidOpen = true;
+ 
 +static const char *s_ABWeapons[] = {"Hammer", "Pistol", "Shotgun", "Grenade", "Laser", "Ninja", "Hook"};
 +static const char *s_TBWeapons[] = {"Hammer", "Pistol", "Shotgun", "Grenade", "Laser", "Ninja"};
 +static const char *s_TBTriggerModes[] = {"One tick", "Hold", "Every tick"};
@@ -66,10 +80,10 @@
 +	{ZEN_TOGGLE, "Auto Fire", &g_Config.m_KxAutoFire, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
 +	{ZEN_TOGGLE, "Auto Hook", &g_Config.m_KxAutoHook, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
 +};
- static bool s_PilotOpen = true;
- static bool s_BalOpen = true;
- static bool s_AvoidOpen = true;
-@@ -42,27 +82,144 @@
+ static ZenRow s_PilotKids[] = {
+ 	{ZEN_CYCLE, "Mode", nullptr, 0, s_PilotModes, 4, &g_Config.m_KxPfPilotMode, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Population", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxPfPilotPopulation, 1, 1000, 1, "", 0, nullptr, 0, nullptr},
+@@ -42,27 +82,268 @@
  	{ZEN_TOGGLE, "HookRide", &g_Config.m_KxHookRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
  	{ZEN_TOGGLE, "JetRide", &g_Config.m_KxJetRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
  	{ZEN_SLIDER, "Jump delay", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxJetRideDelay, 5, 100, 1, "t", 0, nullptr, 0, nullptr},
@@ -123,9 +137,6 @@
  
  } // namespace
 +
-+
-+#include <mutex>
-+
 +static CAimBot::SWeaponSettings &ZenABSet(CGameClient *pGame, int &outW)
 +{
 +	CAimBot &ab = pGame->m_AimBot;
@@ -146,9 +157,8 @@
 +	return ab.m_TriggerBotWeapons[w];
 +}
 +
-+static bool ZenActionOn(CClickGui *pGui, ZenRow &row)
++static bool ZenActionOn(CGameClient *pGame, ZenRow &row)
 +{
-+	CGameClient *pGame = pGui->GameClient();
 +	int w = 0;
 +	switch(row.m_Action)
 +	{
@@ -161,9 +171,8 @@
 +	}
 +}
 +
-+static int ZenActionOpt(CClickGui *pGui, ZenRow &row)
++static int ZenActionOpt(CGameClient *pGame, ZenRow &row)
 +{
-+	CGameClient *pGame = pGui->GameClient();
 +	int w = 0;
 +	switch(row.m_Action)
 +	{
@@ -183,9 +192,8 @@
 +	return 0;
 +}
 +
-+static int ZenActionVal(CClickGui *pGui, ZenRow &row)
++static int ZenActionVal(CGameClient *pGame, ZenRow &row)
 +{
-+	CGameClient *pGame = pGui->GameClient();
 +	int w = 0;
 +	switch(row.m_Action)
 +	{
@@ -196,9 +204,8 @@
 +	}
 +}
 +
-+static const char *ZenActionLabel(CClickGui *pGui, ZenRow &row, char *pBuf, int BufSize)
++static const char *ZenActionLabel(CGameClient *pGame, ZenRow &row, char *pBuf, int BufSize)
 +{
-+	CGameClient *pGame = pGui->GameClient();
 +	switch(row.m_Action)
 +	{
 +	case 110: return pGame->m_Tas.IsJoined() ? "Leave" : "Join";
@@ -220,29 +227,156 @@
 +	str_format(pBuf, BufSize, "%s", row.m_pName);
 +	return pBuf;
 +}
++
++static void ZenPfToggle(CGameClient *pGame)
++{
++	CBotNet &bn = pGame->m_BotNet;
++	if(bn.m_PfState == PF_STATE_IDLE)
++	{
++		bn.m_PfState = PF_STATE_RUNNING;
++		bn.PfResetRun();
++	}
++	else if(bn.m_PfState == PF_STATE_RUNNING)
++	{
++		bn.m_PfState = PF_STATE_FINISHED;
++		bn.PfThreadStop();
++	}
++	else
++	{
++		bn.m_PfState = PF_STATE_IDLE;
++		bn.PfThreadStop();
++		std::lock_guard<std::mutex> lock(bn.m_PfDataMutex);
++		bn.m_PfVPath.clear();
++	}
++}
++
++void CClickGui::ZenDrawAction(ZenRow &row, float rx, float ry, float rw, float rh, float alpha)
++{
++	const float midY = ry + rh * 0.5f;
++	const float cx = rx + rw;
++	char aBuf[64];
++	CGameClient *pGame = GameClient();
++	if(row.m_Kind == ZEN_TOGGLE)
++	{
++		const bool on = ZenActionOn(GameClient(), row);
++		const float tw = 44.0f, th = 24.0f;
++		const float tx = cx - tw, ty = midY - th * 0.5f;
++		DrawText(rx, midY - 8.5f, 17.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
++		unsigned track = on ? (unsigned)m_AccentColorRGBA : Z_COL_TRACK;
++		DrawRoundedRect(tx, ty, tw, th, th * 0.5f, 15, ZCol(track, alpha));
++		const float kx = on ? tx + tw - 20.0f : tx + 2.0f;
++		DrawRoundedRect(kx, ty + 2.0f, 18.0f, 18.0f, 9.0f, 15, ZCol(0xffffffff, alpha));
++	}
++	else if(row.m_Kind == ZEN_CYCLE)
++	{
++		int idx = ZenActionOpt(GameClient(), row);
++		const char *pVal = "?";
++		if(row.m_Action == 101 && idx >= 0 && idx < 7)
++			pVal = s_ABWeapons[idx];
++		else if(row.m_Action == 107 && idx >= 0 && idx < 6)
++			pVal = s_TBWeapons[idx];
++		else if(row.m_Action == 109 && idx >= 0 && idx < 3)
++			pVal = s_TBTriggerModes[idx];
++		DrawText(rx, midY - 8.5f, 17.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
++		const float tw = TextRender()->TextWidth(17.0f, pVal);
++		DrawText(cx - tw - 22.0f, midY - 8.5f, 17.0f, pVal, ZCol(Z_COL_DIM, alpha));
++		DrawText(cx - 14.0f, midY - 8.5f, 17.0f, ">", ZCol(Z_COL_DIM, alpha));
++		(void)pGame;
++	}
++	else if(row.m_Kind == ZEN_SLIDER)
++	{
++		int v = ZenActionVal(GameClient(), row);
++		str_format(aBuf, sizeof(aBuf), "%d", v);
++		DrawText(rx, ry + 4.0f, 15.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
++		const float tw = TextRender()->TextWidth(15.0f, aBuf);
++		DrawText(cx - tw, ry + 4.0f, 15.0f, aBuf, ZCol(Z_COL_DIM, alpha));
++		const float tx = rx, tw2 = rw, ty = ry + rh - 16.0f;
++		DrawRoundedRect(tx, ty, tw2, 6.0f, 3.0f, 15, ZCol(Z_COL_TRACK, alpha));
++		float pct = 0.0f;
++		if(row.m_Action == 103)
++			pct = (float)(v - 1) / 359.0f;
++		else if(row.m_Action == 104)
++			pct = (float)(v - 1) / 1999.0f;
++		else if(row.m_Action == 113)
++			pct = (float)(v - 1) / 49.0f;
++		if(pct < 0.0f)
++			pct = 0.0f;
++		if(pct > 1.0f)
++			pct = 1.0f;
++		DrawRoundedRect(tx, ty, tw2 * pct, 6.0f, 3.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
++		const float kx = tx + tw2 * pct - 9.0f;
++		DrawRoundedRect(kx, ty - 6.0f, 18.0f, 18.0f, 9.0f, 15, ZCol(0xffffffff, alpha));
++	}
++	else if(row.m_Kind == ZEN_BUTTON)
++	{
++		char aLbl[64];
++		const char *pLabel = ZenActionLabel(GameClient(), row, aLbl, sizeof(aLbl));
++		const float bw = rw * 0.7f;
++		const float bx = rx + (rw - bw) * 0.5f, by = midY - 17.0f;
++		DrawRoundedRect(bx, by, bw, 34.0f, 8.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
++		const float tw = TextRender()->TextWidth(17.0f, pLabel);
++		DrawText(bx + (bw - tw) * 0.5f, midY - 8.5f, 17.0f, pLabel, ZCol(0xffffffff, alpha));
++	}
++}
++
++void CClickGui::ZenActivateAction(ZenRow &row)
++{
++	CGameClient *pGame = GameClient();
++	int w = 0;
++	switch(row.m_Action)
++	{
++	case 101: pGame->m_AimBot.m_AimBotSelectedWeapon = (pGame->m_AimBot.m_AimBotSelectedWeapon + 1) % CAimBot::NUM_WEAPONS_AIM; break;
++	case 102: { auto &s = ZenABSet(pGame, w); s.m_Enabled = !s.m_Enabled; break; }
++	case 105: { auto &s = ZenABSet(pGame, w); s.m_Silent = !s.m_Silent; break; }
++	case 106: { auto &s = ZenABSet(pGame, w); s.m_Predict = !s.m_Predict; break; }
++	case 107: pGame->m_AimBot.m_TriggerBotSelectedWeapon = (pGame->m_AimBot.m_TriggerBotSelectedWeapon + 1) % CAimBot::NUM_WEAPONS_TRIGGER; break;
++	case 108: { auto &s = ZenTBSet(pGame, w); s.m_Enabled = !s.m_Enabled; break; }
++	case 109: { auto &s = ZenTBSet(pGame, w); s.m_TriggerMode = (s.m_TriggerMode + 1) % 3; break; }
++	case 110: pGame->m_Tas.JoinLeavePlayground(); break;
++	case 111: pGame->m_Tas.TogglePlay(); break;
++	case 112: pGame->m_Tas.SetPaused(!pGame->m_Tas.Paused()); break;
++	case 114: pGame->m_Tas.StepForward(); break;
++	case 115: pGame->m_Tas.StepRewind(); break;
++	case 116: ZenPfToggle(pGame); break;
++	default: break;
++	}
++}
++
++void CClickGui::ZenApplySliderAction(ZenRow &row, float pct)
++{
++	CGameClient *pGame = GameClient();
++	int w = 0;
++	if(pct < 0.0f)
++		pct = 0.0f;
++	if(pct > 1.0f)
++		pct = 1.0f;
++	switch(row.m_Action)
++	{
++	case 103: ZenABSet(pGame, w).m_Fov = 1.0f + pct * 359.0f; break;
++	case 104: ZenABSet(pGame, w).m_Radius = 1.0f + pct * 1999.0f; break;
++	case 113: pGame->m_Tas.SetTps(1.0f + pct * 49.0f); break;
++	default: break;
++	}
++}
  
  void CClickGui::ZenWindowRect(float &outX, float &outY, float &outW, float &outH, float &outHeaderH)
  {
-@@ -111,9 +268,17 @@
+@@ -111,7 +392,13 @@
  {
  	(void)depth;
  	const float midY = ry + rh * 0.5f;
 -	DrawText(rx, midY - 8.5f, 17.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
-+	// Sliders and buttons draw their own labels — generic name here would
-+	// double them (photo bug).
-+	if(row.m_Kind != ZEN_SLIDER && row.m_Kind != ZEN_BUTTON)
-+		DrawText(rx, midY - 8.5f, 17.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
- 	const float cx = rx + rw;
- 	char aBuf[64];
 +	if(row.m_Action >= 100)
 +	{
 +		ZenDrawAction(this, row, rx, ry, rw, rh, alpha);
 +		return;
 +	}
++	if(row.m_Kind != ZEN_SLIDER && row.m_Kind != ZEN_BUTTON)
++		DrawText(rx, midY - 8.5f, 17.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
+ 	const float cx = rx + rw;
+ 	char aBuf[64];
  	if(row.m_Kind == ZEN_TOGGLE || row.m_Kind == ZEN_EXPAND)
- 	{
- 		const bool on = row.m_pOn && *row.m_pOn != 0;
-@@ -142,9 +307,10 @@
+@@ -142,9 +429,10 @@
  	{
  		int v = row.m_pVal ? *row.m_pVal : 0;
  		str_format(aBuf, sizeof(aBuf), "%d%s", v, row.m_pUnit ? row.m_pUnit : "");
@@ -255,7 +389,7 @@
  		DrawRoundedRect(tx, ty, tw2, 6.0f, 3.0f, 15, ZCol(Z_COL_TRACK, alpha));
  		float pct = (row.m_VMax > row.m_VMin) ? (float)(v - row.m_VMin) / (float)(row.m_VMax - row.m_VMin) : 0.0f;
  		if(pct < 0.0f)
-@@ -173,19 +339,21 @@
+@@ -173,19 +461,21 @@
  // Shared layout walk for render + input.
  float CClickGui::ZenWalk(float wx, float wy, float ww, float headerH, float scroll, float bodyH, bool draw, float alpha)
  {
@@ -280,7 +414,7 @@
  			ZenHitRow(row, 0, rx, ry, rw, rh, i);
  		y += Z_ROWH;
  		contentH += Z_ROWH;
-@@ -197,10 +365,10 @@
+@@ -197,10 +487,10 @@
  				ZenRowRect(kid, 1, wx, y, ww, Z_KIDH, rx, ry, rw, rh);
  				if(draw)
  				{
@@ -293,7 +427,7 @@
  					ZenHitRow(kid, 1, rx, ry, rw, rh, i * 100 + c);
  				y += Z_KIDH;
  				contentH += Z_KIDH;
-@@ -223,8 +391,25 @@
+@@ -223,8 +513,25 @@
  	Graphics()->SetColor(0.89f, 0.90f, 0.92f, alpha);
  	Graphics()->LinesDraw(&sep, 1);
  	Graphics()->LinesEnd();
@@ -321,7 +455,7 @@
  	ClipEnableVirtual(wx, bodyY, ww, bodyH);
  	float contentH = ZenWalk(wx, wy, ww, headerH, m_ZenScroll, bodyH, true, alpha);
  	Graphics()->ClipDisable();
-@@ -245,7 +430,7 @@
+@@ -245,7 +552,7 @@
  		m_ZenHitIdx = flatIdx;
  }
  
@@ -330,7 +464,7 @@
  {
  	if(flatIdx < 0)
  		return nullptr;
-@@ -257,6 +442,8 @@
+@@ -257,6 +564,8 @@
  	}
  	int i = flatIdx / 100, c = flatIdx % 100;
  	if(i < 0 || i >= s_ZenRowCount)
@@ -339,7 +473,7 @@
  		return nullptr;
  	ZenRow &row = s_ZenRows[i];
  	if(row.m_Kind != ZEN_EXPAND || !row.m_pExpanded || !*row.m_pExpanded)
-@@ -276,6 +463,11 @@
+@@ -276,6 +585,11 @@
  		pct = 0.0f;
  	if(pct > 1.0f)
  		pct = 1.0f;
@@ -351,7 +485,7 @@
  	if(row.m_pVal && row.m_VMax > row.m_VMin)
  	{
  		float raw = (float)row.m_VMin + pct * (float)(row.m_VMax - row.m_VMin);
-@@ -290,6 +482,11 @@
+@@ -290,6 +604,11 @@
  
  void CClickGui::ZenActivate(ZenRow &row, float x)
  {
@@ -363,7 +497,7 @@
  	if(row.m_Kind == ZEN_TOGGLE)
  	{
  		if(row.m_pOn)
-@@ -360,7 +557,20 @@
+@@ -360,7 +679,20 @@
  	}
  	m_ZenHitPos = pos;
  	m_ZenHitIdx = -1;
