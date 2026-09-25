@@ -1,0 +1,208 @@
+--- a/src/engine/shared/config_variables.h
++++ b/src/engine/shared/config_variables.h
+@@ -398,8 +398,8 @@
+ MACRO_CONFIG_INT(KxFakeAimDist, kx_fake_aim_dist, 200, 10, 1000, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Fake Aim: distance from center (pixels)")
+ MACRO_CONFIG_INT(KxFakeAimShowForMe, kx_fake_aim_show_for_me, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Fake Aim: show fake aim on player character (not just server)")
+ MACRO_CONFIG_INT(KxFakeAimShowServer, kx_fake_aim_show_server, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Fake Aim: draw a line showing the server-side (spoofed) aim direction (ZenithTee)")
+-MACRO_CONFIG_INT(KxBalanceBot, kx_balance_bot, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "BalanceBot: dummy copies pilot input (direction/jump/hook/fire)")
+-MACRO_CONFIG_INT(KxBalanceBotMirror, kx_balance_bot_mirror, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "BalanceBot: mirror dummy direction (for symmetric/balance maps)")
++MACRO_CONFIG_INT(KxBalanceBot, kx_balance_bot, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "BalanceBot: hold horizontal position of the active tee relative to locked target")
++MACRO_CONFIG_INT(KxBalanceBotOffset, kx_balance_bot_offset, 2, 0, 16, CFGFLAG_CLIENT | CFGFLAG_SAVE, "BalanceBot: horizontal tolerance in tiles before correcting (higher = lazier)")
+ MACRO_CONFIG_INT(KxHookRide, kx_hook_ride, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "HookRide: dummy constantly hooks pilot and follows A/D, dragging the pilot (ZenithTee)")
+ MACRO_CONFIG_INT(KxJetRide, kx_jet_ride, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "JetRide: dummy auto-jumps while pilot stands on its head, carrying the pilot upward (ZenithTee)")
+ MACRO_CONFIG_INT(KxJetRideDelay, kx_jet_ride_delay, 20, 5, 100, CFGFLAG_CLIENT | CFGFLAG_SAVE, "JetRide: ticks between dummy auto-jumps")
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -373,6 +373,53 @@
+ 		Send = Send || time_get() > m_LastSendTime + time_freq() / 25; // send at least 25 Hz
+ 		Send = Send || (GameClient()->m_Snap.m_pLocalCharacter && GameClient()->m_Snap.m_pLocalCharacter->m_Weapon == WEAPON_NINJA && (m_aInputData[g_Config.m_ClDummy].m_Direction || m_aInputData[g_Config.m_ClDummy].m_Jump || m_aInputData[g_Config.m_ClDummy].m_Hook));
+ 	}
++
++	// ZenithTee: Balance Bot (KRX-style). Drives the ACTIVE tee (not a dummy):
++	// holds horizontal position relative to a locked target tee (e.g. stay
++	// under the carrier when stacked). Sticky lock: keep the target while it
++	// is active, else take the nearest active other tee. Corrects direction
++	// only outside the offset tolerance (tiles); inside, the player's own
++	// input stands. Runs before Avoid Freeze so safety overrides it.
++	static int s_BalTarget = -1;
++	if(g_Config.m_KxBalanceBot)
++	{
++		const int MyId = GameClient()->m_Snap.m_LocalClientId;
++		bool balValid = MyId >= 0 && s_BalTarget >= 0 && s_BalTarget < MAX_CLIENTS &&
++			s_BalTarget != MyId && GameClient()->m_aClients[s_BalTarget].m_Active &&
++			GameClient()->m_Snap.m_aCharacters[s_BalTarget].m_Active;
++		if(!balValid)
++		{
++			s_BalTarget = -1;
++			if(MyId >= 0)
++			{
++				float best = 1e18f;
++				for(int i = 0; i < MAX_CLIENTS; i++)
++				{
++					if(i == MyId || !GameClient()->m_aClients[i].m_Active)
++						continue;
++					if(!GameClient()->m_Snap.m_aCharacters[i].m_Active)
++						continue;
++					const float tdx = (float)GameClient()->m_Snap.m_aCharacters[i].m_Cur.m_X - GameClient()->m_LocalCharacterPos.x;
++					const float tdy = (float)GameClient()->m_Snap.m_aCharacters[i].m_Cur.m_Y - GameClient()->m_LocalCharacterPos.y;
++					const float d = tdx * tdx + tdy * tdy;
++					if(d < best)
++					{
++						best = d;
++						s_BalTarget = i;
++					}
++				}
++			}
++		}
++		if(s_BalTarget >= 0)
++		{
++			const float dx = (float)GameClient()->m_Snap.m_aCharacters[s_BalTarget].m_Cur.m_X - GameClient()->m_LocalCharacterPos.x;
++			const float tol = (float)std::clamp(g_Config.m_KxBalanceBotOffset, 0, 16) * 32.0f;
++			if(fabsf(dx) > tol)
++				m_aInputData[g_Config.m_ClDummy].m_Direction = (dx > 0.0f) ? 1 : -1;
++		}
++	}
++	else
++		s_BalTarget = -1;
+ 
+ 	// ── ZenithTee (kinetix): Fake Aim spoof ───────────────────────────────
+ 	// kx_fake_aim sends a spoofed aim to the server while the visible
+--- a/src/game/client/components/kinetix/clickgui.cpp
++++ b/src/game/client/components/kinetix/clickgui.cpp
+@@ -224,9 +224,9 @@
+         {ERowType::Toggle, "Smart aim", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         // ZenithTee v1.1: BalanceBot / HookRide / JetRide — FlyRide-pattern dummy controls.
+         {ERowType::Toggle, "BalanceBot", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
++        {ERowType::Slider, "Balance Offset", nullptr, false, false, 0.0f, 16.0f, 1.0f, 2.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         {ERowType::Toggle, "HookRide", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         {ERowType::Toggle, "JetRide", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Toggle, "Mirror", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         {ERowType::Slider, "Jump delay", nullptr, false, false, 5.0f, 100.0f, 1.0f, 20.0f, "t", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         // v1.56.186: Copy Moves Latency — staggered input replay delay for inactive dummies.
+ };
+@@ -2125,14 +2125,14 @@
+                                         row.on = g_Config.m_KxHookRide != 0;
+                                 else if(str_comp(row.pName, "JetRide") == 0)
+                                         row.on = g_Config.m_KxJetRide != 0;
+-                                else if(str_comp(row.pName, "Mirror") == 0)
+-                                        row.on = g_Config.m_KxBalanceBotMirror != 0;
+                                 // Pilot Bot expandable doubles as master toggle (like AimBot/IRC):
+                                 // header reflects whether any follow mode is active.
+                                 else if(str_comp(row.pName, "Pilot Bot") == 0)
+                                         row.on = g_Config.m_KxPfPilotMode != 0;
+                                 else if(str_comp(row.pName, "Jump delay") == 0)
+                                         row.value = (float)g_Config.m_KxJetRideDelay;
++                                else if(str_comp(row.pName, "Balance Offset") == 0)
++                                        row.value = (float)g_Config.m_KxBalanceBotOffset;
+                                 // Pathfinder top-level sliders/toggles
+                                 else if(str_comp(row.pName, "Hook angles") == 0)
+                                         row.value = (float)g_Config.m_KxPfHookAngles;
+@@ -3353,6 +3353,8 @@
+                         // ZenithTee v1.1: JetRide jump interval.
+                         else if(str_comp(pTarget->pName, "Jump delay") == 0)
+                                 g_Config.m_KxJetRideDelay = (int)pTarget->value;
++                        else if(str_comp(pTarget->pName, "Balance Offset") == 0)
++                                g_Config.m_KxBalanceBotOffset = (int)pTarget->value;
+                         else if(str_comp(pTarget->pName, "Hook angles") == 0)
+                                 g_Config.m_KxPfHookAngles = (int)pTarget->value;
+                         else if(str_comp(pTarget->pName, "A* Weight") == 0)
+@@ -3875,8 +3877,6 @@
+                                                 g_Config.m_KxHookRide = pTarget->on ? 1 : 0;
+                                         else if(str_comp(pTarget->pName, "JetRide") == 0)
+                                                 g_Config.m_KxJetRide = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Mirror") == 0)
+-                                                g_Config.m_KxBalanceBotMirror = pTarget->on ? 1 : 0;
+                                         // v1.56.83: AimBot/TriggerBot expandable master toggles
+                                         else if(str_comp(pTarget->pName, "AimBot") == 0)
+                                                 g_Config.m_KxAimBot = pTarget->on;
+--- a/src/game/client/components/kinetix/zenith_ride.cpp
++++ b/src/game/client/components/kinetix/zenith_ride.cpp
+@@ -33,55 +33,6 @@
+         return -1;
+ }
+ 
+-// ZenithTee v1.1: BalanceBot — dummy copies the pilot's input each tick
+-// (direction, jump, hook, fire). Mirror flips the horizontal direction,
+-// for balance/symmetric maps where both tees must move oppositely.
+-void CBotNet::UpdateBalanceBot()
+-{
+-        CGameClient *pGame = GameClient();
+-        if(!pGame)
+-                return;
+-
+-        const bool enabled = g_Config.m_KxBalanceBot != 0;
+-        if(enabled && !m_BalanceBotWasActive)
+-                m_BalanceBotWasActive = true;
+-        else if(!enabled && m_BalanceBotWasActive)
+-        {
+-                // Cleanup: stop the dummy.
+-                for(int D = 0; D < MAX_DUMMIES; D++)
+-                {
+-                        if(D == g_Config.m_ClDummy || (D != 0 && !pGame->Client()->DummyConnected(D)))
+-                                continue;
+-                        CNetObj_PlayerInput *pDummy = &pGame->m_aDummyInput[D];
+-                        pDummy->m_Direction = 0;
+-                        pDummy->m_Jump = 0;
+-                        pDummy->m_Hook = 0;
+-                        pGame->m_Controls.m_aInputData[D] = *pDummy;
+-                }
+-                m_BalanceBotWasActive = false;
+-                return;
+-        }
+-        if(!enabled)
+-                return;
+-        if(!pGame->m_Snap.m_pLocalInfo)
+-                return;
+-
+-        const int dummy = RideOtherDummy(pGame);
+-        if(dummy < 0)
+-                return;
+-
+-        // Pilot's live input (active player).
+-        const CNetObj_PlayerInput &pilot = pGame->m_Controls.m_aInputData[g_Config.m_ClDummy];
+-
+-        CNetObj_PlayerInput *pDummy = &pGame->m_aDummyInput[dummy];
+-        const bool mirror = g_Config.m_KxBalanceBotMirror != 0;
+-        pDummy->m_Direction = mirror ? -pilot.m_Direction : pilot.m_Direction;
+-        pDummy->m_Jump = pilot.m_Jump;
+-        pDummy->m_Hook = pilot.m_Hook;
+-        pDummy->m_Fire = pilot.m_Fire;
+-        pDummy->m_WantedWeapon = pilot.m_WantedWeapon;
+-        pGame->m_Controls.m_aInputData[dummy] = *pDummy;
+-}
+ 
+ // ZenithTee v1.1: HookRide — dummy permanently hooks the pilot and walks
+ // following the pilot's raw A/D keys, dragging the pilot along (ride the hook).
+--- a/src/game/client/components/kinetix/kinetix.h
++++ b/src/game/client/components/kinetix/kinetix.h
+@@ -483,10 +483,8 @@
+         // v1.56.151: Fly Ride — pilot (active dummy) hooks/hammers nearest dummy.
+         // WASD moves anchor point. Called from OnUpdate (per-frame); anchor update gated per-tick.
+         // ZenithTee v1.1: BalanceBot / HookRide / JetRide — FlyRide-pattern dummy controls.
+-        void UpdateBalanceBot();            // dummy copies pilot input (optional mirror)
+         void UpdateHookRide();              // dummy hooks pilot + follows A/D (drags pilot)
+         void UpdateJetRide();               // dummy auto-jumps under pilot (carries upward)
+-        bool m_BalanceBotWasActive = false; // init-on-enable + cleanup-on-disable
+         bool m_HookRideWasActive = false;
+         bool m_JetRideWasActive = false;
+         int m_JetRideLastJumpTick = -1;     // last tick dummy jumped (interval gate)
+--- a/src/game/client/components/kinetix/kinetix.cpp
++++ b/src/game/client/components/kinetix/kinetix.cpp
+@@ -350,7 +350,6 @@
+         UpdateLaserUnfreeze();
+ 
+         // ZenithTee v1.1: BalanceBot / HookRide / JetRide.
+-        UpdateBalanceBot();
+         UpdateHookRide();
+         UpdateJetRide();
+ 
+--- a/src/game/client/components/kinetix/zenith_hud.cpp
++++ b/src/game/client/components/kinetix/zenith_hud.cpp
+@@ -127,6 +127,7 @@
+ 	KX_ADD_IF("Laser Unfreeze", g_Config.m_KxLaserUnfreeze)
+ 	KX_ADD_IF("Copy Moves", g_Config.m_KxCopyMoves)
+ 	KX_ADD_IF("Pilot Bot", g_Config.m_KxPfPilotMode != 0)
++	KX_ADD_IF("BalanceBot", g_Config.m_KxBalanceBot)
+ 	KX_ADD_IF("Attack Bot", g_Config.m_KxAttack)
+ 	KX_ADD_IF("Zoom Hack", g_Config.m_KxZoomHack)
+ 	KX_ADD_IF("Spectator list", g_Config.m_KxSpectatorList)
