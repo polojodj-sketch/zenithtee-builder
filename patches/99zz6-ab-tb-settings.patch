@@ -1,0 +1,136 @@
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -48,6 +48,12 @@
+ static const char *s_ABWeapons[] = {"Hammer", "Pistol", "Shotgun", "Grenade", "Laser", "Ninja", "Hook"};
+ static const char *s_TBWeapons[] = {"Hammer", "Pistol", "Shotgun", "Grenade", "Laser", "Ninja"};
+ static const char *s_TBTriggerModes[] = {"One tick", "Hold", "Every tick"};
++static const char *s_ABAimModes[] = {"Edge", "Trigger", "Always", "Smooth"};
++static const char *s_TBTriggerOpts[] = {"Fire", "Hook"};
++static const char *s_ABTeamOpts[] = {"Both", "War", "My"};
++static const char *s_ABIgnoreOpts[] = {"Both", "Ignore", "Only"};
++static const char *s_ABPriorityOpts[] = {"Nearest FOV", "Nearest Aim", "Nearest to me"};
++static const char *s_ABFreezeOpts[] = {"Both", "Freeze", "No freeze"};
+ static const char *s_PfEffortOpts[] = {"Very Low", "Low", "Medium", "High", "Ultra", "Max", "Custom"};
+ static const char *s_PfAlgoOpts[] = {"BFS", "Beam", "RHEA", "BMCTS"};
+ static bool s_ABOpen = true;
+@@ -60,11 +66,23 @@
+ 	{ZEN_SLIDER, "Radius", nullptr, 0, nullptr, 0, nullptr, nullptr, 1, 2000, 10, "", 104, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Silent", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 105, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Predict", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 106, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Aim Mode", nullptr, 0, s_ABAimModes, 4, nullptr, nullptr, 0, 0, 0, nullptr, 117, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Smooth", nullptr, 0, nullptr, 0, nullptr, nullptr, 5, 100, 1, "%", 118, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Team", nullptr, 0, s_ABTeamOpts, 3, nullptr, nullptr, 0, 0, 0, nullptr, 119, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Friend", nullptr, 0, s_ABIgnoreOpts, 3, nullptr, nullptr, 0, 0, 0, nullptr, 120, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Dummy", nullptr, 0, s_ABIgnoreOpts, 3, nullptr, nullptr, 0, 0, 0, nullptr, 121, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Clanmate", nullptr, 0, s_ABIgnoreOpts, 3, nullptr, nullptr, 0, 0, 0, nullptr, 128, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Freeze", nullptr, 0, s_ABFreezeOpts, 3, nullptr, nullptr, 0, 0, 0, nullptr, 123, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Priority", nullptr, 0, s_ABPriorityOpts, 3, nullptr, nullptr, 0, 0, 0, nullptr, 122, nullptr, 0, nullptr},
+ };
+ static ZenRow s_TBKids[] = {
+ 	{ZEN_CYCLE, "Weapon", nullptr, 0, s_TBWeapons, 6, nullptr, nullptr, 0, 0, 0, nullptr, 107, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Enable", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 108, nullptr, 0, nullptr},
+ 	{ZEN_CYCLE, "Trigger mode", nullptr, 0, s_TBTriggerModes, 3, nullptr, nullptr, 0, 0, 0, nullptr, 109, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Trigger", nullptr, 0, s_TBTriggerOpts, 2, nullptr, nullptr, 0, 0, 0, nullptr, 124, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "FOV", nullptr, 0, nullptr, 0, nullptr, nullptr, 1, 360, 1, "", 125, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Radius", nullptr, 0, nullptr, 0, nullptr, nullptr, 1, 2000, 10, "", 126, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Latency", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 10, 1, "t", 127, nullptr, 0, nullptr},
+ };
+ static ZenRow s_BlockKids[] = {
+ 	{ZEN_TOGGLE, "Attack Main", &g_Config.m_KxAtkMain, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+@@ -108,8 +126,8 @@
+ 	{ZEN_TOGGLE, "JetRide", &g_Config.m_KxJetRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Jump delay", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxJetRideDelay, 5, 100, 1, "t", 0, nullptr, 0, nullptr},
+ 	{ZEN_EXPAND, "Block", &g_Config.m_KxAttack, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_BlockKids, 8, &s_BlockOpen},
+-	{ZEN_EXPAND, "AimBot", &g_Config.m_KxAimBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_ABKids, 6, &s_ABOpen},
+-	{ZEN_EXPAND, "TriggerBot", &g_Config.m_KxTriggerBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_TBKids, 3, &s_TBOpen},
++	{ZEN_EXPAND, "AimBot", &g_Config.m_KxAimBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_ABKids, 14, &s_ABOpen},
++	{ZEN_EXPAND, "TriggerBot", &g_Config.m_KxTriggerBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_TBKids, 7, &s_TBOpen},
+ 	{ZEN_TOGGLE, "Rescue", &g_Config.m_KxRescue, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Rescue radius", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxRescueRadius, 0, 10000, 50, "px", 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Copy Moves", &g_Config.m_KxCopyMoves, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+@@ -216,6 +234,14 @@
+ 			w = 0;
+ 		return w;
+ 	case 109: return ZenTBSet(pGame, w).m_TriggerMode;
++	case 117: return ZenABSet(pGame, w).m_AimMode;
++	case 119: return ZenABSet(pGame, w).m_TeamFilter;
++	case 120: return ZenABSet(pGame, w).m_FriendFilter;
++	case 121: return ZenABSet(pGame, w).m_DummyFilter;
++	case 128: return ZenABSet(pGame, w).m_ClanmateFilter;
++	case 123: return ZenABSet(pGame, w).m_FreezeFilter;
++	case 122: return ZenABSet(pGame, w).m_Priority;
++	case 124: return ZenTBSet(pGame, w).m_Trigger;
+ 	default: break;
+ 	}
+ 	return 0;
+@@ -229,6 +255,10 @@
+ 	case 103: return (int)ZenABSet(pGame, w).m_Fov;
+ 	case 104: return (int)ZenABSet(pGame, w).m_Radius;
+ 	case 113: return (int)pGame->m_Tas.Tps();
++	case 118: return (int)(ZenABSet(pGame, w).m_Smooth * 100.0f);
++	case 125: return (int)ZenTBSet(pGame, w).m_Fov;
++	case 126: return (int)ZenTBSet(pGame, w).m_Radius;
++	case 127: return ZenTBSet(pGame, w).m_RandomLatency;
+ 	default: return 0;
+ 	}
+ }
+@@ -306,6 +336,18 @@
+ 			pVal = s_TBWeapons[idx];
+ 		else if(row.m_Action == 109 && idx >= 0 && idx < 3)
+ 			pVal = s_TBTriggerModes[idx];
++		else if(row.m_Action == 117 && idx >= 0 && idx < 4)
++			pVal = s_ABAimModes[idx];
++		else if(row.m_Action == 119 && idx >= 0 && idx < 3)
++			pVal = s_ABTeamOpts[idx];
++		else if((row.m_Action == 120 || row.m_Action == 121 || row.m_Action == 128) && idx >= 0 && idx < 3)
++			pVal = s_ABIgnoreOpts[idx];
++		else if(row.m_Action == 122 && idx >= 0 && idx < 3)
++			pVal = s_ABPriorityOpts[idx];
++		else if(row.m_Action == 123 && idx >= 0 && idx < 3)
++			pVal = s_ABFreezeOpts[idx];
++		else if(row.m_Action == 124 && idx >= 0 && idx < 2)
++			pVal = s_TBTriggerOpts[idx];
+ 		DrawText(rx, midY - 8.5f, 17.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
+ 		const float tw = TextRender()->TextWidth(17.0f, pVal);
+ 		DrawText(cx - tw - 22.0f, midY - 8.5f, 17.0f, pVal, ZCol(Z_COL_DIM, alpha));
+@@ -328,6 +370,14 @@
+ 			pct = (float)(v - 1) / 1999.0f;
+ 		else if(row.m_Action == 113)
+ 			pct = (float)(v - 1) / 49.0f;
++		else if(row.m_Action == 118)
++			pct = (float)(v - 5) / 95.0f;
++		else if(row.m_Action == 125)
++			pct = (float)(v - 1) / 359.0f;
++		else if(row.m_Action == 126)
++			pct = (float)(v - 1) / 1999.0f;
++		else if(row.m_Action == 127)
++			pct = (float)v / 10.0f;
+ 		if(pct < 0.0f)
+ 			pct = 0.0f;
+ 		if(pct > 1.0f)
+@@ -361,6 +411,14 @@
+ 	case 107: pGame->m_AimBot.m_TriggerBotSelectedWeapon = (pGame->m_AimBot.m_TriggerBotSelectedWeapon + 1) % CAimBot::NUM_WEAPONS_TRIGGER; break;
+ 	case 108: { auto &s = ZenTBSet(pGame, w); s.m_Enabled = !s.m_Enabled; break; }
+ 	case 109: { auto &s = ZenTBSet(pGame, w); s.m_TriggerMode = (s.m_TriggerMode + 1) % 3; break; }
++	case 117: { auto &s = ZenABSet(pGame, w); s.m_AimMode = (s.m_AimMode + 1) % 4; break; }
++	case 119: { auto &s = ZenABSet(pGame, w); s.m_TeamFilter = (s.m_TeamFilter + 1) % 3; break; }
++	case 120: { auto &s = ZenABSet(pGame, w); s.m_FriendFilter = (s.m_FriendFilter + 1) % 3; break; }
++	case 121: { auto &s = ZenABSet(pGame, w); s.m_DummyFilter = (s.m_DummyFilter + 1) % 3; break; }
++	case 128: { auto &s = ZenABSet(pGame, w); s.m_ClanmateFilter = (s.m_ClanmateFilter + 1) % 3; break; }
++	case 123: { auto &s = ZenABSet(pGame, w); s.m_FreezeFilter = (s.m_FreezeFilter + 1) % 3; break; }
++	case 122: { auto &s = ZenABSet(pGame, w); s.m_Priority = (s.m_Priority + 1) % 3; break; }
++	case 124: { auto &s = ZenTBSet(pGame, w); s.m_Trigger = (s.m_Trigger + 1) % 2; break; }
+ 	case 110: pGame->m_Tas.JoinLeavePlayground(); break;
+ 	case 111: pGame->m_Tas.TogglePlay(); break;
+ 	case 112: pGame->m_Tas.SetPaused(!pGame->m_Tas.Paused()); break;
+@@ -384,6 +442,10 @@
+ 	case 103: ZenABSet(pGame, w).m_Fov = 1.0f + pct * 359.0f; break;
+ 	case 104: ZenABSet(pGame, w).m_Radius = 1.0f + pct * 1999.0f; break;
+ 	case 113: pGame->m_Tas.SetTps(1.0f + pct * 49.0f); break;
++	case 118: ZenABSet(pGame, w).m_Smooth = 0.05f + pct * 0.95f; break;
++	case 125: ZenTBSet(pGame, w).m_Fov = 1.0f + pct * 359.0f; break;
++	case 126: ZenTBSet(pGame, w).m_Radius = 1.0f + pct * 1999.0f; break;
++	case 127: ZenTBSet(pGame, w).m_RandomLatency = (int)(pct * 10.0f + 0.5f); break;
+ 	default: break;
+ 	}
+ }
