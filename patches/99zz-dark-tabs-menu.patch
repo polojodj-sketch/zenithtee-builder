@@ -389,7 +389,7 @@
 -	DrawText(rx, midY - 8.5f, 17.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
 +	if(row.m_Action >= 100)
 +	{
-+		ZenDrawAction(this, row, rx, ry, rw, rh, alpha);
++		ZenDrawAction(row, rx, ry, rw, rh, alpha);
 +		return;
 +	}
 +	if(row.m_Kind != ZEN_SLIDER && row.m_Kind != ZEN_BUTTON)
@@ -500,7 +500,7 @@
  		pct = 1.0f;
 +	if(row.m_Action >= 100)
 +	{
-+		ZenApplySliderAction(this, row, pct);
++		ZenApplySliderAction(row, pct);
 +		return;
 +	}
  	if(row.m_pVal && row.m_VMax > row.m_VMin)
@@ -512,7 +512,7 @@
  {
 +	if(row.m_Action >= 100)
 +	{
-+		ZenActivateAction(this, row);
++		ZenActivateAction(row);
 +		return;
 +	}
  	if(row.m_Kind == ZEN_TOGGLE)
