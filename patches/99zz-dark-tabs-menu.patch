@@ -18,7 +18,12 @@
          bool ZenDown(vec2 pos);
 --- a/src/game/client/components/kinetix/clickgui_zen.cpp
 +++ b/src/game/client/components/kinetix/clickgui_zen.cpp
-@@ -13,6 +13,17 @@
+@@ -9,10 +9,50 @@
+ #include <game/client/gameclient.h>
+ 
+ #include <cmath>
++#include <mutex>
+ 
  namespace {
  
  static const char *s_PilotModes[] = {"Off", "Follow cursor", "Follow player", "Autonomous"};
@@ -33,16 +38,60 @@
 +static ZenRow s_LaserKids[] = {
 +	{ZEN_TOGGLE, "Silent", &g_Config.m_KxLaserUnfreezeSilent, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
 +};
++static const char *s_ABWeapons[] = {"Hammer", "Pistol", "Shotgun", "Grenade", "Laser", "Ninja", "Hook"};
++static const char *s_TBWeapons[] = {"Hammer", "Pistol", "Shotgun", "Grenade", "Laser", "Ninja"};
++static const char *s_TBTriggerModes[] = {"One tick", "Hold", "Every tick"};
++static const char *s_PfEffortOpts[] = {"Very Low", "Low", "Medium", "High", "Ultra", "Max", "Custom"};
++static const char *s_PfAlgoOpts[] = {"BFS", "Beam", "RHEA", "BMCTS"};
++static bool s_ABOpen = true;
++static bool s_TBOpen = true;
++static bool s_BlockOpen = true;
++static ZenRow s_ABKids[] = {
++	{ZEN_CYCLE, "Weapon", nullptr, 0, s_ABWeapons, 7, nullptr, nullptr, 0, 0, 0, nullptr, 101, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Enable", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 102, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "FOV", nullptr, 0, nullptr, 0, nullptr, nullptr, 1, 360, 1, "", 103, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Radius", nullptr, 0, nullptr, 0, nullptr, nullptr, 1, 2000, 10, "", 104, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Silent", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 105, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Predict", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 106, nullptr, 0, nullptr},
++};
++static ZenRow s_TBKids[] = {
++	{ZEN_CYCLE, "Weapon", nullptr, 0, s_TBWeapons, 6, nullptr, nullptr, 0, 0, 0, nullptr, 107, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Enable", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 108, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Trigger mode", nullptr, 0, s_TBTriggerModes, 3, nullptr, nullptr, 0, 0, 0, nullptr, 109, nullptr, 0, nullptr},
++};
++static ZenRow s_BlockKids[] = {
++	{ZEN_TOGGLE, "Attack Main", &g_Config.m_KxAtkMain, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Auto Main", &g_Config.m_KxAutoMain, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Auto Aim", &g_Config.m_KxAutoAim, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Auto Fire", &g_Config.m_KxAutoFire, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Auto Hook", &g_Config.m_KxAutoHook, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++};
  static bool s_PilotOpen = true;
  static bool s_BalOpen = true;
  static bool s_AvoidOpen = true;
-@@ -46,21 +57,31 @@
- 	{ZEN_TOGGLE, "AimBot", &g_Config.m_KxAimBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
- 	{ZEN_TOGGLE, "TriggerBot", &g_Config.m_KxTriggerBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+@@ -42,27 +82,144 @@
+ 	{ZEN_TOGGLE, "HookRide", &g_Config.m_KxHookRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "JetRide", &g_Config.m_KxJetRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Jump delay", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxJetRideDelay, 5, 100, 1, "t", 0, nullptr, 0, nullptr},
+-	{ZEN_TOGGLE, "Block", &g_Config.m_KxAttack, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+-	{ZEN_TOGGLE, "AimBot", &g_Config.m_KxAimBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+-	{ZEN_TOGGLE, "TriggerBot", &g_Config.m_KxTriggerBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_EXPAND, "Block", &g_Config.m_KxAttack, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_BlockKids, 5, &s_BlockOpen},
++	{ZEN_EXPAND, "AimBot", &g_Config.m_KxAimBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_ABKids, 6, &s_ABOpen},
++	{ZEN_EXPAND, "TriggerBot", &g_Config.m_KxTriggerBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_TBKids, 3, &s_TBOpen},
  	{ZEN_TOGGLE, "Copy Moves", &g_Config.m_KxCopyMoves, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
 +	{ZEN_EXPAND, "Fake Aim", &g_Config.m_KxFakeAim, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_FakeKids, 3, &s_FakeOpen},
 +	{ZEN_EXPAND, "Laser", &g_Config.m_KxLaserUnfreeze, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_LaserKids, 1, &s_LaserOpen},
 +	{ZEN_TOGGLE, "ESP", &g_Config.m_KxEsp, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_BUTTON, "Join TAS", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 110, nullptr, 0, nullptr},
++	{ZEN_BUTTON, "Play", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 111, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Pause", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 112, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "TPS", nullptr, 0, nullptr, 0, nullptr, nullptr, 1, 50, 1, "", 113, nullptr, 0, nullptr},
++	{ZEN_BUTTON, "Forward", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 114, nullptr, 0, nullptr},
++	{ZEN_BUTTON, "Rewind", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 115, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Effort", nullptr, 0, s_PfEffortOpts, 7, &g_Config.m_KxPfEffort, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Algorithm", nullptr, 0, s_PfAlgoOpts, 4, &g_Config.m_KxPfAlgorithm, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_BUTTON, "Pathfinding", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 116, nullptr, 0, nullptr},
  	{ZEN_BUTTON, "Connect Dummy", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
  	{ZEN_BUTTON, "Switch", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 1, nullptr, 0, nullptr},
  };
@@ -53,10 +102,8 @@
 -static const unsigned Z_COL_TEXT = 0xff16191d;
 -static const unsigned Z_COL_DIM = 0xff6b7280;
 -static const unsigned Z_COL_TRACK = 0xffd7dbe0;
-+// Tab per top-level row: 0=Bots 1=Combat 2=Avoid 3=Visuals.
-+static const int s_ZenRowTabs[] = {0, 0, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 3, 0, 0};
-+static const char *s_ZenTabs[] = {"Bots", "Combat", "Avoid", "Visuals"};
-+static const int s_ZenTabCount = 4;
++// Tab per top-level row: 0=Bots 1=Combat 2=Avoid 3=Visuals 4=TAS 5=Pathfinder.
++static const int s_ZenRowTabs[] = {0, 0, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 0, 0};
 +
 +// Dark glass theme (translucency fakes blur; the renderer has no blur pass).
 +static const unsigned Z_COL_BG = 0xe8181c22;
@@ -65,6 +112,8 @@
 +static const unsigned Z_COL_TRACK = 0xff3a3f47;
 +static const unsigned Z_COL_TAB = 0xff8b93a1;
 +static const unsigned Z_COL_TAB_ON = 0xffffffff;
++static const char *s_ZenTabs[] = {"Bots", "Combat", "Avoid", "Visuals", "TAS", "Pathfinder"};
++static const int s_ZenTabCount = 6;
  
  static constexpr float Z_ROWH = 50.0f;
  static constexpr float Z_KIDH = 46.0f;
@@ -73,13 +122,128 @@
 +static constexpr float Z_TABSH = 42.0f;
  
  } // namespace
++
++
++#include <mutex>
++
++static CAimBot::SWeaponSettings &ZenABSet(CGameClient *pGame, int &outW)
++{
++	CAimBot &ab = pGame->m_AimBot;
++	int w = ab.m_AimBotSelectedWeapon;
++	if(w < 0 || w >= CAimBot::NUM_WEAPONS_AIM)
++		w = 0;
++	outW = w;
++	return ab.m_AimBotWeapons[w];
++}
++
++static CAimBot::SWeaponSettings &ZenTBSet(CGameClient *pGame, int &outW)
++{
++	CAimBot &ab = pGame->m_AimBot;
++	int w = ab.m_TriggerBotSelectedWeapon;
++	if(w < 0 || w >= CAimBot::NUM_WEAPONS_TRIGGER)
++		w = 0;
++	outW = w;
++	return ab.m_TriggerBotWeapons[w];
++}
++
++static bool ZenActionOn(CClickGui *pGui, ZenRow &row)
++{
++	CGameClient *pGame = pGui->GameClient();
++	int w = 0;
++	switch(row.m_Action)
++	{
++	case 102: return ZenABSet(pGame, w).m_Enabled;
++	case 105: return ZenABSet(pGame, w).m_Silent;
++	case 106: return ZenABSet(pGame, w).m_Predict;
++	case 108: return ZenTBSet(pGame, w).m_Enabled;
++	case 112: return pGame->m_Tas.Paused();
++	default: return false;
++	}
++}
++
++static int ZenActionOpt(CClickGui *pGui, ZenRow &row)
++{
++	CGameClient *pGame = pGui->GameClient();
++	int w = 0;
++	switch(row.m_Action)
++	{
++	case 101:
++		w = pGame->m_AimBot.m_AimBotSelectedWeapon;
++		if(w < 0 || w >= CAimBot::NUM_WEAPONS_AIM)
++			w = 0;
++		return w;
++	case 107:
++		w = pGame->m_AimBot.m_TriggerBotSelectedWeapon;
++		if(w < 0 || w >= CAimBot::NUM_WEAPONS_TRIGGER)
++			w = 0;
++		return w;
++	case 109: return ZenTBSet(pGame, w).m_TriggerMode;
++	default: break;
++	}
++	return 0;
++}
++
++static int ZenActionVal(CClickGui *pGui, ZenRow &row)
++{
++	CGameClient *pGame = pGui->GameClient();
++	int w = 0;
++	switch(row.m_Action)
++	{
++	case 103: return (int)ZenABSet(pGame, w).m_Fov;
++	case 104: return (int)ZenABSet(pGame, w).m_Radius;
++	case 113: return (int)pGame->m_Tas.Tps();
++	default: return 0;
++	}
++}
++
++static const char *ZenActionLabel(CClickGui *pGui, ZenRow &row, char *pBuf, int BufSize)
++{
++	CGameClient *pGame = pGui->GameClient();
++	switch(row.m_Action)
++	{
++	case 110: return pGame->m_Tas.IsJoined() ? "Leave" : "Join";
++	case 111: return (pGame->m_Tas.IsPlaying() || pGame->m_Tas.IsRealPlaying()) ? "Stop" : "Play";
++	case 116:
++		if(pGame->m_BotNet.m_PfState == PF_STATE_IDLE)
++			return "Start";
++		return (pGame->m_BotNet.m_PfState == PF_STATE_RUNNING) ? "Stop" : "Reset";
++	default: break;
++	}
++	if(row.m_Kind == ZEN_BUTTON)
++	{
++		if(row.m_Action == 0)
++			return pGame->Client()->AnyDummyConnected() ? "Disconnect Dummy" : "Connect Dummy";
++		if(row.m_Action == 1)
++			return g_Config.m_ClDummy == 0 ? "Switch to Dummy" : "Switch to Main";
++		return row.m_pName;
++	}
++	str_format(pBuf, BufSize, "%s", row.m_pName);
++	return pBuf;
++}
  
-@@ -140,11 +161,14 @@
- 	}
- 	else if(row.m_Kind == ZEN_SLIDER)
+ void CClickGui::ZenWindowRect(float &outX, float &outY, float &outW, float &outH, float &outHeaderH)
+ {
+@@ -111,9 +268,17 @@
+ {
+ 	(void)depth;
+ 	const float midY = ry + rh * 0.5f;
+-	DrawText(rx, midY - 8.5f, 17.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
++	// Sliders and buttons draw their own labels — generic name here would
++	// double them (photo bug).
++	if(row.m_Kind != ZEN_SLIDER && row.m_Kind != ZEN_BUTTON)
++		DrawText(rx, midY - 8.5f, 17.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
+ 	const float cx = rx + rw;
+ 	char aBuf[64];
++	if(row.m_Action >= 100)
++	{
++		ZenDrawAction(this, row, rx, ry, rw, rh, alpha);
++		return;
++	}
+ 	if(row.m_Kind == ZEN_TOGGLE || row.m_Kind == ZEN_EXPAND)
  	{
-+		// Two-line layout (photo bugfix): label + value on top, full-width
-+		// track below — never overlapping.
+ 		const bool on = row.m_pOn && *row.m_pOn != 0;
+@@ -142,9 +307,10 @@
+ 	{
  		int v = row.m_pVal ? *row.m_pVal : 0;
  		str_format(aBuf, sizeof(aBuf), "%d%s", v, row.m_pUnit ? row.m_pUnit : "");
 +		DrawText(rx, ry + 4.0f, 15.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
@@ -91,15 +255,7 @@
  		DrawRoundedRect(tx, ty, tw2, 6.0f, 3.0f, 15, ZCol(Z_COL_TRACK, alpha));
  		float pct = (row.m_VMax > row.m_VMin) ? (float)(v - row.m_VMin) / (float)(row.m_VMax - row.m_VMin) : 0.0f;
  		if(pct < 0.0f)
-@@ -154,6 +178,7 @@
- 		DrawRoundedRect(tx, ty, tw2 * pct, 6.0f, 3.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
- 		const float kx = tx + tw2 * pct - 9.0f;
- 		DrawRoundedRect(kx, ty - 6.0f, 18.0f, 18.0f, 9.0f, 15, ZCol(0xffffffff, alpha));
-+		return;
- 	}
- 	else if(row.m_Kind == ZEN_BUTTON)
- 	{
-@@ -173,19 +198,21 @@
+@@ -173,19 +339,21 @@
  // Shared layout walk for render + input.
  float CClickGui::ZenWalk(float wx, float wy, float ww, float headerH, float scroll, float bodyH, bool draw, float alpha)
  {
@@ -124,7 +280,7 @@
  			ZenHitRow(row, 0, rx, ry, rw, rh, i);
  		y += Z_ROWH;
  		contentH += Z_ROWH;
-@@ -197,10 +224,10 @@
+@@ -197,10 +365,10 @@
  				ZenRowRect(kid, 1, wx, y, ww, Z_KIDH, rx, ry, rw, rh);
  				if(draw)
  				{
@@ -137,19 +293,12 @@
  					ZenHitRow(kid, 1, rx, ry, rw, rh, i * 100 + c);
  				y += Z_KIDH;
  				contentH += Z_KIDH;
-@@ -220,11 +247,31 @@
- 	DrawText(wx + ww - 34.0f, wy + 15.0f, 20.0f, "X", ZCol(Z_COL_DIM, alpha));
- 	Graphics()->LinesBegin();
- 	const IGraphics::CLineItem sep(wx + Z_PAD, wy + headerH, wx + ww - Z_PAD, wy + headerH);
--	Graphics()->SetColor(0.89f, 0.90f, 0.92f, alpha);
-+	ColorRGBA scol(Z_COL_DIM, true);
-+	scol.a *= alpha * 0.5f;
-+	Graphics()->SetColor(scol.r, scol.g, scol.b, scol.a);
+@@ -223,8 +391,25 @@
+ 	Graphics()->SetColor(0.89f, 0.90f, 0.92f, alpha);
  	Graphics()->LinesDraw(&sep, 1);
  	Graphics()->LinesEnd();
 -	const float bodyY = wy + headerH;
 -	const float bodyH = wh - headerH;
-+	// Tab strip.
 +	float tabW = ww / (float)s_ZenTabCount;
 +	for(int t = 0; t < s_ZenTabCount; t++)
 +	{
@@ -172,7 +321,7 @@
  	ClipEnableVirtual(wx, bodyY, ww, bodyH);
  	float contentH = ZenWalk(wx, wy, ww, headerH, m_ZenScroll, bodyH, true, alpha);
  	Graphics()->ClipDisable();
-@@ -245,7 +292,7 @@
+@@ -245,7 +430,7 @@
  		m_ZenHitIdx = flatIdx;
  }
  
@@ -181,7 +330,7 @@
  {
  	if(flatIdx < 0)
  		return nullptr;
-@@ -257,6 +304,8 @@
+@@ -257,6 +442,8 @@
  	}
  	int i = flatIdx / 100, c = flatIdx % 100;
  	if(i < 0 || i >= s_ZenRowCount)
@@ -190,10 +339,35 @@
  		return nullptr;
  	ZenRow &row = s_ZenRows[i];
  	if(row.m_Kind != ZEN_EXPAND || !row.m_pExpanded || !*row.m_pExpanded)
-@@ -358,9 +407,22 @@
- 		m_ZenWinDragOff = pos - vec2(wx, wy);
- 		return true;
+@@ -276,6 +463,11 @@
+ 		pct = 0.0f;
+ 	if(pct > 1.0f)
+ 		pct = 1.0f;
++	if(row.m_Action >= 100)
++	{
++		ZenApplySliderAction(this, row, pct);
++		return;
++	}
+ 	if(row.m_pVal && row.m_VMax > row.m_VMin)
+ 	{
+ 		float raw = (float)row.m_VMin + pct * (float)(row.m_VMax - row.m_VMin);
+@@ -290,6 +482,11 @@
+ 
+ void CClickGui::ZenActivate(ZenRow &row, float x)
+ {
++	if(row.m_Action >= 100)
++	{
++		ZenActivateAction(this, row);
++		return;
++	}
+ 	if(row.m_Kind == ZEN_TOGGLE)
+ 	{
+ 		if(row.m_pOn)
+@@ -360,7 +557,20 @@
  	}
+ 	m_ZenHitPos = pos;
+ 	m_ZenHitIdx = -1;
+-	float bodyH = wh - headerH;
 +	float tabW = ww / (float)s_ZenTabCount;
 +	if(pos.y >= wy + headerH && pos.y < wy + headerH + Z_TABSH)
 +	{
@@ -207,9 +381,6 @@
 +		m_ZenDown = false;
 +		return true;
 +	}
- 	m_ZenHitPos = pos;
- 	m_ZenHitIdx = -1;
--	float bodyH = wh - headerH;
 +	float bodyH = wh - headerH - Z_TABSH;
  	ZenWalk(wx, wy, ww, headerH, m_ZenScroll, bodyH, false, 1.0f);
  	if(m_ZenHitIdx >= 0)
