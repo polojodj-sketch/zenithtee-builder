@@ -1,0 +1,26 @@
+--- a/src/engine/shared/config_variables.h
++++ b/src/engine/shared/config_variables.h
+@@ -433,8 +433,8 @@
+ MACRO_CONFIG_INT(KxAfFov, kx_af_fov, 90, 5, 360, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid Freeze: aim FOV in degrees (spread angles within this cone)")
+ MACRO_CONFIG_INT(KxAfAngles, kx_af_angles, 9, 1, 144, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid Freeze: number of aim angles to try (within FOV)")
+ MACRO_CONFIG_INT(KxAfSilent, kx_af_silent, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid Freeze: silent aim (don't move visible crosshair)")
+-MACRO_CONFIG_INT(KxAfTicks, kx_af_ticks, 10, 1, 20, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid Freeze: prediction horizon in ticks")
+-MACRO_CONFIG_INT(KxAfTriggerTicks, kx_af_trigger_ticks, 3, 1, 20, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid Freeze: engagement threshold — intervene when danger is within this many ticks")
++MACRO_CONFIG_INT(KxAfTicks, kx_af_ticks, 16, 1, 20, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid Freeze: prediction horizon in ticks")
++MACRO_CONFIG_INT(KxAfTriggerTicks, kx_af_trigger_ticks, 8, 1, 20, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid Freeze: engagement threshold — intervene when danger is within this many ticks")
+ 
+ // ESP — draw lines from a point to all players matching filters
+ MACRO_CONFIG_INT(KxEsp, kx_esp, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "ESP: draw lines from point A to all matching players")
+--- a/src/game/client/components/kinetix/clickgui.cpp
++++ b/src/game/client/components/kinetix/clickgui.cpp
+@@ -301,8 +301,8 @@
+         {ERowType::Slider, "FOV", nullptr, false, false, 5.0f, 360.0f, 5.0f, 90.0f, "\xc2\xb0", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         {ERowType::Slider, "Angles", nullptr, false, false, 1.0f, 144.0f, 1.0f, 9.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+         {ERowType::Toggle, "Silent", nullptr, false, false, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Slider, "Ticks", nullptr, false, false, 1.0f, 20.0f, 1.0f, 10.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+-        {ERowType::Slider, "Trigger ticks", nullptr, false, false, 1.0f, 20.0f, 1.0f, 3.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
++        {ERowType::Slider, "Ticks", nullptr, false, false, 1.0f, 20.0f, 1.0f, 16.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
++        {ERowType::Slider, "Trigger ticks", nullptr, false, false, 1.0f, 20.0f, 1.0f, 8.0f, "", nullptr, nullptr, nullptr, 0, 0, nullptr, 0},
+ };
+ static SRow g_AdvancedRows[] = {
+         // ZenithTee v1.1: Zoom Hack + Admin Alarm + HUD toggles.
