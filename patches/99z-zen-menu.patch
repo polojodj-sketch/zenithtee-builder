@@ -194,7 +194,7 @@
 +		contentH += Z_ROWH;
 +		if(row.m_Kind == ZEN_EXPAND && row.m_pExpanded && *row.m_pExpanded)
 +		{
-+			for(int c = 0; c < row.m_nKids; c++)
++			for(int c = 0; c < row.m_KidCount; c++)
 +			{
 +				ZenRow &kid = row.m_pKids[c];
 +				ZenRowRect(kid, 1, wx, y, ww, Z_KIDH, rx, ry, rw, rh);
@@ -264,7 +264,7 @@
 +	ZenRow &row = s_ZenRows[i];
 +	if(row.m_Kind != ZEN_EXPAND || !row.m_pExpanded || !*row.m_pExpanded)
 +		return nullptr;
-+	if(c < 0 || c >= row.m_nKids)
++	if(c < 0 || c >= row.m_KidCount)
 +		return nullptr;
 +	return &row.m_pKids[c];
 +}
