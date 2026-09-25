@@ -83,7 +83,7 @@
  static ZenRow s_PilotKids[] = {
  	{ZEN_CYCLE, "Mode", nullptr, 0, s_PilotModes, 4, &g_Config.m_KxPfPilotMode, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
  	{ZEN_SLIDER, "Population", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxPfPilotPopulation, 1, 1000, 1, "", 0, nullptr, 0, nullptr},
-@@ -42,27 +82,268 @@
+@@ -42,27 +82,275 @@
  	{ZEN_TOGGLE, "HookRide", &g_Config.m_KxHookRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
  	{ZEN_TOGGLE, "JetRide", &g_Config.m_KxJetRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
  	{ZEN_SLIDER, "Jump delay", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxJetRideDelay, 5, 100, 1, "t", 0, nullptr, 0, nullptr},
@@ -126,6 +126,13 @@
 +static const unsigned Z_COL_TRACK = 0xff3a3f47;
 +static const unsigned Z_COL_TAB = 0xff8b93a1;
 +static const unsigned Z_COL_TAB_ON = 0xffffffff;
++
++static ColorRGBA ZCol(unsigned c, float alpha)
++{
++	ColorRGBA col(c, true);
++	col.a *= alpha;
++	return col;
++}
 +static const char *s_ZenTabs[] = {"Bots", "Combat", "Avoid", "Visuals", "TAS", "Pathfinder"};
 +static const int s_ZenTabCount = 6;
  
@@ -361,6 +368,20 @@
  
  void CClickGui::ZenWindowRect(float &outX, float &outY, float &outW, float &outH, float &outHeaderH)
  {
+@@ -91,13 +379,6 @@
+ 	outHeaderH = 54.0f;
+ }
+ 
+-static ColorRGBA ZCol(unsigned c, float alpha)
+-{
+-	ColorRGBA col(c, true);
+-	col.a *= alpha;
+-	return col;
+-}
+-
+ void CClickGui::ZenRowRect(ZenRow &row, int depth, float wx, float y, float ww, float h, float &rx, float &ry, float &rw, float &rh)
+ {
+ 	(void)row;
 @@ -111,7 +392,13 @@
  {
  	(void)depth;
