@@ -1,0 +1,1610 @@
+--- /dev/null
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -0,0 +1,483 @@
++// ZenithTee single-list light menu (bots + combat masters + avoid).
++// Replaces the CS sidebar/tab machinery (which hit-tested stale floating
++// geometry): one scrollable light card. Render and input share ONE layout
++// walk, so taps always land where rows are drawn.
++#include <game/client/components/kinetix/clickgui.h>
++
++#include <engine/shared/config.h>
++
++#include <game/client/gameclient.h>
++
++#include <cmath>
++
++namespace {
++
++static const char *s_PilotModes[] = {"Off", "Follow cursor", "Follow player", "Autonomous"};
++static bool s_PilotOpen = true;
++static bool s_BalOpen = true;
++static bool s_AvoidOpen = true;
++
++static ZenRow s_PilotKids[] = {
++	{ZEN_CYCLE, "Mode", nullptr, 0, s_PilotModes, 4, &g_Config.m_KxPfPilotMode, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Population", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxPfPilotPopulation, 1, 1000, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Exploration Depth", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxPfPilotExplorationDepth, 1, 50, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Top-K", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxPfPilotTopK, 1, 128, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Sequence Length", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxPfPilotSequenceLength, 1, 32, 1, "", 0, nullptr, 0, nullptr},
++};
++static ZenRow s_BalKids[] = {
++	{ZEN_SLIDER, "Offset", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxBalanceBotOffset, 0, 16, 1, "", 0, nullptr, 0, nullptr},
++};
++static ZenRow s_AvoidKids[] = {
++	{ZEN_TOGGLE, "Freeze", &g_Config.m_KxAfAvoidFreeze, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Teleport", &g_Config.m_KxAfAvoidTeleport, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Death", &g_Config.m_KxAfAvoidDeath, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Silent", &g_Config.m_KxAfSilent, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Ticks", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxAfTicks, 1, 20, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Trigger ticks", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxAfTriggerTicks, 1, 20, 1, "", 0, nullptr, 0, nullptr},
++};
++static ZenRow s_ZenRows[] = {
++	{ZEN_EXPAND, "Pilot Bot", &g_Config.m_KxPfPilotMode, 2, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_PilotKids, 5, &s_PilotOpen},
++	{ZEN_EXPAND, "BalanceBot", &g_Config.m_KxBalanceBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_BalKids, 1, &s_BalOpen},
++	{ZEN_EXPAND, "Avoid Freeze", &g_Config.m_KxAvoidFreezeBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_AvoidKids, 6, &s_AvoidOpen},
++	{ZEN_TOGGLE, "HookRide", &g_Config.m_KxHookRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "JetRide", &g_Config.m_KxJetRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Jump delay", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxJetRideDelay, 5, 100, 1, "t", 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Block", &g_Config.m_KxAttack, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "AimBot", &g_Config.m_KxAimBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "TriggerBot", &g_Config.m_KxTriggerBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Copy Moves", &g_Config.m_KxCopyMoves, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_BUTTON, "Connect Dummy", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_BUTTON, "Switch", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 1, nullptr, 0, nullptr},
++};
++static const int s_ZenRowCount = sizeof(s_ZenRows) / sizeof(s_ZenRows[0]);
++
++// Light theme.
++static const unsigned Z_COL_BG = 0xfff4f5f7;
++static const unsigned Z_COL_TEXT = 0xff16191d;
++static const unsigned Z_COL_DIM = 0xff6b7280;
++static const unsigned Z_COL_TRACK = 0xffd7dbe0;
++
++static constexpr float Z_ROWH = 50.0f;
++static constexpr float Z_KIDH = 46.0f;
++static constexpr float Z_INDENT = 28.0f;
++static constexpr float Z_PAD = 16.0f;
++
++} // namespace
++
++void CClickGui::ZenWindowRect(float &outX, float &outY, float &outW, float &outH, float &outHeaderH)
++{
++	const float sw = VScreenWidth();
++	const float sh = VScreenHeight();
++	outW = sw - 60.0f;
++	if(outW > 560.0f)
++		outW = 560.0f;
++	if(outW < 280.0f)
++		outW = 280.0f;
++	outH = sh - 140.0f;
++	if(outH > 760.0f)
++		outH = 760.0f;
++	if(outH < 320.0f)
++		outH = 320.0f;
++	outX = (sw - outW) * 0.5f + m_ZenWinOff.x;
++	outY = (sh - outH) * 0.5f + m_ZenWinOff.y;
++	if(outX < 8.0f)
++		outX = 8.0f;
++	if(outY < 8.0f)
++		outY = 8.0f;
++	if(outX + outW > sw - 8.0f)
++		outX = sw - 8.0f - outW;
++	if(outY + outH > sh - 8.0f)
++		outY = sh - 8.0f - outH;
++	outHeaderH = 54.0f;
++}
++
++static ColorRGBA ZCol(unsigned c, float alpha)
++{
++	ColorRGBA col(c, true);
++	col.a *= alpha;
++	return col;
++}
++
++void CClickGui::ZenRowRect(ZenRow &row, int depth, float wx, float y, float ww, float h, float &rx, float &ry, float &rw, float &rh)
++{
++	(void)row;
++	rx = wx + Z_PAD + (depth > 0 ? Z_INDENT : 0.0f);
++	rw = ww - Z_PAD * 2.0f - (depth > 0 ? Z_INDENT : 0.0f);
++	ry = y;
++	rh = h;
++}
++
++void CClickGui::ZenDrawRow(ZenRow &row, int depth, float rx, float ry, float rw, float rh, float alpha)
++{
++	(void)depth;
++	const float midY = ry + rh * 0.5f;
++	DrawText(rx, midY - 8.5f, 17.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
++	const float cx = rx + rw;
++	char aBuf[64];
++	if(row.m_Kind == ZEN_TOGGLE || row.m_Kind == ZEN_EXPAND)
++	{
++		const bool on = row.m_pOn && *row.m_pOn != 0;
++		const float tw = 44.0f, th = 24.0f;
++		const float tx = cx - tw - (row.m_Kind == ZEN_EXPAND ? 26.0f : 0.0f), ty = midY - th * 0.5f;
++		unsigned track = on ? (unsigned)m_AccentColorRGBA : Z_COL_TRACK;
++		DrawRoundedRect(tx, ty, tw, th, th * 0.5f, 15, ZCol(track, alpha));
++		const float kx = on ? tx + tw - 20.0f : tx + 2.0f;
++		DrawRoundedRect(kx, ty + 2.0f, 18.0f, 18.0f, 9.0f, 15, ZCol(0xffffffff, alpha));
++		if(row.m_Kind == ZEN_EXPAND && row.m_pExpanded)
++		{
++			DrawText(cx - 16.0f, midY - 8.5f, 17.0f, *row.m_pExpanded ? "-" : "+", ZCol(Z_COL_DIM, alpha));
++		}
++	}
++	else if(row.m_Kind == ZEN_CYCLE)
++	{
++		int idx = row.m_pOpt ? *row.m_pOpt : 0;
++		if(idx < 0 || idx >= row.m_OptCount)
++			idx = 0;
++		const char *pVal = (row.m_ppOpts && idx < row.m_OptCount) ? row.m_ppOpts[idx] : "?";
++		const float tw = TextRender()->TextWidth(17.0f, pVal);
++		DrawText(cx - tw - 22.0f, midY - 8.5f, 17.0f, pVal, ZCol(Z_COL_DIM, alpha));
++		DrawText(cx - 14.0f, midY - 8.5f, 17.0f, ">", ZCol(Z_COL_DIM, alpha));
++	}
++	else if(row.m_Kind == ZEN_SLIDER)
++	{
++		int v = row.m_pVal ? *row.m_pVal : 0;
++		str_format(aBuf, sizeof(aBuf), "%d%s", v, row.m_pUnit ? row.m_pUnit : "");
++		const float tw = TextRender()->TextWidth(15.0f, aBuf);
++		DrawText(cx - tw, midY - 22.0f, 15.0f, aBuf, ZCol(Z_COL_DIM, alpha));
++		const float tx = rx, tw2 = rw, ty = midY + 6.0f;
++		DrawRoundedRect(tx, ty, tw2, 6.0f, 3.0f, 15, ZCol(Z_COL_TRACK, alpha));
++		float pct = (row.m_VMax > row.m_VMin) ? (float)(v - row.m_VMin) / (float)(row.m_VMax - row.m_VMin) : 0.0f;
++		if(pct < 0.0f)
++			pct = 0.0f;
++		if(pct > 1.0f)
++			pct = 1.0f;
++		DrawRoundedRect(tx, ty, tw2 * pct, 6.0f, 3.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
++		const float kx = tx + tw2 * pct - 9.0f;
++		DrawRoundedRect(kx, ty - 6.0f, 18.0f, 18.0f, 9.0f, 15, ZCol(0xffffffff, alpha));
++	}
++	else if(row.m_Kind == ZEN_BUTTON)
++	{
++		const char *pLabel = row.m_pName;
++		if(row.m_Action == 0)
++			pLabel = GameClient()->Client()->AnyDummyConnected() ? "Disconnect Dummy" : "Connect Dummy";
++		else if(row.m_Action == 1)
++			pLabel = g_Config.m_ClDummy == 0 ? "Switch to Dummy" : "Switch to Main";
++		const float bw = rw * 0.7f;
++		const float bx = rx + (rw - bw) * 0.5f, by = midY - 17.0f;
++		DrawRoundedRect(bx, by, bw, 34.0f, 8.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
++		const float tw = TextRender()->TextWidth(17.0f, pLabel);
++		DrawText(bx + (bw - tw) * 0.5f, midY - 8.5f, 17.0f, pLabel, ZCol(0xffffffff, alpha));
++	}
++}
++
++// Shared layout walk for render + input.
++float CClickGui::ZenWalk(float wx, float wy, float ww, float headerH, float scroll, float bodyH, bool draw, float alpha)
++{
++	float y = wy + headerH - scroll;
++	float contentH = 0.0f;
++	for(int i = 0; i < s_ZenRowCount; i++)
++	{
++		ZenRow &row = s_ZenRows[i];
++		float rx, ry, rw, rh;
++		ZenRowRect(row, 0, wx, y, ww, Z_ROWH, rx, ry, rw, rh);
++		if(draw)
++		{
++			if(ry + rh >= wy + headerH && ry <= wy + headerH + bodyH)
++				ZenDrawRow(row, 0, rx, ry, rw, rh, alpha);
++		}
++		else
++			ZenHitRow(row, 0, rx, ry, rw, rh, i);
++		y += Z_ROWH;
++		contentH += Z_ROWH;
++		if(row.m_Kind == ZEN_EXPAND && row.m_pExpanded && *row.m_pExpanded)
++		{
++			for(int c = 0; c < row.m_nKids; c++)
++			{
++				ZenRow &kid = row.m_pKids[c];
++				ZenRowRect(kid, 1, wx, y, ww, Z_KIDH, rx, ry, rw, rh);
++				if(draw)
++				{
++					if(ry + rh >= wy + headerH && ry <= wy + headerH + bodyH)
++						ZenDrawRow(kid, 1, rx, ry, rw, rh, alpha);
++				}
++				else
++					ZenHitRow(kid, 1, rx, ry, rw, rh, i * 100 + c);
++				y += Z_KIDH;
++				contentH += Z_KIDH;
++			}
++		}
++	}
++	return contentH;
++}
++
++void CClickGui::ZenRender(float alpha)
++{
++	float wx, wy, ww, wh, headerH;
++	ZenWindowRect(wx, wy, ww, wh, headerH);
++	Graphics()->BlendNormal();
++	DrawRoundedRect(wx, wy, ww, wh, 14.0f, 15, ZCol(Z_COL_BG, alpha));
++	DrawText(wx + Z_PAD, wy + 15.0f, 20.0f, "Zenith", ZCol(Z_COL_TEXT, alpha));
++	DrawText(wx + ww - 34.0f, wy + 15.0f, 20.0f, "X", ZCol(Z_COL_DIM, alpha));
++	Graphics()->LinesBegin();
++	const IGraphics::CLineItem sep(wx + Z_PAD, wy + headerH, wx + ww - Z_PAD, wy + headerH);
++	Graphics()->SetColor(0.89f, 0.90f, 0.92f, alpha);
++	Graphics()->LinesDraw(&sep, 1);
++	Graphics()->LinesEnd();
++	const float bodyY = wy + headerH;
++	const float bodyH = wh - headerH;
++	ClipEnableVirtual(wx, bodyY, ww, bodyH);
++	float contentH = ZenWalk(wx, wy, ww, headerH, m_ZenScroll, bodyH, true, alpha);
++	Graphics()->ClipDisable();
++	if(contentH > bodyH)
++		m_ZenScrollMax = contentH - bodyH;
++	else
++	{
++		m_ZenScrollMax = 0.0f;
++		m_ZenScroll = 0.0f;
++	}
++}
++
++void CClickGui::ZenHitRow(ZenRow &row, int depth, float rx, float ry, float rw, float rh, int flatIdx)
++{
++	(void)row;
++	(void)depth;
++	if(m_ZenHitPos.x >= rx && m_ZenHitPos.x < rx + rw && m_ZenHitPos.y >= ry && m_ZenHitPos.y < ry + rh)
++		m_ZenHitIdx = flatIdx;
++}
++
++static ZenRow *ZenRowByFlat(int flatIdx)
++{
++	if(flatIdx < 0)
++		return nullptr;
++	if(flatIdx < 100)
++	{
++		if(flatIdx >= s_ZenRowCount)
++			return nullptr;
++		return &s_ZenRows[flatIdx];
++	}
++	int i = flatIdx / 100, c = flatIdx % 100;
++	if(i < 0 || i >= s_ZenRowCount)
++		return nullptr;
++	ZenRow &row = s_ZenRows[i];
++	if(row.m_Kind != ZEN_EXPAND || !row.m_pExpanded || !*row.m_pExpanded)
++		return nullptr;
++	if(c < 0 || c >= row.m_nKids)
++		return nullptr;
++	return &row.m_pKids[c];
++}
++
++void CClickGui::ZenApplySlider(ZenRow &row, float x)
++{
++	float wx, wy, ww, wh, headerH;
++	ZenWindowRect(wx, wy, ww, wh, headerH);
++	float rx = wx + Z_PAD, rw = ww - Z_PAD * 2.0f;
++	float pct = (x - rx) / rw;
++	if(pct < 0.0f)
++		pct = 0.0f;
++	if(pct > 1.0f)
++		pct = 1.0f;
++	if(row.m_pVal && row.m_VMax > row.m_VMin)
++	{
++		float raw = (float)row.m_VMin + pct * (float)(row.m_VMax - row.m_VMin);
++		int v = row.m_VMin + (int)(roundf((raw - (float)row.m_VMin) / (float)row.m_VStep) * (float)row.m_VStep);
++		if(v < row.m_VMin)
++			v = row.m_VMin;
++		if(v > row.m_VMax)
++			v = row.m_VMax;
++		*row.m_pVal = v;
++	}
++}
++
++void CClickGui::ZenActivate(ZenRow &row, float x)
++{
++	if(row.m_Kind == ZEN_TOGGLE)
++	{
++		if(row.m_pOn)
++			*row.m_pOn = (*row.m_pOn != 0) ? 0 : row.m_OnVal;
++	}
++	else if(row.m_Kind == ZEN_EXPAND)
++	{
++		float wx, wy, ww, wh, headerH;
++		ZenWindowRect(wx, wy, ww, wh, headerH);
++		if(x >= wx + ww - Z_PAD - ww * 0.25f)
++		{
++			if(row.m_pExpanded)
++				*row.m_pExpanded = !*row.m_pExpanded;
++		}
++		else if(row.m_pOn)
++			*row.m_pOn = (*row.m_pOn != 0) ? 0 : row.m_OnVal;
++	}
++	else if(row.m_Kind == ZEN_CYCLE)
++	{
++		if(row.m_pOpt && row.m_OptCount > 0)
++		{
++			int v = *row.m_pOpt + 1;
++			if(v < 0 || v >= row.m_OptCount)
++				v = 0;
++			*row.m_pOpt = v;
++		}
++	}
++	else if(row.m_Kind == ZEN_BUTTON)
++	{
++		if(row.m_Action == 0)
++		{
++			if(GameClient()->Client()->AnyDummyConnected())
++			{
++				for(int D = 1; D < MAX_DUMMIES; D++)
++					if(GameClient()->Client()->DummyConnected(D))
++						GameClient()->Client()->DummyDisconnect(D, nullptr);
++			}
++			else
++				GameClient()->Client()->DummyConnect(1);
++		}
++		else if(row.m_Action == 1)
++		{
++			g_Config.m_ClDummy = g_Config.m_ClDummy ? 0 : 1;
++		}
++	}
++}
++
++bool CClickGui::ZenDown(vec2 pos)
++{
++	m_ZenDown = true;
++	m_ZenDownMoved = false;
++	m_ZenDownPos = pos;
++	m_ZenDownIdx = -1;
++	m_ZenSliderDrag = -1;
++	float wx, wy, ww, wh, headerH;
++	ZenWindowRect(wx, wy, ww, wh, headerH);
++	if(pos.x >= wx + ww - 40.0f && pos.x < wx + ww - 4.0f && pos.y >= wy + 8.0f && pos.y < wy + headerH - 8.0f)
++	{
++		g_Config.m_ClClickGui = 0;
++		m_ZenDown = false;
++		return true;
++	}
++	if(pos.x >= wx && pos.x < wx + ww - 40.0f && pos.y >= wy && pos.y < wy + headerH)
++	{
++		m_ZenWinDrag = true;
++		m_ZenWinDragOff = pos - vec2(wx, wy);
++		return true;
++	}
++	m_ZenHitPos = pos;
++	m_ZenHitIdx = -1;
++	float bodyH = wh - headerH;
++	ZenWalk(wx, wy, ww, headerH, m_ZenScroll, bodyH, false, 1.0f);
++	if(m_ZenHitIdx >= 0)
++	{
++		ZenRow *pRow = ZenRowByFlat(m_ZenHitIdx);
++		if(pRow && pRow->m_Kind == ZEN_SLIDER)
++		{
++			m_ZenSliderDrag = m_ZenHitIdx;
++			ZenApplySlider(*pRow, pos.x);
++			return true;
++		}
++		m_ZenDownIdx = m_ZenHitIdx;
++		return true;
++	}
++	m_ZenDownIdx = -2;
++	return true;
++}
++
++void CClickGui::ZenMove(vec2 pos)
++{
++	if(m_ZenWinDrag)
++	{
++		m_ZenWinOff = m_ZenWinOff + (pos - m_ZenDownPos);
++		m_ZenDownPos = pos;
++		m_ZenDownMoved = true;
++		return;
++	}
++	if(m_ZenSliderDrag >= 0)
++	{
++		ZenRow *pRow = ZenRowByFlat(m_ZenSliderDrag);
++		if(pRow)
++			ZenApplySlider(*pRow, pos.x);
++		m_ZenDownMoved = true;
++		return;
++	}
++	if(m_ZenDown && !m_ZenDownMoved)
++	{
++		if(distance(pos, m_ZenDownPos) > 14.0f)
++		{
++			m_ZenDownMoved = true;
++			m_ZenDownIdx = -2;
++		}
++	}
++	if(m_ZenDownMoved && m_ZenDownIdx == -2)
++	{
++		m_ZenScroll -= pos.y - m_ZenDownPos.y;
++		if(m_ZenScroll < 0.0f)
++			m_ZenScroll = 0.0f;
++		if(m_ZenScroll > m_ZenScrollMax)
++			m_ZenScroll = m_ZenScrollMax;
++		m_ZenDownPos = pos;
++	}
++}
++
++void CClickGui::ZenUp(vec2 pos)
++{
++	if(m_ZenWinDrag)
++	{
++		m_ZenWinDrag = false;
++		m_ZenDown = false;
++		return;
++	}
++	if(m_ZenSliderDrag >= 0)
++	{
++		m_ZenSliderDrag = -1;
++		m_ZenDown = false;
++		return;
++	}
++	if(m_ZenDown && !m_ZenDownMoved && m_ZenDownIdx >= 0)
++	{
++		ZenRow *pRow = ZenRowByFlat(m_ZenDownIdx);
++		if(pRow)
++			ZenActivate(*pRow, pos.x);
++	}
++	m_ZenDown = false;
++	m_ZenDownIdx = -1;
++}
++
++bool CClickGui::ZenWheel(float dir)
++{
++	m_ZenScroll += dir * 40.0f;
++	if(m_ZenScroll < 0.0f)
++		m_ZenScroll = 0.0f;
++	if(m_ZenScroll > m_ZenScrollMax)
++		m_ZenScroll = m_ZenScrollMax;
++	return true;
++}
++
++bool CClickGui::ZenTouch(std::vector<IInput::CTouchFingerState> &vFingers)
++{
++	// Closed menu: don't claim touches (game needs them).
++	const bool isOpen = g_Config.m_ClClickGui != 0 || m_AnimProgress > 0.0f;
++	if(!isOpen)
++	{
++		m_ZenTouchDown = false;
++		m_ZenDown = false;
++		m_ZenSliderDrag = -1;
++		m_ZenWinDrag = false;
++		m_TouchActive = false;
++		return false;
++	}
++	bool wasDown = m_ZenTouchDown;
++	vec2 curPos = m_ZenTouchPos;
++	bool isDown = !vFingers.empty();
++	if(isDown)
++	{
++		const vec2 ss((float)Graphics()->ScreenWidth(), (float)Graphics()->ScreenHeight());
++		const vec2 fp = vFingers.front().m_Position;
++		curPos = vec2(fp.x * ss.x, fp.y * ss.y) / (m_UiScale > 0.0f ? m_UiScale : 1.0f);
++	}
++	if(isDown && !wasDown)
++		ZenDown(curPos);
++	else if(isDown && wasDown)
++		ZenMove(curPos);
++	else if(!isDown && wasDown)
++		ZenUp(m_ZenTouchPos);
++	m_ZenTouchDown = isDown;
++	m_ZenTouchPos = curPos;
++	m_TouchActive = isDown;
++	return true;
++}
+--- a/src/game/client/components/kinetix/clickgui.h
++++ b/src/game/client/components/kinetix/clickgui.h
+@@ -35,6 +35,35 @@
+ 
+ #include <game/client/component.h>
+ 
++// Zen single-list menu row model (clickgui_zen.cpp). Plain data, direct
++// cvar pointers — render and input share one layout walk.
++enum ZenRowKind
++{
++	ZEN_TOGGLE = 0,
++	ZEN_CYCLE,
++	ZEN_SLIDER,
++	ZEN_BUTTON,
++	ZEN_EXPAND,
++};
++
++struct ZenRow
++{
++	ZenRowKind m_Kind;
++	const char *m_pName;
++	int *m_pOn;
++	int m_OnVal;
++	const char **m_ppOpts;
++	int m_OptCount;
++	int *m_pOpt;
++	int *m_pVal;
++	int m_VMin, m_VMax, m_VStep;
++	const char *m_pUnit;
++	int m_Action;
++	ZenRow *m_pKids;
++	int m_KidCount;
++	bool *m_pExpanded;
++};
++
+ class CClickGui : public CComponent
+ {
+ public:
+@@ -153,6 +182,22 @@
+ 
+         // Mouse position in screen-space px (updated each frame from NativeMousePos).
+         vec2 m_MousePos = vec2(0, 0);
++
++        // Zen single-list UI state (replaces CS sidebar/tab machinery).
++        float m_ZenScroll = 0.0f;
++        float m_ZenScrollMax = 0.0f;
++        vec2 m_ZenWinOff = vec2(0, 0);
++        bool m_ZenWinDrag = false;
++        vec2 m_ZenWinDragOff = vec2(0, 0);
++        int m_ZenSliderDrag = -1;
++        bool m_ZenDown = false;
++        bool m_ZenDownMoved = false;
++        vec2 m_ZenDownPos = vec2(0, 0);
++        int m_ZenDownIdx = -1;
++        bool m_ZenTouchDown = false;
++        vec2 m_ZenTouchPos = vec2(0, 0);
++        vec2 m_ZenHitPos = vec2(0, 0);
++        int m_ZenHitIdx = -1;
+ 
+         // v1.56.218: Android touch support. The primary finger drives m_MousePos
+         // like a Windows cursor; m_vPrevTouchFingers tracks per-finger down/up
+@@ -338,6 +383,22 @@
+         void HandleMouseDown(vec2 mousePos);
+         void HandleMouseUp(vec2 mousePos);
+ 
++        // Zen single-list UI (clickgui_zen.cpp). One shared layout walk feeds
++        // both render and input, so taps always land where rows are drawn.
++        void ZenWindowRect(float &outX, float &outY, float &outW, float &outH, float &outHeaderH);
++        void ZenRowRect(ZenRow &row, int depth, float wx, float y, float ww, float h, float &rx, float &ry, float &rw, float &rh);
++        void ZenDrawRow(ZenRow &row, int depth, float rx, float ry, float rw, float rh, float alpha);
++        void ZenHitRow(ZenRow &row, int depth, float rx, float ry, float rw, float rh, int flatIdx);
++        float ZenWalk(float wx, float wy, float ww, float headerH, float scroll, float bodyH, bool draw, float alpha);
++        void ZenRender(float alpha);
++        bool ZenDown(vec2 pos);
++        void ZenMove(vec2 pos);
++        void ZenUp(vec2 pos);
++        bool ZenWheel(float dir);
++        bool ZenTouch(std::vector<IInput::CTouchFingerState> &vFingers);
++        void ZenApplySlider(ZenRow &row, float x);
++        void ZenActivate(ZenRow &row, float x);
++
+         // Scroll the panel under mousePos (topmost hit) by dir (signed SCROLL_STEP).
+         // Returns true if a panel was scrolled. Shared by mouse wheel and touch swipe.
+         bool ScrollPanelAt(vec2 mousePos, float dir);
+--- a/src/game/client/components/kinetix/clickgui.cpp
++++ b/src/game/client/components/kinetix/clickgui.cpp
+@@ -3439,22 +3439,9 @@
+                         IGraphics::CORNER_NONE, 0.0f);
+         }
+ 
+-        // v1.57: CS-cheat skin — single centered window. Draw the window chrome,
+-        // the left sidebar of tabs, then only the ACTIVE tab's panel body in the
+-        // content area. The old floating multi-window render loop is replaced.
+-        RenderWindowChrome(alpha);
+-        RenderSidebar(alpha);
+-
+-        {
+-                float cx, cy, cw, chh;
+-                CsContentRect(cx, cy, cw, chh);
+-                // Sync active panel's position to the content area (so drag/sort
+-                // state doesn't fight the CS layout) and render only it.
+-                m_aPanelPos[m_ActiveTab] = vec2(cx, cy);
+-                m_aPanelTarget[m_ActiveTab] = vec2(cx, cy);
+-                m_aPanelPosValid[m_ActiveTab] = true;
+-                RenderPanel(m_ActiveTab, vec2(cx, cy), alpha);
+-        }
++        // Zen single-list UI: one scrollable light card (bots + combat).
++        // Replaces the CS sidebar/tab machinery entirely.
++        ZenRender(alpha);
+ 
+         // Render dropdown popup ON TOP of all panels (if open).
+         RenderDropdownPopup(alpha);
+@@ -3508,7 +3495,7 @@
+                 (Event.m_Key == KEY_MOUSE_WHEEL_UP || Event.m_Key == KEY_MOUSE_WHEEL_DOWN))
+         {
+                 const float dir = (Event.m_Key == KEY_MOUSE_WHEEL_UP) ? -SCROLL_STEP : SCROLL_STEP;
+-                return ScrollPanelAt(m_MousePos, dir);
++                return ZenWheel(dir / SCROLL_STEP);
+         }
+ 
+         // If editing an input field, route keyboard events to text editing.
+@@ -3545,137 +3532,11 @@
+ // Presses on headers (panel drag), sliders, dropdowns and while editing an
+ // input field fire immediately like on desktop.
+ bool CClickGui::OnTouchState(std::vector<IInput::CTouchFingerState> &vTouchFingerStates)
+-{
+-        const bool isOpen = g_Config.m_ClClickGui != 0 || m_AnimProgress > 0.0f;
+-        if(!isOpen)
+-        {
+-                m_vPrevTouchFingers.clear();
+-                m_TouchActive = false;
+-                m_TouchPendingTap = false;
+-                m_TouchScrollMode = false;
+-                m_TouchScrollAccum = 0.0f;
+-                return false;
+-        }
+-
+-        m_TouchActive = !vTouchFingerStates.empty();
+-
+-        if(!vTouchFingerStates.empty())
+-        {
+-                // Primary finger = cursor. Map normalized touch position to
+-                // ClickGUI virtual units (physical px / m_UiScale), same space
+-                // as m_MousePos from NativeMousePos on desktop.
+-                const vec2 ScreenSize = vec2((float)Graphics()->ScreenWidth(), (float)Graphics()->ScreenHeight());
+-                const vec2 FingerPos = vTouchFingerStates.front().m_Position;
+-                m_MousePos = vec2(FingerPos.x * ScreenSize.x, FingerPos.y * ScreenSize.y) / (m_UiScale > 0.0f ? m_UiScale : 1.0f);
+-
+-                // True if the press lands on something that needs an immediate
+-                // press-down (drag interactions), not a deferred tap.
+-                const auto HitHeaderOrSlider = [&](vec2 pos) {
+-                        int order[NUM_PANELS];
+-                        for(int i = 0; i < NUM_PANELS; ++i)
+-                                order[i] = i;
+-                        for(int a = 0; a < NUM_PANELS; ++a)
+-                                for(int b = a + 1; b < NUM_PANELS; ++b)
+-                                        if(m_aZOrder[order[b]] > m_aZOrder[order[a]])
+-                                        {
+-                                                int tmp = order[a];
+-                                                order[a] = order[b];
+-                                                order[b] = tmp;
+-                                        }
+-                        for(int idx = 0; idx < NUM_PANELS; ++idx)
+-                        {
+-                                const int i = order[idx];
+-                                const vec2 ppos = m_aPanelPosValid[i] ? m_aPanelPos[i] : PanelHomePos(i);
+-                                if(PointInRect(pos, ppos.x, ppos.y, PANEL_WIDTH, HEADER_HEIGHT))
+-                                        return true;
+-                                if(m_aPanelCollapsed[i])
+-                                        continue;
+-                                int outRow, outChild;
+-                                float rx, ry, rw, rh;
+-                                if(HitTestRow(pos, i, outRow, outChild, rx, ry, rw, rh))
+-                                {
+-                                        SPanel &panel = g_Panels[i];
+-                                        SRow &row = panel.pRows[outRow];
+-                                        SRow *pTarget = (outChild >= 0 && row.pChildren) ? &row.pChildren[outChild] : &row;
+-                                        if(pTarget->type == ERowType::Slider && pTarget->max > pTarget->min)
+-                                                return true;
+-                                }
+-                        }
+-                        return false;
+-                };
+-
+-                // Finger press (not present last frame).
+-                const bool WasDown = std::any_of(m_vPrevTouchFingers.begin(), m_vPrevTouchFingers.end(), [&](const IInput::CTouchFingerState &Prev) {
+-                        return Prev.m_Finger == vTouchFingerStates.front().m_Finger;
+-                });
+-                if(!WasDown)
+-                {
+-                        m_TouchPressPos = m_MousePos;
+-                        m_TouchScrollAccum = 0.0f;
+-                        m_TouchScrollMode = false;
+-                        if(m_DropdownOpen || m_InputEditing || HitHeaderOrSlider(m_MousePos))
+-                        {
+-                                // Drag-style interactions: press fires immediately.
+-                                m_TouchPendingTap = false;
+-                                if(m_AnimProgress >= 0.95f)
+-                                        HandleMouseDown(m_MousePos);
+-                        }
+-                        else
+-                        {
+-                                // Plain row: defer the click — a swipe becomes a scroll.
+-                                m_TouchPendingTap = true;
+-                        }
+-                }
+-                else if(m_TouchPendingTap || m_TouchScrollMode)
+-                {
+-                        // Swipe: accumulate vertical travel, emit one scroll step
+-                        // per SCROLL_STEP units (finger up = scroll down).
+-                        m_TouchScrollAccum += m_MousePos.y - m_TouchPressPos.y;
+-                        m_TouchPressPos = m_MousePos;
+-                        while(m_TouchScrollAccum >= SCROLL_STEP)
+-                        {
+-                                m_TouchScrollAccum -= SCROLL_STEP;
+-                                if(ScrollPanelAt(m_MousePos, -SCROLL_STEP))
+-                                        m_TouchScrollMode = true;
+-                        }
+-                        while(m_TouchScrollAccum <= -SCROLL_STEP)
+-                        {
+-                                m_TouchScrollAccum += SCROLL_STEP;
+-                                if(ScrollPanelAt(m_MousePos, SCROLL_STEP))
+-                                        m_TouchScrollMode = true;
+-                        }
+-                        if(m_TouchScrollMode)
+-                                m_TouchPendingTap = false;
+-                }
+-        }
+-
+-        // Finger release (present last frame, gone now) = mouse button up.
+-        for(const auto &Prev : m_vPrevTouchFingers)
+-        {
+-                const bool StillDown = std::any_of(vTouchFingerStates.begin(), vTouchFingerStates.end(), [&](const IInput::CTouchFingerState &Cur) {
+-                        return Cur.m_Finger == Prev.m_Finger;
+-                });
+-                if(!StillDown && m_AnimProgress >= 0.95f)
+-                {
+-                        if(m_TouchPendingTap)
+-                        {
+-                                // Deferred tap: fire press + release at the release spot.
+-                                HandleMouseDown(m_MousePos);
+-                                HandleMouseUp(m_MousePos);
+-                        }
+-                        else
+-                        {
+-                                HandleMouseUp(m_MousePos);
+-                        }
+-                        m_TouchPendingTap = false;
+-                        m_TouchScrollMode = false;
+-                        m_TouchScrollAccum = 0.0f;
+-                }
+-        }
+-
+-        m_vPrevTouchFingers = vTouchFingerStates;
+-        return true;
+-}
++
++{
++	return ZenTouch(vTouchFingerStates);
++}
++
+ 
+ void CClickGui::BringToFront(int panelIdx)
+ {
+@@ -3699,839 +3560,18 @@
+ }
+ 
+ void CClickGui::HandleMouseDown(vec2 mousePos)
+-{
+-        // If a dropdown popup is open, check it FIRST (it's on top of everything).
+-        if(m_DropdownOpen)
+-        {
+-                if(HandleDropdownClick(mousePos))
+-                        return;
+-                // Click outside dropdown → close it (and don't fall through to row
+-                // beneath, matching HTML select behavior).
+-                m_DropdownOpen = false;
+-                return;
+-        }
+-
+-        if(m_FileBrowserOpen)
+-        {
+-                HandleFileBrowserClick(mousePos);
+-                return;
+-        }
+-
+-        // If editing an input field, commit the edit buffer back to the row before
+-        // processing the new click (so the typed text is saved).
+-        if(m_InputEditing)
+-        {
+-                SRow *pRow = (SRow *)GetEditingInputRowPtr();
+-                if(pRow)
+-                {
+-                        if(!pRow->m_InputInitialized)
+-                        {
+-                                if(pRow->pInputValue)
+-                                        str_copy(pRow->m_aInputBuf, pRow->pInputValue, sizeof(pRow->m_aInputBuf));
+-                                pRow->m_InputInitialized = true;
+-                        }
+-                        mem_copy(pRow->m_aInputBuf, m_InputBuf, m_InputLen + 1);
+-                        // v1.56.170 BUG8: apply input value via unified commit handler.
+-                        // Previously this block had all the if/else if application logic
+-                        // inline (full coverage), but HandleTextInput's CommitToRow lambda
+-                        // had only ClickGUI Color + Line color. Pressing Enter on Spoofer/
+-                        // Block/Binds/Dist fields left them unapplied. Now both paths call
+-                        // ApplyInputCommit for consistent behavior.
+-                        ApplyInputCommit(pRow);
+-                }
+-                m_InputEditing = false; Input()->StopTextInput();
+-        }
+-
+-        // v1.57: CS-cheat skin — sidebar tabs switch the active panel. Handle
+-        // tab clicks BEFORE any row hit-testing (sidebar is left of content).
+-        if(HandleSidebarClick(mousePos))
+-                return;
+-
+-        // v1.57: CS-cheat skin — only the active tab is rendered/hit-tested.
+-        int clickOrder[NUM_PANELS];
+-        clickOrder[0] = m_ActiveTab;
+-        for(int i = 1; i < NUM_PANELS; ++i)
+-                clickOrder[i] = -1;
+-        for(int a = 0; a < NUM_PANELS; ++a)
+-                for(int b = a + 1; b < NUM_PANELS; ++b)
+-                        if(m_aZOrder[clickOrder[b]] > m_aZOrder[clickOrder[a]])
+-                        {
+-                                int tmp = clickOrder[a];
+-                                clickOrder[a] = clickOrder[b];
+-                                clickOrder[b] = tmp;
+-                        }
+-
+-        for(int idx = 0; idx < NUM_PANELS; ++idx)
+-        {
+-                const int i = clickOrder[idx];
+-                if(i < 0)
+-                        continue;
+-                const vec2 ppos = m_aPanelPosValid[i] ? m_aPanelPos[i] : PanelHomePos(i);
+-
+-                // Check header hit (drag + collapse arrow).
+-                if(PointInRect(mousePos, ppos.x, ppos.y, PANEL_WIDTH, HEADER_HEIGHT))
+-                {
+-                        BringToFront(i);
+-
+-                        // Collapse arrow ▼ on left side of header (first ~24px).
+-                        if(PointInRect(mousePos, ppos.x + 4.0f, ppos.y + 4.0f, 24.0f, HEADER_HEIGHT - 8.0f))
+-                        {
+-                                m_aPanelCollapsed[i] = !m_aPanelCollapsed[i];
+-                                return;
+-                        }
+-
+-                        // Otherwise start dragging.
+-                        m_Dragging = true;
+-                        m_DragPanelIdx = i;
+-                        m_DragOffset = mousePos - ppos;
+-                        // Target is set in OnRender render loop; just mark dragging.
+-                        return;
+-                }
+-
+-                // If panel is collapsed, body doesn't exist — skip row hit-test.
+-                if(m_aPanelCollapsed[i])
+-                        continue;
+-
+-                // Check row hits in the body.
+-                int outRow, outChild;
+-                float rx, ry, rw, rh;
+-                if(HitTestRow(mousePos, i, outRow, outChild, rx, ry, rw, rh))
+-                {
+-                        BringToFront(i);
+-                        SPanel &panel = g_Panels[i];
+-                        SRow &row = panel.pRows[outRow];
+-                        SRow *pTarget = (outChild >= 0 && row.pChildren) ? &row.pChildren[outChild] : &row;
+-
+-                        // v1.56.176: Label rows are non-interactive — click passes through
+-                        // (no action, no toggle). BringToFront already happened above.
+-                        if(pTarget->type == ERowType::Label)
+-                                return;
+-
+-                        // Sub-region hits within the row.
+-                        if(pTarget->type == ERowType::Toggle || pTarget->type == ERowType::ToggleDropdown || pTarget->type == ERowType::Expandable)
+-                        {
+-                                // Visual expandables (Visuals) cannot be
+-                                // toggled off — only expand/collapse. Click on name = expand toggle.
+-                                const bool isVisualExpandable = (pTarget->type == ERowType::Expandable) &&
+-                                        (str_comp(pTarget->pName, "Visuals") == 0 ||
+-                                         str_comp(pTarget->pName, "Line rendering") == 0 ||
+-                                         str_comp(pTarget->pName, "TAS") == 0);
+-                                // Click on check area or name area → toggle on/off (or expand for visual).
+-                                const float toggleEndX = rx + rw - (pTarget->type == ERowType::Expandable ? ARROW_W + 4.0f : (pTarget->type == ERowType::ToggleDropdown ? DROPDOWN_W + 4.0f : 0.0f));
+-                                if(mousePos.x < toggleEndX)
+-                                {
+-                                        if(isVisualExpandable)
+-                                        {
+-                                                // Visual expandable: only expand/collapse, no toggle.
+-                                                pTarget->expanded = !pTarget->expanded;
+-                                                m_aLayoutCacheDirty[i] = true; // v1.56.72: invalidate Yoga cache
+-                                                return;
+-                                        }
+-                                        pTarget->on = !pTarget->on;
+-                                        // Wire reference toggles to real subsystems.
+-                                        if(str_comp(pTarget->pName, "Block") == 0)
+-                                                g_Config.m_KxAttack = pTarget->on;
+-                                        else if(str_comp(pTarget->pName, "Trajectory") == 0)
+-                                                g_Config.m_KxShowTrajectory = pTarget->on ? 1 : 0;
+-                                        // Advanced → Laser unfreeze expandable is master toggle.
+-                                        else if(str_comp(pTarget->pName, "Laser unfreeze") == 0)
+-                                                g_Config.m_KxLaserUnfreeze = pTarget->on ? 1 : 0;
+-					else if(str_comp(pTarget->pName, "Fake Aim") == 0 && str_comp(g_Panels[i].pTitle, "Visuals") == 0)
+-						g_Config.m_KxFakeAim = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "ESP") == 0)
+-                                                g_Config.m_KxEsp = pTarget->on ? 1 : 0;
+-                                        // ZenithTee v1.1: Zoom Hack toggle.
+-                                        else if(str_comp(pTarget->pName, "Zoom Hack") == 0)
+-                                                g_Config.m_KxZoomHack = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Admin Alarm") == 0)
+-                                                g_Config.m_KxAdminAlarm = pTarget->on ? 1 : 0;
+-                                        // ZenithTee v1.1: HUD list toggles.
+-                                        else if(str_comp(pTarget->pName, "Spectator list") == 0)
+-                                                g_Config.m_KxSpectatorList = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Array list") == 0)
+-                                                g_Config.m_KxArrayList = pTarget->on ? 1 : 0;
+-                                        // ZenithTee v1.1: ESP boxes + hitboxes toggles.
+-                                        else if(str_comp(pTarget->pName, "ESP Box") == 0)
+-                                                g_Config.m_KxEspBox = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "ESP Hitboxes") == 0)
+-                                                g_Config.m_KxEspHitboxes = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Pause") == 0 && str_comp(panel.pTitle, "TAS") == 0)
+-                                                GameClient()->m_Tas.SetPaused(pTarget->on);
+-                                        else if(str_comp(pTarget->pName, "Avoid Freeze") == 0)
+-                                                g_Config.m_KxAvoidFreezeBot = pTarget->on ? 1 : 0;
+-                                        // Functions panel — Fly/Copy Moves sub-section
+-                                        else if(str_comp(pTarget->pName, "Edge bind") == 0)
+-                                                g_Config.m_KxEdgeBind = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Mirror direction") == 0)
+-                                                g_Config.m_KxDummyCopyMirrorDir = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Mirror aim X") == 0)
+-                                                g_Config.m_KxDummyCopyMirrorAimX = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Mirror aim Y") == 0)
+-                                                g_Config.m_KxDummyCopyMirrorAimY = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Smart aim") == 0)
+-                                                g_Config.m_KxDummyCopySmartAim = pTarget->on ? 1 : 0;
+-                                        // ZenithTee v1.1: BalanceBot / HookRide / JetRide.
+-                                        else if(str_comp(pTarget->pName, "BalanceBot") == 0)
+-                                                g_Config.m_KxBalanceBot = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "HookRide") == 0)
+-                                                g_Config.m_KxHookRide = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "JetRide") == 0)
+-                                                g_Config.m_KxJetRide = pTarget->on ? 1 : 0;
+-                                        // v1.56.83: AimBot/TriggerBot expandable master toggles
+-                                        else if(str_comp(pTarget->pName, "AimBot") == 0)
+-                                                g_Config.m_KxAimBot = pTarget->on;
+-                                        else if(str_comp(pTarget->pName, "TriggerBot") == 0)
+-                                                g_Config.m_KxTriggerBot = pTarget->on;
+-                                        // Pilot Bot expandable master toggle: header ON = Follow
+-                                        // player, OFF = disabled. Finer choice via Mode dropdown.
+-                                        else if(str_comp(pTarget->pName, "Pilot Bot") == 0)
+-                                                g_Config.m_KxPfPilotMode = pTarget->on ? 2 : 0;
+-                                        // v1.56.83: AimBot per-weapon child toggles (parent = "AimBot")
+-                                        else if(str_comp(row.pName, "AimBot") == 0)
+-                                        {
+-                                                CAimBot &ab = GameClient()->m_AimBot;
+-                                                int w = ab.m_AimBotSelectedWeapon;
+-                                                if(w >= 0 && w < CAimBot::NUM_WEAPONS_AIM)
+-                                                {
+-                                                        auto &s = ab.m_AimBotWeapons[w];
+-                                                        if(str_comp(pTarget->pName, "AB Enable") == 0)
+-                                                            s.m_Enabled = pTarget->on;
+-                                                        else if(str_comp(pTarget->pName, "Show FOV") == 0)
+-                                                            ab.m_AimBotShowFov = pTarget->on;
+-                                                        else if(str_comp(pTarget->pName, "Show Radius") == 0)
+-                                                            ab.m_AimBotShowRadius = pTarget->on;
+-                                                        else if(str_comp(pTarget->pName, "Use raycast (Show)") == 0)
+-                                                            s.m_UseRaycastShow = pTarget->on;
+-                                                        else if(str_comp(pTarget->pName, "Use raycast angle (AB)") == 0)
+-                                                            s.m_UseAngle = pTarget->on;
+-                                                        else if(str_comp(pTarget->pName, "Predict") == 0)
+-                                                            s.m_Predict = pTarget->on;
+-                                                        // ZenithTee v1.1: separate Silent toggle for AimBot.
+-                                                        else if(str_comp(pTarget->pName, "AB Silent") == 0)
+-                                                            s.m_Silent = pTarget->on;
+-                                                }
+-                                        }
+-                                        // v1.56.83: TriggerBot per-weapon child toggles (parent = "TriggerBot")
+-                                        else if(str_comp(row.pName, "TriggerBot") == 0)
+-                                        {
+-                                                CAimBot &tb = GameClient()->m_AimBot;
+-                                                int w = tb.m_TriggerBotSelectedWeapon;
+-                                                if(w >= 0 && w < CAimBot::NUM_WEAPONS_TRIGGER)
+-                                                {
+-                                                        auto &s = tb.m_TriggerBotWeapons[w];
+-                                                        if(str_comp(pTarget->pName, "TB Enable") == 0)
+-                                                            s.m_Enabled = pTarget->on;
+-                                                        else if(str_comp(pTarget->pName, "TB Show FOV") == 0)
+-                                                            tb.m_TriggerBotShowFov = pTarget->on;
+-                                                        else if(str_comp(pTarget->pName, "TB Show Radius") == 0)
+-                                                            tb.m_TriggerBotShowRadius = pTarget->on;
+-                                                        else if(str_comp(pTarget->pName, "TB Use raycast (Show)") == 0)
+-                                                            s.m_UseRaycastShow = pTarget->on;
+-                                                }
+-                                        }
+-                                        // v1.56.178: Trajectory per-type child toggles (parent = "Trajectory")
+-                                        else if(str_comp(row.pName, "Trajectory") == 0 && pTarget != &row)
+-                                        {
+-                                                CTrajectory &traj = GameClient()->m_Trajectory;
+-                                                int sel = traj.m_SelectedType;
+-                                                if(sel >= 0 && sel < CTrajectory::NUM_TRAJ_TYPES)
+-                                                {
+-                                                        auto &ts = traj.m_aTypes[sel];
+-                                                        if(str_comp(pTarget->pName, "Show") == 0)
+-                                                                ts.m_Show = pTarget->on;
+-                                                        else if(str_comp(pTarget->pName, "Alpha Gradient") == 0)
+-                                                                ts.m_AlphaGradient = pTarget->on;
+-                                                        else if(str_comp(pTarget->pName, "Simulate Players") == 0)
+-                                                                ts.m_SimulatePlayers = pTarget->on;
+-                                                        else if(str_comp(pTarget->pName, "Show for other players") == 0)
+-                                                                ts.m_ShowForOtherPlayers = pTarget->on;
+-                                                        else if(str_comp(pTarget->pName, "Show for current") == 0)
+-                                                                ts.m_ShowForCurrent = pTarget->on;
+-                                                }
+-                                        }
+-                                        // v1.56.90: Block children toggles
+-                                        else if(str_comp(row.pName, "Block") == 0 && pTarget != &row)
+-                                        {
+-                                                CBotNet &bn = GameClient()->m_BotNet;
+-                                                if(str_comp(pTarget->pName, "Attack Main") == 0) g_Config.m_KxAtkMain = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Auto Main") == 0) g_Config.m_KxAutoMain = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "All Target") == 0) g_Config.m_KxTargetAll = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Auto Aim") == 0) g_Config.m_KxAutoAim = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Auto Fire") == 0) g_Config.m_KxAutoFire = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Auto Hook") == 0) g_Config.m_KxAutoHook = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Auto Hammer") == 0) g_Config.m_KxHammer = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Predict Aim") == 0) g_Config.m_KxBlockPredict = pTarget->on ? 1 : 0;
+-                                                else if(str_comp(pTarget->pName, "Move Enabled") == 0) g_Config.m_KxMove = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Stand Enabled") == 0) g_Config.m_KxStand = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Stand On X Only") == 0) g_Config.m_KxStandOnX = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Smart Detect") == 0) g_Config.m_KxSmartDetect = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Smart Rescue") == 0) g_Config.m_KxSmartRescue = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Rescue Frozen") == 0) g_Config.m_KxRescue = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Rescue All") == 0) g_Config.m_KxRescueAll = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Kill On Freeze") == 0) g_Config.m_KxKillFrz = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Avoid Freeze") == 0) g_Config.m_KxAvoidFreeze = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Laser Rescue") == 0) g_Config.m_KxLaserRescue = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Pathfinder Enabled") == 0) g_Config.m_KxAtkPathfinder = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Simulate Players") == 0) g_Config.m_KxPfSimulatePlayers = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Fix Snap") == 0) g_Config.m_KxAtkPathfinderSnap = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "Hook Enabled") == 0) g_Config.m_KxPfHook = pTarget->on;
+-                                                else if(str_comp(pTarget->pName, "SPS (Push)") == 0) g_Config.m_KxAtkPathfinderSps = pTarget->on ? 1 : 0;
+-                                        }
+-                                        // Settings → IRC children
+-                                        else if(str_comp(pTarget->pName, "Reveal join") == 0)
+-                                                g_Config.m_KxIrcRevealJoin = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Nameplate tag") == 0)
+-                                                g_Config.m_KxIrcNameplateTag = pTarget->on ? 1 : 0;
+-                                        // Advanced → Laser unfreeze children
+-                                        else if(str_comp(pTarget->pName, "Auto laser") == 0)
+-                                                g_Config.m_KxLaserUnfreezeAuto = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Silent") == 0 && str_comp(row.pName, "Laser unfreeze") == 0)
+-                                                g_Config.m_KxLaserUnfreezeSilent = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Show attempt") == 0)
+-                                                g_Config.m_KxLaserUnfreezeShowAttempt = pTarget->on ? 1 : 0;
+-                                        // Avoid Freeze toggles
+-                                        else if(str_comp(pTarget->pName, "Freeze") == 0 && str_comp(row.pName, "Avoid Freeze") == 0)
+-                                                g_Config.m_KxAfAvoidFreeze = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Teleport") == 0 && str_comp(row.pName, "Avoid Freeze") == 0)
+-                                                g_Config.m_KxAfAvoidTeleport = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Death") == 0 && str_comp(row.pName, "Avoid Freeze") == 0)
+-                                                g_Config.m_KxAfAvoidDeath = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Direction") == 0 && str_comp(row.pName, "Avoid Freeze") == 0)
+-                                                g_Config.m_KxAfDirection = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Jump") == 0 && str_comp(row.pName, "Avoid Freeze") == 0)
+-                                                g_Config.m_KxAfJump = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Hook") == 0 && str_comp(row.pName, "Avoid Freeze") == 0)
+-                                                g_Config.m_KxAfHook = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Aim") == 0 && str_comp(row.pName, "Avoid Freeze") == 0)
+-                                                g_Config.m_KxAfAim = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Silent") == 0 && str_comp(row.pName, "Avoid Freeze") == 0)
+-                                                g_Config.m_KxAfSilent = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Show for me") == 0)
+-                                                g_Config.m_KxFakeAimShowForMe = pTarget->on ? 1 : 0;
+-                                        // ZenithTee v1.1: server-side aim line toggle.
+-                                        else if(str_comp(pTarget->pName, "Show server aim") == 0)
+-                                                g_Config.m_KxFakeAimShowServer = pTarget->on ? 1 : 0;
+-                                        // Pathfinder → Visuals children
+-                                        else if(str_comp(pTarget->pName, "Show field") == 0)
+-                                                g_Config.m_KxPfShowField = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Show hooks") == 0)
+-                                                g_Config.m_KxPfShowHooks = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Show branches") == 0)
+-                                                g_Config.m_KxPfShowBranches = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Show speed") == 0)
+-                                                g_Config.m_KxPfShowSpeed = pTarget->on ? 1 : 0;
+-                                        // Pathfinder top-level
+-                                        else if(str_comp(pTarget->pName, "Freeze Support (Beta)") == 0)
+-                                                g_Config.m_KxPfFreezeSupport = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Freedom Path") == 0)
+-                                                g_Config.m_KxPfFreedom = pTarget->on ? 1 : 0;
+-                                        // Settings → IRC/Spoofer expandables are master toggles.
+-                                        else if(str_comp(pTarget->pName, "IRC") == 0)
+-                                                g_Config.m_KxIrcEnabled = pTarget->on ? 1 : 0;
+-                                        else if(str_comp(pTarget->pName, "Spoofer") == 0)
+-                                        {
+-                                                g_Config.m_KxVersionSpoof = pTarget->on ? 1 : 0;
+-                                                g_Config.m_KxSpoofClientStr = pTarget->on ? 1 : 0;
+-                                        }
+-                                        // v1.56.107: Spoofer → Git hash toggle (child)
+-                                        else if(str_comp(pTarget->pName, "Git hash") == 0 && str_comp(row.pName, "Spoofer") == 0)
+-                                                g_Config.m_KxSpoofGitHashEnabled = pTarget->on ? 1 : 0;
+-                                        // v1.56.174: Spoofer → Extra NETMSGs toggle (BestClient preset only)
+-                                        else if(str_comp(pTarget->pName, "Extra NETMSGs") == 0 && str_comp(row.pName, "Spoofer") == 0)
+-                                        {
+-                                                if(g_Config.m_KxSpoofClientPreset == 1)
+-                                                        g_Config.m_KxSpoofTClientExtraNetmsgs = pTarget->on ? 1 : 0;
+-                                                else
+-                                                        g_Config.m_KxSpoofBestClientExtraNetmsgs = pTarget->on ? 1 : 0;
+-                                        }
+-                                        else if(str_comp(pTarget->pName, "Rainbow color") == 0)
+-                                        {
+-                                                // v1.56.78: save color before enabling rainbow,
+-                                                // restore it when disabling.
+-                                                if(pTarget->on && !m_RainbowEnabled)
+-                                                        m_SavedAccentColorRGBA = m_AccentColorRGBA;
+-                                                else if(!pTarget->on && m_RainbowEnabled)
+-                                                        m_AccentColorRGBA = m_SavedAccentColorRGBA;
+-                                                m_RainbowEnabled = pTarget->on;
+-                                        }
+-                                        // v1.56.201: Line rendering per-component Rainbow toggle
+-                                        else if(str_comp(pTarget->pName, "Rainbow") == 0 && str_comp(row.pName, "Line rendering") == 0)
+-                                        {
+-                                                int compIdx = g_Config.m_KxLineComponent;
+-                                                EKxLineComponent comp = (EKxLineComponent)compIdx;
+-                                                switch(comp)
+-                                                {
+-                                                case KX_LINE_AIMBOT: g_Config.m_KxLineAimBotRainbow = pTarget->on ? 1 : 0; break;
+-                                                case KX_LINE_TRIGGERBOT: g_Config.m_KxLineTriggerBotRainbow = pTarget->on ? 1 : 0; break;
+-                                                case KX_LINE_TRAJECTORY: g_Config.m_KxLineTrajectoryRainbow = pTarget->on ? 1 : 0; break;
+-                                                case KX_LINE_LASER_UNFREEZE: g_Config.m_KxLineLaserUnfreezeRainbow = pTarget->on ? 1 : 0; break;
+-                                                case KX_LINE_PATHFINDER: g_Config.m_KxLinePathfinderRainbow = pTarget->on ? 1 : 0; break;
+-                                                case KX_LINE_ESP: g_Config.m_KxLineEspRainbow = pTarget->on ? 1 : 0; break;
+-                                                case KX_LINE_TAS: g_Config.m_KxLineTasRainbow = pTarget->on ? 1 : 0; break;
+-case KX_LINE_SERVER_AIM: g_Config.m_KxLineServerAimRainbow = pTarget->on ? 1 : 0; break;
+-                                                }
+-                                        }
+-                                        // v1.56.210: Line rendering per-component Gradient toggle
+-                                        else if(str_comp(pTarget->pName, "Gradient") == 0 && str_comp(row.pName, "Line rendering") == 0)
+-                                        {
+-                                                int compIdx = g_Config.m_KxLineComponent;
+-                                                EKxLineComponent comp = (EKxLineComponent)compIdx;
+-                                                switch(comp)
+-                                                {
+-                                                case KX_LINE_AIMBOT: g_Config.m_KxLineAimBotGradient = pTarget->on ? 1 : 0; break;
+-                                                case KX_LINE_TRIGGERBOT: g_Config.m_KxLineTriggerBotGradient = pTarget->on ? 1 : 0; break;
+-                                                case KX_LINE_TRAJECTORY: g_Config.m_KxLineTrajectoryGradient = pTarget->on ? 1 : 0; break;
+-                                                case KX_LINE_LASER_UNFREEZE: g_Config.m_KxLineLaserUnfreezeGradient = pTarget->on ? 1 : 0; break;
+-                                                case KX_LINE_PATHFINDER: g_Config.m_KxLinePathfinderGradient = pTarget->on ? 1 : 0; break;
+-                                                case KX_LINE_ESP: g_Config.m_KxLineEspGradient = pTarget->on ? 1 : 0; break;
+-                                                case KX_LINE_TAS: g_Config.m_KxLineTasGradient = pTarget->on ? 1 : 0; break;
+-case KX_LINE_SERVER_AIM: g_Config.m_KxLineServerAimGradient = pTarget->on ? 1 : 0; break;
+-                                                }
+-                                        }
+-                                        return;
+-                                }
+-                        }
+-                        if(pTarget->type == ERowType::Button || pTarget->type == ERowType::DoubleButton)
+-                        {
+-                                        // v1.56.150: Pathfinding is now DoubleButton (Pathfinding + Paste).
+-                                        // Left zone = Pathfinding toggle, right zone = Paste (kx_pf_paste).
+-                                        // Right zone active only when m_PfState == FINISHED.
+-                                if(str_comp(pTarget->pName, "Pathfinding") == 0)
+-                                {
+-                                        CBotNet &BN = GameClient()->m_BotNet;
+-                                        const bool playVisible = (BN.m_PfState == PF_STATE_FINISHED);
+-                                        const bool specVisible = (BN.m_PfState == PF_STATE_RUNNING);
+-                                        bool playClicked = false;
+-                                        bool specClicked = false;
+-                                        if(pTarget->type == ERowType::DoubleButton && (playVisible || specVisible))
+-                                        {
+-                                                const float btnW = (rw - 6.0f) * 0.5f;
+-                                                const float zone1End = rx + 2.0f + btnW;
+-                                                if(mousePos.x >= zone1End)
+-                                                {
+-                                                        if(playVisible)
+-                                                                playClicked = true;
+-                                                        else
+-                                                                specClicked = true;
+-                                                }
+-                                        }
+-
+-                                        if(playClicked)
+-                                        {
+-                                                BN.PfPasteToTas();
+-                                        }
+-                                        else if(specClicked)
+-                                        {
+-                                                if(BN.m_PfSpecFollow)
+-                                                {
+-                                                        BN.PfSpectateStop();
+-                                                        dbg_msg("pathfinder", "kx_pf_spectate 0: grenade follow disabled");
+-                                                }
+-                                                else
+-                                                {
+-                                                        BN.PfSpectateStart();
+-                                                        dbg_msg("pathfinder", "kx_pf_spectate 1: grenade follow enabled");
+-                                                }
+-                                        }
+-                                        else
+-                                        {
+-                                                // Pathfinding state toggle (left zone, or full width when Play hidden).
+-                                                if(BN.m_PfState == PF_STATE_IDLE)
+-                                                {
+-                                                        BN.m_PfState = PF_STATE_RUNNING;
+-                                                        BN.PfResetRun();
+-                                                }
+-                                                else if(BN.m_PfState == PF_STATE_RUNNING)
+-                                                {
+-                                                        BN.m_PfState = PF_STATE_FINISHED;
+-                                                                                BN.PfThreadStop();
+-                                                        // Stop pressed: if A* hasn't reached goal yet, try to
+-                                                        // reconstruct best partial path so kx_pf_paste works.
+-                                                        if(!BN.m_PfAPathReady && !BN.m_PfAOpen.empty())
+-                                                        {
+-                                                                // Find best open node (lowest H = closest to goal)
+-                                                                int bestIdx = -1;
+-                                                                float bestH = 1e18f;
+-                                                                for(int idx : BN.m_PfAOpen)
+-                                                                {
+-                                                                        if(idx < 0 || idx >= (int)BN.m_PfANodes.size())
+-                                                                                continue;
+-                                                                        if(BN.m_PfANodes[idx].H < bestH)
+-                                                                        {
+-                                                                                bestH = BN.m_PfANodes[idx].H;
+-                                                                                bestIdx = idx;
+-                                                                        }
+-                                                                }
+-                                                                if(bestIdx >= 0)
+-                                                                {
+-                                                                        BN.m_PfAGoalIdx = bestIdx;
+-                                                                        BN.PfAStarReconstruct();
+-                                                                        BN.m_PfAPathReady = true;
+-                                                                        BN.m_PfFullInputsIdx = 0;
+-                                                                }
+-                                                        }
+-                                                }
+-                                                else // PF_STATE_FINISHED
+-                                                {
+-                                                        BN.m_PfState = PF_STATE_IDLE;
+-														{
+-															std::lock_guard<std::mutex> lock(BN.m_PfDataMutex);
+-															BN.m_PfVPath.clear();
+-														}
+-                                                        // BUG4 v1.56.165: release heavy A* search buffers
+-                                                        // (m_PfANodes, m_PfFullInputs, ...)
+-                                                        // before going idle. They were left alive across the
+-                                                        // idle period before, and any heap corruption from the
+-                                                        // long Advanced Search sim landed inside their vector
+-                                                        // control blocks → crash on next PfResetRun.
+-                                                        BN.PfClearSearchState();
+-                                                }
+-                                        }
+-                                }
+-                                else if(str_comp(pTarget->pName, "Editor Forbidden Tiles") == 0 && pTarget->type == ERowType::DoubleButton)
+-                                {
+-                                        CBotNet &BN = GameClient()->m_BotNet;
+-                                        const float btnW = (rw - 6.0f) * 0.5f;
+-                                        if(!BN.m_PfForbiddenTiles.empty() && mousePos.x >= rx + 2.0f + btnW)
+-                                                BN.PfClearForbiddenTiles();
+-                                        else
+-                                        {
+-                                                BN.m_PfEditorMode = (BN.m_PfEditorMode == 1) ? 0 : 1;
+-                                                if(BN.m_PfEditorMode != 0 && !BN.m_MapGridLoaded)
+-                                                        BN.LoadMapGrid();
+-                                        }
+-                                }
+-                                else if(str_comp(pTarget->pName, "Editor Finish Tiles") == 0 && pTarget->type == ERowType::DoubleButton)
+-                                {
+-                                        CBotNet &BN = GameClient()->m_BotNet;
+-                                        const float btnW = (rw - 6.0f) * 0.5f;
+-                                        if(!BN.m_PfCustomFinishTiles.empty() && mousePos.x >= rx + 2.0f + btnW)
+-                                                BN.PfClearCustomFinishTiles();
+-                                        else
+-                                        {
+-                                                BN.m_PfEditorMode = (BN.m_PfEditorMode == 2) ? 0 : 2;
+-                                                if(BN.m_PfEditorMode != 0 && !BN.m_MapGridLoaded)
+-                                                        BN.LoadMapGrid();
+-                                        }
+-                                }
+-                                else if(str_comp(pTarget->pName, "Generate tunnel") == 0 && pTarget->type == ERowType::Button)
+-                                {
+-                                        GameClient()->m_BotNet.PfGenerateTunnel();
+-                                }
+-                                // TAS panel buttons.
+-                                else if(pTarget->pName == g_TasDyn_Action)
+-                                {
+-                                        CTas &Tas = GameClient()->m_Tas;
+-                                        if(Tas.Mode() == 1)
+-                                                Tas.ToggleRecord();
+-                                        else
+-                                                Tas.TogglePlay();
+-                                }
+-                                else if(pTarget->pName == g_TasDyn_Join)
+-                                {
+-                                        GameClient()->m_Tas.JoinLeavePlayground();
+-                                }
+-                                else if(str_comp(pTarget->pName, "Forward") == 0 && pTarget->type == ERowType::Button)
+-                                {
+-                                        GameClient()->m_Tas.StepForward();
+-                                }
+-                                else if(str_comp(pTarget->pName, "Rewind") == 0 && pTarget->type == ERowType::Button)
+-                                {
+-                                        GameClient()->m_Tas.StepRewind();
+-                                }
+-                                else if(str_comp(pTarget->pName, "Pick File") == 0 && pTarget->type == ERowType::DoubleButton)
+-                                {
+-                                        CTas &Tas = GameClient()->m_Tas;
+-                                        const float btnW = (rw - 6.0f) * 0.5f;
+-                                        if(g_TasFilePicked && mousePos.x >= rx + 2.0f + btnW)
+-                                        {
+-                                                Tas.UnpickFile();
+-                                        }
+-                                        else
+-                                        {
+-                                                if(KxPickFileAsync(KXFILEPICK_TAS))
+-                                                        return;
+-                                                char aTasPath[1024];
+-                                                if(KxPickTasFile(aTasPath, sizeof(aTasPath)))
+-                                                {
+-                                                        Tas.PickFile(aTasPath);
+-                                                        if(Tas.FilePicked())
+-                                                        {
+-                                                                for(SRow &R : g_TasRows)
+-                                                                {
+-                                                                        if(str_comp(R.pName, "Map") == 0)
+-                                                                        {
+-                                                                                str_copy(R.m_aInputBuf, Tas.PickedMap(), sizeof(R.m_aInputBuf));
+-                                                                                R.m_InputInitialized = true;
+-                                                                        }
+-                                                                        else if(str_comp(R.pName, "Name") == 0)
+-                                                                        {
+-                                                                                str_copy(R.m_aInputBuf, Tas.PickedName(), sizeof(R.m_aInputBuf));
+-                                                                                R.m_InputInitialized = true;
+-                                                                        }
+-                                                                        else if(str_comp(R.pName, "Author") == 0)
+-                                                                        {
+-                                                                                str_copy(R.m_aInputBuf, Tas.PickedAuthor(), sizeof(R.m_aInputBuf));
+-                                                                                R.m_InputInitialized = true;
+-                                                                        }
+-                                                                }
+-                                                        }
+-                                                }
+-                                                return;
+-                                        }
+-                                }
+-                                else if(str_comp(pTarget->pName, "Save") == 0 && pTarget->type == ERowType::Button)
+-                                {
+-                                        const char *pMap = "";
+-                                        const char *pName = "";
+-                                        const char *pAuthor = "";
+-                                        for(SRow &R : g_TasRows)
+-                                        {
+-                                                if(str_comp(R.pName, "Map") == 0)
+-                                                        pMap = R.m_aInputBuf;
+-                                                else if(str_comp(R.pName, "Name") == 0)
+-                                                        pName = R.m_aInputBuf;
+-                                                else if(str_comp(R.pName, "Author") == 0)
+-                                                        pAuthor = R.m_aInputBuf;
+-                                        }
+-                                        GameClient()->m_Tas.SaveTake(pMap, pName, pAuthor);
+-                                }
+-                                else if(str_comp(pTarget->pName, "Pick File") == 0 && pTarget->type == ERowType::Button)
+-                                {
+-                                        OpenScriptPicker();
+-                                        return;
+-                                }
+-                                else if(pTarget->pName == g_ExecDyn_Btn)
+-                                {
+-                                        CCodeExec &CE = GameClient()->m_CodeExec;
+-                                        if(CE.GetState() == CCodeExec::STATE_RUNNING)
+-                                                CE.Stop();
+-                                        else
+-                                                ExecuteSelectedScript();
+-                                        return;
+-                                }
+-                                // v1.56.90: Dummies Button (Connect Dummy, Switch to Main)
+-                                // v1.56.90: Dummies DoubleButton (Connect+Switch+Send)
+-                                return;
+-                        }
+-                        if(pTarget->type == ERowType::Expandable)
+-                        {
+-                                // Click on ▶/▼ area → toggle expand.
+-                                if(mousePos.x >= rx + rw - ARROW_W - 4.0f)
+-                                {
+-                                        pTarget->expanded = !pTarget->expanded;
+-                                        m_aLayoutCacheDirty[i] = true; // v1.56.72: invalidate Yoga cache
+-                                        return;
+-                                }
+-                        }
+-                        if(pTarget->type == ERowType::Slider)
+-                        {
+-                                // Start slider drag.
+-                                m_DragSliderPanel = i;
+-                                m_DragSliderRow = outRow;
+-                                m_DragSliderChild = outChild;
+-                                const float trackX = rx + 2.0f;
+-                                const float trackW = rw - 4.0f;
+-                                float pct = (mousePos.x - trackX) / trackW;
+-                                pct = std::clamp(pct, 0.0f, 1.0f);
+-                                {
+-                                        float raw = pTarget->min + pct * (pTarget->max - pTarget->min);
+-                                        if(pTarget->step >= 1.0f)
+-                                                pTarget->value = pTarget->min + roundf((raw - pTarget->min) / pTarget->step) * pTarget->step;
+-                                        else
+-                                                pTarget->value = raw;
+-                                }
+-                                if(str_comp(pTarget->pName, "Ratio") == 0 && str_comp(row.pName, "Freedom Path") == 0)
+-                                        g_Config.m_KxPfFreedomRatio = (int)(pTarget->value * 10.0f + 0.5f);
+-                                // v1.57: Pilot Bot sliders (UI -> config)
+-                                else if(str_comp(pTarget->pName, "Population") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
+-                                        g_Config.m_KxPfPilotPopulation = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Exploration Depth") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
+-                                        g_Config.m_KxPfPilotExplorationDepth = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Top-K") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
+-                                        g_Config.m_KxPfPilotTopK = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Sequence Length") == 0 && str_comp(row.pName, "Pilot Bot") == 0)
+-                                        g_Config.m_KxPfPilotSequenceLength = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Edge in ms") == 0 && str_comp(row.pName, "Edge bind") == 0)
+-                                        g_Config.m_KxEdgeBindMs = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Version ID") == 0)
+-                                        g_Config.m_KxVersionSpoofId = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "FOV") == 0 && str_comp(row.pName, "Laser unfreeze") == 0)
+-                                        g_Config.m_KxLaserUnfreezeFov = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Angles") == 0 && str_comp(row.pName, "Laser unfreeze") == 0)
+-                                        g_Config.m_KxLaserUnfreezeAngles = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Ticks") == 0 && str_comp(row.pName, "Laser unfreeze") == 0)
+-                                        g_Config.m_KxLaserUnfreezeTicks = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Trigger ticks") == 0 && str_comp(row.pName, "Laser unfreeze") == 0)
+-                                        g_Config.m_KxLaserUnfreezeTriggerTicks = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Ticks") == 0 && str_comp(row.pName, "Avoid Freeze") == 0)
+-                                        g_Config.m_KxAfTicks = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Trigger ticks") == 0 && str_comp(row.pName, "Avoid Freeze") == 0)
+-                                        g_Config.m_KxAfTriggerTicks = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Angles") == 0 && str_comp(row.pName, "Avoid Freeze") == 0)
+-                                        g_Config.m_KxAfAngles = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "FOV") == 0 && str_comp(row.pName, "Avoid Freeze") == 0)
+-                                        g_Config.m_KxAfFov = (int)pTarget->value;
+-                                // Settings → Line rendering children
+-                                // v1.56.108: Line rendering per-component writes
+-                                else if(str_comp(pTarget->pName, "Line size") == 0 || str_comp(pTarget->pName, "Line opacity") == 0)
+-                                {
+-                                        // v1.56.111: read selected component from config (persisted)
+-
+-                                        int compIdx = g_Config.m_KxLineComponent;
+-
+-                                        EKxLineComponent comp = (EKxLineComponent)compIdx;
+-                                        if(str_comp(pTarget->pName, "Line size") == 0)
+-                                                {
+-                                                switch(comp)
+-                                                {
+-                                                case KX_LINE_AIMBOT: g_Config.m_KxLineAimBotSize = (int)pTarget->value; break;
+-                                                case KX_LINE_TRIGGERBOT: g_Config.m_KxLineTriggerBotSize = (int)pTarget->value; break;
+-                                                case KX_LINE_TRAJECTORY: g_Config.m_KxLineTrajectorySize = (int)pTarget->value; break;
+-                                                case KX_LINE_LASER_UNFREEZE: g_Config.m_KxLineLaserUnfreezeSize = (int)pTarget->value; break;
+-                                                case KX_LINE_PATHFINDER: g_Config.m_KxLinePathfinderSize = (int)pTarget->value; break;
+-                                                case KX_LINE_ESP: g_Config.m_KxLineEspSize = (int)pTarget->value; break;
+-                                                case KX_LINE_TAS: g_Config.m_KxLineTasSize = (int)pTarget->value; break;
+-case KX_LINE_SERVER_AIM: g_Config.m_KxLineServerAimSize = (int)pTarget->value; break;
+-                                                }
+-                                                }
+-                                        else // Line opacity
+-                                                {
+-                                                switch(comp)
+-                                                {
+-                                                case KX_LINE_AIMBOT: g_Config.m_KxLineAimBotAlpha = (int)pTarget->value; break;
+-                                                case KX_LINE_TRIGGERBOT: g_Config.m_KxLineTriggerBotAlpha = (int)pTarget->value; break;
+-                                                case KX_LINE_TRAJECTORY: g_Config.m_KxLineTrajectoryAlpha = (int)pTarget->value; break;
+-                                                case KX_LINE_LASER_UNFREEZE: g_Config.m_KxLineLaserUnfreezeAlpha = (int)pTarget->value; break;
+-                                                case KX_LINE_PATHFINDER: g_Config.m_KxLinePathfinderAlpha = (int)pTarget->value; break;
+-                                                case KX_LINE_ESP: g_Config.m_KxLineEspAlpha = (int)pTarget->value; break;
+-                                                case KX_LINE_TAS: g_Config.m_KxLineTasAlpha = (int)pTarget->value; break;
+-case KX_LINE_SERVER_AIM: g_Config.m_KxLineServerAimAlpha = (int)pTarget->value; break;
+-                                                }
+-                                                }
+-                                }
+-                                else if(str_comp(pTarget->pName, "Layer") == 0)
+-                                        g_Config.m_KxLineRenderingLayer = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "ESP X") == 0)
+-                                        g_Config.m_KxEspScreenX = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "ESP Y") == 0)
+-                                        g_Config.m_KxEspScreenY = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Speed") == 0 && str_comp(row.pName, "ESP") == 0)
+-                                        g_Config.m_KxEspSpeed = (int)pTarget->value;
+-                                // v1.56.178: Trajectory per-type slider (drag path) — writes to CTrajectory.m_aTypes[sel].
+-                                else if(str_comp(pTarget->pName, "Prediction Ticks") == 0 && str_comp(row.pName, "Trajectory") == 0)
+-                                {
+-                                        CTrajectory &traj = GameClient()->m_Trajectory;
+-                                        int sel = traj.m_SelectedType;
+-                                        if(sel >= 0 && sel < CTrajectory::NUM_TRAJ_TYPES)
+-                                                traj.m_aTypes[sel].m_PredictionTicks = (int)pTarget->value;
+-                                }
+-                                else if(str_comp(pTarget->pName, "Hook angles") == 0)
+-                                        g_Config.m_KxPfHookAngles = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "A* Weight") == 0)
+-                                        g_Config.m_KxPfAStarWeight = (int)(pTarget->value * 100.0f + 0.5f);
+-                                else if(str_comp(pTarget->pName, "Beam width") == 0)
+-                                        g_Config.m_KxPfBeamWidth = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Evolutions") == 0)
+-                                        g_Config.m_KxPfRheaGenerations = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Performance") == 0)
+-                                        g_Config.m_KxPfPerf = (int)pTarget->value;
+-                                else if(str_comp(pTarget->pName, "Tunnel size") == 0)
+-                                        g_Config.m_KxPfTunnelSize = (int)pTarget->value;
+-                                return;
+-                        }
+-                        if(pTarget->type == ERowType::Dropdown || pTarget->type == ERowType::ToggleDropdown)
+-                        {
+-                                // Click on the dropdown box (right side) → open popup.
+-                                const float ddX = rx + rw - DROPDOWN_W - 2.0f;
+-                                const float ddY = ry + (rh - DROPDOWN_H) * 0.5f;
+-                                if(PointInRect(mousePos, ddX, ddY, DROPDOWN_W, DROPDOWN_H))
+-                                {
+-                                        m_DropdownOpen = true;
+-                                        m_DropdownPanel = i;
+-                                        m_DropdownRow = outRow;
+-                                        m_DropdownChild = outChild;
+-                                        return;
+-                                }
+-                                // For ToggleDropdown, click on name still toggles (handled above).
+-                                return;
+-                        }
+-                        if(pTarget->type == ERowType::Input)
+-                        {
+-                                // Click on the input box → start editing.
+-                                const float nameW = std::min(88.0f, TextRender()->TextWidth(17.0f, pTarget->pName) + 5.0f);
+-                                const float inX = rx + nameW + 2.0f;
+-                                const float inY = ry + 2.0f;
+-                                const float inW = rw - nameW - 4.0f;
+-                                const float inH = rh - 4.0f;
+-                                if(PointInRect(mousePos, inX, inY, inW, inH))
+-                                {
+-                                        // Lazy-init the row's mutable buffer from pInputValue.
+-                                        if(!pTarget->m_InputInitialized)
+-                                        {
+-                                                if(pTarget->pInputValue)
+-                                                        str_copy(pTarget->m_aInputBuf, pTarget->pInputValue, sizeof(pTarget->m_aInputBuf));
+-                                                pTarget->m_InputInitialized = true;
+-                                        }
+-                                        // Start editing. Copy row buffer into edit buffer.
+-                                        m_InputEditing = true;
+-                                        m_InputPanel = i;
+-                                        m_InputRow = outRow;
+-                                        m_InputChild = outChild;
+-                                        m_InputLen = (int)str_length(pTarget->m_aInputBuf);
+-                                        if(m_InputLen >= INPUT_BUF_SIZE)
+-                                                m_InputLen = INPUT_BUF_SIZE - 1;
+-                                        mem_copy(m_InputBuf, pTarget->m_aInputBuf, m_InputLen);
+-                                        m_InputBuf[m_InputLen] = 0;
+-                                        // Position cursor at click location (approximate: nearest char).
+-                                        const float textX = inX + 4.0f;
+-                                        const float clickOffset = mousePos.x - textX;
+-                                        m_InputCursor = 0;
+-                                        float accumW = 0.0f;
+-                                        for(int ci = 0; ci < m_InputLen; ++ci)
+-                                        {
+-                                                char tmp[2] = {m_InputBuf[ci], 0};
+-                                                float cw = TextRender()->TextWidth(17.0f, tmp);
+-                                                if(accumW + cw * 0.5f > clickOffset)
+-                                                {
+-                                                        m_InputCursor = ci;
+-                                                        break;
+-                                                }
+-                                                accumW += cw;
+-                                                m_InputCursor = ci + 1;
+-                                        }
+-                                        m_InputSelStart = -1;
+-                                        m_InputSelEnd = -1;
+-                                        // CRITICAL: enable SDL text input so FLAG_TEXT events arrive.
+-                                        Input()->StartTextInput();
+-                                        return;
+-                                }
+-                                return;
+-                        }
+-                        return;
+-                }
+-        }
+-}
++
++{
++	ZenDown(mousePos);
++}
++
+ 
+ void CClickGui::HandleMouseUp(vec2 mousePos)
+-{
+-        if(m_DragSliderPanel >= 0)
+-        {
+-                SPanel &panel = g_Panels[m_DragSliderPanel];
+-                if(m_DragSliderRow >= 0 && m_DragSliderRow < panel.rowCount)
+-                {
+-                        SRow &row = panel.pRows[m_DragSliderRow];
+-                        SRow *pTarget = (m_DragSliderChild >= 0 && row.pChildren) ? &row.pChildren[m_DragSliderChild] : &row;
+-                        if(str_comp(pTarget->pName, "ClickGUI Scale") == 0)
+-                                g_Config.m_KxClickGuiScale = (int)(pTarget->value * 10.0f + 0.5f);
+-                }
+-        }
+-        m_Dragging = false;
+-        m_DragPanelIdx = -1;
+-        m_DragSliderPanel = -1;
+-        m_DragSliderRow = -1;
+-        m_DragSliderChild = -1;
+-}
++
++{
++	ZenUp(mousePos);
++}
++
+ 
+ bool CClickGui::ScrollPanelAt(vec2 mousePos, float dir)
+ {
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -2578,6 +2578,7 @@
+     components/kinetix/bot_control.h
+     components/kinetix/clickgui.cpp
+     components/kinetix/clickgui.h
++    components/kinetix/clickgui_zen.cpp
+     components/kinetix/code_exec/code_exec.cpp
+     components/kinetix/code_exec/code_exec.h
+     components/kinetix/code_exec/code_exec_bindings.cpp
