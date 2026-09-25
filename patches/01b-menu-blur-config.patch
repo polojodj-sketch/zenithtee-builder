@@ -1,0 +1,10 @@
+--- a/src/engine/shared/config_variables.h
++++ b/src/engine/shared/config_variables.h
+@@ -1094,6 +1094,7 @@
+ MACRO_CONFIG_INT(KxLaserRescue, kx_laser_rescue, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Laser rescue enabled")
+ MACRO_CONFIG_INT(KxLaserRescueDist, kx_laser_rescue_dist, 800, 0, 10000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Laser rescue distance (pixels)")
+ MACRO_CONFIG_INT(KxAvoidFreezeRadius, kx_avoid_freeze_radius, 2, 0, 10000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid freeze radius (tiles)")
++MACRO_CONFIG_INT(KxMenuBlur, kx_menu_blur, 35, 0, 100, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Zen menu backdrop dim 0-100 (frosted glass; renderer has no real blur pass)")
+ MACRO_CONFIG_INT(KxPfSimulateScore, kx_pf_simulate_score, 25, 0, 100000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Pathfinder simulate score threshold")
+ 
+ // Attack numeric params
