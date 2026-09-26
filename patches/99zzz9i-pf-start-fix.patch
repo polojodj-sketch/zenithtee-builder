@@ -1,0 +1,89 @@
+--- a/src/game/client/components/kinetix/pathfinder/pathfinder_tab.cpp
++++ b/src/game/client/components/kinetix/pathfinder/pathfinder_tab.cpp
+@@ -43,7 +43,7 @@
+ }
+ 
+ // Start a fresh search from the active player's predicted state.
+-void CBotNet::PfResetRun()
++bool CBotNet::PfResetRun()
+ {
+ 	m_PfVPath.clear();
+ 	m_PfVHookSegs.clear();
+@@ -65,7 +65,9 @@
+ 		return;
+ 	}
+ 
+-	int LocalID = pGame->m_Snap.m_LocalClientId;
++	int LocalID = pGame->m_aLocalIds[g_Config.m_ClDummy];
++	if(LocalID < 0)
++		LocalID = pGame->m_Snap.m_LocalClientId;
+ 	if(LocalID < 0)
+ 	{
+ 		dbg_msg("pathfinder", "PfResetRun: no local client id");
+@@ -75,7 +77,7 @@
+ 	if(!pChar)
+ 	{
+ 		dbg_msg("pathfinder", "PfResetRun: no predicted character");
+-		return;
++		return false;
+ 	}
+ 
+ 	const CCharacterCore &Core = pChar->GetCore();
+@@ -110,7 +112,7 @@
+ 	if(vFinishes.empty())
+ 	{
+ 		dbg_msg("pathfinder", "PfResetRun: no finish tiles (paint custom finish tiles or play a map with finish)");
+-		return;
++		return false;
+ 	}
+ 
+ 	const char *pFlowStatus = "unavailable";
+@@ -135,6 +137,7 @@
+ 
+ 	PfThreadStart();
+ 	m_PfAStarted = true;
++	return true;
+ }
+ 
+ // kx_pf_paste: copy the found path into the TAS Playground as the current run.
+--- a/src/game/client/components/kinetix/kinetix.h
++++ b/src/game/client/components/kinetix/kinetix.h
+@@ -475,7 +475,7 @@
+         void UpdatePathfinder();            // called from OnUpdate; runs one chunk if RUNNING
+         void ProcessPilotSelf(); // KRX-style autopilot: drives the ACTIVE player (modes 1-3), called from SnapInput
+         void RenderPathfinderPath();        // called from OnRender; draws m_PfVPath like RenderPackage
+-        void PfResetRun();                  // clear vPath + sim state (start fresh from active player)
++        bool PfResetRun();                  // clear vPath + sim state (start fresh from active player); false = could not start (see log)
+         void PfClearSearchState();          // BUG4 v1.56.165: release A*/RHEA buffers (safe from any state)
+         void PfPasteToTas();                // kx_pf_paste: paste the found path into TAS Playground
+         void UpdateLaserUnfreeze();         // called from OnUpdate; predictive laser self-unfreeze
+@@ -539,7 +539,7 @@
+         void PfSeqFinalize(PfAState cur, int curFreeze, int tickOffset, std::vector<vec2> &fullTraj,
+                 std::vector<PfHookSeg> &fullSegs, std::vector<CNetObj_PlayerInput> &fullInputs);
+ 	void PfThreadStart();
+-	void PfThreadStop();
++        void PfThreadStop();
+ 	void PfSpectateStart();
+ 	void PfSpectateStop();
+ 	void PfSpectateReset();
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -392,8 +392,16 @@
+ 	CBotNet &bn = pGame->m_BotNet;
+ 	if(bn.m_PfState == PF_STATE_IDLE)
+ 	{
+-		bn.m_PfState = PF_STATE_RUNNING;
+-		bn.PfResetRun();
++		// Start only on success: PfResetRun fails (wrong tee, no grid,
++		// no finish tiles) with a log line. Staying IDLE keeps the
++		// button honest instead of a stuck "Stop" with nothing running.
++		if(bn.PfResetRun())
++			bn.m_PfState = PF_STATE_RUNNING;
++		else
++		{
++			bn.m_PfState = PF_STATE_IDLE;
++			bn.PfThreadStop();
++		}
+ 	}
+ 	else if(bn.m_PfState == PF_STATE_RUNNING)
+ 	{
