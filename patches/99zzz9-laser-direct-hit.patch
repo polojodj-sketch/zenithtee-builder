@@ -1,0 +1,17 @@
+--- a/src/game/client/components/kinetix/laser_unfreeze.cpp
++++ b/src/game/client/components/kinetix/laser_unfreeze.cpp
+@@ -287,10 +287,12 @@
+             }
+         }
+ 
+-        if(score < bestScore && gotBounce && laserPath.size() >= 2)
++        if(score < bestScore && laserPath.size() >= 1)
+         {
+             bestScore = score;
+-            bestBouncePos = laserPath[1];  // First bounce position
++            // Aim at the first bounce; if the laser unfreezes without any
++            // bounce (direct hit, e.g. open area), fire straight along it.
++            bestBouncePos = (gotBounce && laserPath.size() >= 2) ? laserPath[1] : myPos + laserDir * laserReach;
+             bestPath = laserPath;
+             foundCandidate = true;
+         }
