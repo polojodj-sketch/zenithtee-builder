@@ -1,0 +1,16 @@
+--- a/src/game/client/components/kinetix/tas.cpp
++++ b/src/game/client/components/kinetix/tas.cpp
+@@ -515,7 +515,12 @@
+ void CTas::JoinPlayground()
+ {
+ 	CGameClient *pGame = GameClient();
+-	const int LocalId = pGame->m_Snap.m_LocalClientId;
++	// Active tee id (dummy-aware): m_Snap.m_LocalClientId alone points at
++	// the wrong tee when playing with a dummy (same class as the
++	// balance/edge/avoid/laser/pilot id fix).
++	int LocalId = pGame->m_aLocalIds[g_Config.m_ClDummy];
++	if(LocalId < 0)
++		LocalId = pGame->m_Snap.m_LocalClientId;
+ 	if(LocalId < 0 || !pGame->m_PredictedWorld.GetCharacterById(LocalId))
+ 		return;
+ 
