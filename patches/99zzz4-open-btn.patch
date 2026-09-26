@@ -1,0 +1,109 @@
+--- a/src/game/client/components/kinetix/clickgui.h
++++ b/src/game/client/components/kinetix/clickgui.h
+@@ -394,6 +394,8 @@
+         ZenRow *ZenRowByFlat(int flatIdx);
+         float ZenWalk(float wx, float wy, float ww, float headerH, float scroll, float bodyH, bool draw, float alpha);
+         void ZenRender(float alpha);
++        void ZenOpenBtnRect(float &x, float &y, float &w, float &h);
++        void ZenDrawOpenBtn();
+         bool ZenDown(vec2 pos);
+         void ZenMove(vec2 pos);
+         void ZenUp(vec2 pos);
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -705,6 +705,23 @@
+ 	return contentH;
+ }
+ 
++void CClickGui::ZenOpenBtnRect(float &x, float &y, float &w, float &h)
++{
++	w = 64.0f;
++	h = 64.0f;
++	x = VScreenWidth() - w - 12.0f;
++	y = 84.0f;
++}
++
++void CClickGui::ZenDrawOpenBtn()
++{
++	float bx, by, bw, bh;
++	ZenOpenBtnRect(bx, by, bw, bh);
++	Graphics()->BlendNormal();
++	DrawRoundedRect(bx, by, bw, bh, 16.0f, 15, ColorRGBA((unsigned)m_AccentColorRGBA, true));
++	DrawText(bx + 21.0f, by + 13.0f, 34.0f, "Z", ColorRGBA(1.0f, 1.0f, 1.0f, 0.95f));
++}
++
+ void CClickGui::ZenRender(float alpha)
+ {
+ 	float wx, wy, ww, wh, headerH;
+@@ -1005,7 +1022,8 @@
+ 
+ bool CClickGui::ZenTouch(std::vector<IInput::CTouchFingerState> &vFingers)
+ {
+-	// Closed menu: don't claim touches (game needs them).
++	// Closed menu: don't claim touches (game needs them) — except the
++	// floating open-button tap.
+ 	const bool isOpen = g_Config.m_ClClickGui != 0 || m_AnimProgress > 0.0f;
+ 	if(!isOpen)
+ 	{
+@@ -1014,6 +1032,23 @@
+ 		m_ZenSliderDrag = -1;
+ 		m_ZenWinDrag = false;
+ 		m_TouchActive = false;
++		if(!vFingers.empty())
++		{
++			const vec2 ss((float)Graphics()->ScreenWidth(), (float)Graphics()->ScreenHeight());
++			const vec2 fp = vFingers.front().m_Position;
++			const float s = (m_UiScale > 0.0f ? m_UiScale : 1.0f);
++			const vec2 curPos = vec2(fp.x * ss.x, fp.y * ss.y) / s;
++			float bx, by, bw, bh;
++			ZenOpenBtnRect(bx, by, bw, bh);
++			if(curPos.x >= bx && curPos.x < bx + bw && curPos.y >= by && curPos.y < by + bh)
++			{
++				g_Config.m_ClClickGui = 1;
++				m_ZenTouchDown = true;
++				m_ZenTouchPos = curPos;
++				m_TouchActive = true;
++				return true;
++			}
++		}
+ 		return false;
+ 	}
+ 	bool wasDown = m_ZenTouchDown;
+--- a/src/game/client/components/kinetix/clickgui.cpp
++++ b/src/game/client/components/kinetix/clickgui.cpp
+@@ -3449,6 +3449,11 @@
+         if(m_FileBrowserOpen)
+                 RenderFileBrowser(alpha);
+ 
++        // Floating Zen open-button while the menu is closed (there is no
++        // other opener on touch devices: no keybind, no console on phone).
++        if(!isOpen && m_AnimProgress <= 0.0f)
++                ZenDrawOpenBtn();
++
+         TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+ }
+ 
+@@ -3458,8 +3463,23 @@
+ 
+ bool CClickGui::OnInput(const IInput::CEvent &Event)
+ {
++        // Floating Zen open-button (works while closed): claim left-clicks on it.
+         if(g_Config.m_ClClickGui == 0 && m_AnimProgress <= 0.0f)
++        {
++                if((Event.m_Flags & IInput::FLAG_PRESS) && Event.m_Key == KEY_MOUSE_1)
++                {
++                        const float s = m_UiScale > 0.0f ? m_UiScale : 1.0f;
++                        const vec2 mp = Input()->NativeMousePos() / s;
++                        float bx, by, bw, bh;
++                        ZenOpenBtnRect(bx, by, bw, bh);
++                        if(mp.x >= bx && mp.x < bx + bw && mp.y >= by && mp.y < by + bh)
++                        {
++                                g_Config.m_ClClickGui = 1;
++                                return true;
++                        }
++                }
+                 return false;
++        }
+ 
+         // Only handle events when ClickGUI is fully open (avoid clicks during anim).
+         if(m_AnimProgress < 0.95f)
