@@ -1,0 +1,22 @@
+--- a/src/game/client/components/kinetix/laser_unfreeze.cpp
++++ b/src/game/client/components/kinetix/laser_unfreeze.cpp
+@@ -327,9 +327,16 @@
+     if(g_Config.m_KxLaserUnfreezeAuto)
+         pInput->m_WantedWeapon = WEAPON_LASER + 1;
+ 
+-    if((pInput->m_Fire & 1) == 0)
+-        pInput->m_Fire = (pInput->m_Fire + 1) | 1;
+-    s_WasFiring = true;
++    // Fire only with the laser actually in hands: the weapon switch lands a
++    // tick after m_WantedWeapon is set, and firing the same tick shoots the
++    // PREVIOUS weapon (hammer/ninja) at the wall — the "shoots the wrong
++    // way". Keep aiming meanwhile; the shot goes out once laser is active.
++    if(pPredChar->GetActiveWeapon() == WEAPON_LASER)
++    {
++        if((pInput->m_Fire & 1) == 0)
++            pInput->m_Fire = (pInput->m_Fire + 1) | 1;
++        s_WasFiring = true;
++    }
+ 
+     // Store path for Show attempt rendering
+     if(g_Config.m_KxLaserUnfreezeShowAttempt && bestPath.size() >= 2)
