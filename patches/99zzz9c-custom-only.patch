@@ -1,0 +1,22 @@
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -240,6 +240,9 @@
+ static const int s_ZenRowTabs[] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5};
+ // Column per top-level row (0=left, 1=right); ignored on narrow screens.
+ static const int s_ZenRowCols[] = {0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
++// Shown only when Pathfinder Effort == Custom (6): presets override these
++// values at read time, so editing them otherwise is meaningless.
++static const int s_ZenRowCustomOnly[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0};
+ 
+ // Dark frosted-glass theme (layered translucency fakes blur; the renderer
+ // has no blur pass, so true background blur would need engine changes).
+@@ -678,6 +681,9 @@
+ 	{
+ 		if(s_ZenRowTabs[i] != m_ZenTab)
+ 			continue;
++		// Preset-overridden tunables are only meaningful on Custom effort.
++		if(s_ZenRowCustomOnly[i] && g_Config.m_KxPfEffort != 6)
++			continue;
+ 		ZenRow &row = s_ZenRows[i];
+ 		float rx, ry, rw, rh;
+ 		const int col = (twoCol && s_ZenRowCols[i]) ? 1 : 0;
