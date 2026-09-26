@@ -1,0 +1,146 @@
+--- /dev/null
++++ b/src/game/client/components/kinetix/blatant_avoid.h
+@@ -0,0 +1,143 @@
++// (c) ZenithTee. Blatant beam-search avoid planner — engine-agnostic core.
++// Ported as-provided (obfuscated by_utf8xbot_* names kept for diffability).
++// Wiring to the DDNet client prediction lives in avoid_freeze.cpp.
++#ifndef GAME_CLIENT_COMPONENTS_KINETIX_BLATANT_AVOID_H
++#define GAME_CLIENT_COMPONENTS_KINETIX_BLATANT_AVOID_H
++
++#include <array>
++#include <cstdint>
++#include <vector>
++
++enum class AvoidThreat
++{
++    None,
++    Freeze,
++    Death,
++    Teleport,
++    Unfreeze
++};
++
++struct AvoidVec2
++{
++    float x{};
++    float y{};
++};
++
++struct AvoidInput
++{
++    int direction{};
++    int targetX{};
++    int targetY{};
++    int jump{};
++    int fire{};
++    int hook{};
++    int playerFlags{};
++    int wantedWeapon{};
++    int nextWeapon{};
++    int prevWeapon{};
++};
++
++struct AvoidState
++{
++    AvoidVec2 position{};
++    AvoidVec2 velocity{};
++    AvoidVec2 hookPosition{};
++    AvoidVec2 hookDirection{};
++    int tick{};
++    int hookState{};
++    int hookedPlayer{-1};
++    int jumped{};
++    int jumpedTotal{};
++    int jumps{};
++    int tile{};
++    bool grounded{};
++    bool frozen{};
++    bool dead{};
++    bool teleported{};
++    std::array<int, 16> integers{};
++    std::array<float, 16> floats{};
++};
++
++struct AvoidConfig
++{
++    bool enabled{true};
++    bool allowDirection{true};
++    bool allowJump{true};
++    bool allowHook{true};
++    bool predictDeath{true};
++    bool predictTeleport{true};
++    bool predictUnfreeze{true};
++    int predictionTicks{22};
++    int reactionTicks{1};
++    int beamWidth{32};
++    int beamPerFirstAction{16};
++    int maxPlanInputSwitches{2};
++    int timeBudgetMicroseconds{15000000};
++};
++
++using AvoidStepFunction = void (*)(void *, AvoidState &, const AvoidInput &);
++using AvoidThreatFunction = AvoidThreat (*)(void *, const AvoidState &, const AvoidState &);
++using AvoidHashFunction = std::uint64_t (*)(void *, const AvoidState &);
++using AvoidQualityFunction = double (*)(void *, const AvoidState &);
++using AvoidClockFunction = std::uint64_t (*)(void *);
++
++struct AvoidCallbacks
++{
++    void *context{};
++    AvoidStepFunction step{};
++    AvoidThreatFunction threat{};
++    AvoidHashFunction hash{};
++    AvoidQualityFunction quality{};
++    AvoidClockFunction clockMicroseconds{};
++};
++
++struct AvoidPlanInput
++{
++    int fromTick{};
++    AvoidInput input{};
++};
++
++struct AvoidPlan
++{
++    bool valid{};
++    bool survivesHorizon{};
++    int dangerTick{-1};
++    int survivedTicks{};
++    int firstChangeTick{-1};
++    int switches{};
++    double score{};
++    std::vector<AvoidPlanInput> inputs{};
++};
++
++struct AvoidRuntime
++{
++    bool cacheValid{};
++    int cacheWorldTick{-1};
++    std::uint64_t cacheStateHash{};
++    AvoidPlan cachedPlan{};
++};
++
++struct AvoidResult
++{
++    bool changed{};
++    bool dangerPredicted{};
++    int baselineDangerTick{-1};
++    AvoidInput input{};
++    AvoidPlan plan{};
++};
++
++struct AvoidNode
++{
++    AvoidState state{};
++    std::vector<AvoidInput> timeline{};
++    int survivedTicks{};
++    int dangerTick{-1};
++    int switches{};
++    int unfreezes{};
++    double score{};
++    bool terminal{};
++};
++
++AvoidResult by_utf8xbot_9184(AvoidRuntime &runtime, const AvoidState &state, const AvoidInput &current, int worldTick, const AvoidConfig &sourceConfig, const AvoidCallbacks &callbacks);
++
++#endif // GAME_CLIENT_COMPONENTS_KINETIX_BLATANT_AVOID_H

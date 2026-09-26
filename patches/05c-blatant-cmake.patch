@@ -1,0 +1,11 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -2572,6 +2572,8 @@
+     components/kinetix/aimbot.h
+     components/kinetix/avoid_freeze.cpp
+     components/kinetix/avoid_freeze.h
++    components/kinetix/blatant_avoid.cpp
++    components/kinetix/blatant_avoid.h
+     components/kinetix/attack/attack.cpp
+     components/kinetix/attack/attack_commands.cpp
+     components/kinetix/bot_control.cpp

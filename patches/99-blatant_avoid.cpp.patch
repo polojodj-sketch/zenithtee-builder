@@ -1,0 +1,447 @@
+--- /dev/null
++++ b/src/game/client/components/kinetix/blatant_avoid.cpp
+@@ -0,0 +1,444 @@
++// (c) ZenithTee. Blatant beam-search avoid planner — engine-agnostic core.
++// Ported as-provided (obfuscated by_utf8xbot_* names kept for diffability).
++// Shared types live in blatant_avoid.h; wiring in avoid_freeze.cpp.
++#include <game/client/components/kinetix/blatant_avoid.h>
++
++#include <algorithm>
++#include <cmath>
++#include <limits>
++#include <unordered_map>
++#include <utility>
++#include <vector>
++
++static int by_utf8xbot_4821(int value, int minimum, int maximum)
++{
++    return std::max(minimum, std::min(value, maximum));
++}
++
++static bool by_utf8xbot_7314(const AvoidInput &left, const AvoidInput &right)
++{
++    return left.direction == right.direction && left.targetX == right.targetX && left.targetY == right.targetY && left.jump == right.jump && left.hook == right.hook;
++}
++
++static bool by_utf8xbot_6048(const AvoidInput &left, const AvoidInput &right)
++{
++    return left.direction == right.direction && left.jump == right.jump && left.hook == right.hook;
++}
++
++static std::uint64_t by_utf8xbot_1057(std::uint64_t value, std::uint64_t part)
++{
++    value ^= part;
++    value *= 1099511628211ULL;
++    return value;
++}
++
++static std::uint64_t by_utf8xbot_3409(float value)
++{
++    if(!std::isfinite(value))
++        return 0;
++    return static_cast<std::uint64_t>(static_cast<std::int64_t>(std::llround(static_cast<double>(value) * 256.0)));
++}
++
++static std::uint64_t by_utf8xbot_9286(void *, const AvoidState &state)
++{
++    std::uint64_t value = 1469598103934665603ULL;
++    value = by_utf8xbot_1057(value, by_utf8xbot_3409(state.position.x));
++    value = by_utf8xbot_1057(value, by_utf8xbot_3409(state.position.y));
++    value = by_utf8xbot_1057(value, by_utf8xbot_3409(state.velocity.x));
++    value = by_utf8xbot_1057(value, by_utf8xbot_3409(state.velocity.y));
++    value = by_utf8xbot_1057(value, by_utf8xbot_3409(state.hookPosition.x));
++    value = by_utf8xbot_1057(value, by_utf8xbot_3409(state.hookPosition.y));
++    value = by_utf8xbot_1057(value, static_cast<std::uint64_t>(state.hookState));
++    value = by_utf8xbot_1057(value, static_cast<std::uint64_t>(state.hookedPlayer));
++    value = by_utf8xbot_1057(value, static_cast<std::uint64_t>(state.jumped));
++    value = by_utf8xbot_1057(value, static_cast<std::uint64_t>(state.tile));
++    value = by_utf8xbot_1057(value, static_cast<std::uint64_t>(state.grounded));
++    value = by_utf8xbot_1057(value, static_cast<std::uint64_t>(state.frozen));
++    value = by_utf8xbot_1057(value, static_cast<std::uint64_t>(state.dead));
++    return value;
++}
++
++static std::uint64_t by_utf8xbot_8762(const AvoidCallbacks &callbacks, const AvoidState &state)
++{
++    if(callbacks.hash)
++        return callbacks.hash(callbacks.context, state);
++    return by_utf8xbot_9286(nullptr, state);
++}
++
++static AvoidThreat by_utf8xbot_2196(const AvoidCallbacks &callbacks, const AvoidState &before, const AvoidState &after)
++{
++    if(callbacks.threat)
++        return callbacks.threat(callbacks.context, before, after);
++    if(after.dead)
++        return AvoidThreat::Death;
++    if(after.teleported && !before.teleported)
++        return AvoidThreat::Teleport;
++    if(after.frozen && !before.frozen)
++        return AvoidThreat::Freeze;
++    if(!after.frozen && before.frozen)
++        return AvoidThreat::Unfreeze;
++    return AvoidThreat::None;
++}
++
++static bool by_utf8xbot_5570(AvoidThreat threat, const AvoidConfig &config)
++{
++    if(threat == AvoidThreat::Death)
++        return config.predictDeath;
++    if(threat == AvoidThreat::Teleport)
++        return config.predictTeleport;
++    if(threat == AvoidThreat::Freeze)
++        return true;
++    return false;
++}
++
++static double by_utf8xbot_4183(const AvoidInput &previous, const AvoidInput &next, const AvoidState &state, const AvoidCallbacks &callbacks)
++{
++    double score = 0.0;
++    if(previous.direction != next.direction)
++        score += 1.0;
++    if(previous.jump != next.jump)
++        score += 1.0;
++    if(previous.hook != next.hook)
++        score += 1.0;
++    const double oldLength = std::hypot(static_cast<double>(previous.targetX), static_cast<double>(previous.targetY));
++    const double newLength = std::hypot(static_cast<double>(next.targetX), static_cast<double>(next.targetY));
++    if(oldLength > 0.0 && newLength > 0.0)
++    {
++        double dot = static_cast<double>(previous.targetX) * next.targetX + static_cast<double>(previous.targetY) * next.targetY;
++        dot /= oldLength * newLength;
++        dot = std::max(-1.0, std::min(1.0, dot));
++        score += 1.0 - dot;
++    }
++    if(callbacks.quality)
++        score -= callbacks.quality(callbacks.context, state);
++    return score;
++}
++
++static std::vector<AvoidInput> by_utf8xbot_6620(const AvoidInput &current, const AvoidConfig &config)
++{
++    std::vector<int> directions{current.direction};
++    std::vector<int> jumps{current.jump};
++    std::vector<int> hooks{current.hook};
++    if(config.allowDirection)
++        directions = {-1, 0, 1};
++    if(config.allowJump)
++        jumps = {0, 1};
++    if(config.allowHook)
++        hooks = {0, 1};
++    std::vector<AvoidInput> result;
++    for(int direction : directions)
++    {
++        for(int jump : jumps)
++        {
++            for(int hook : hooks)
++            {
++                AvoidInput input = current;
++                input.direction = direction;
++                input.jump = jump;
++                input.hook = hook;
++                bool duplicate = false;
++                for(const AvoidInput &existing : result)
++                {
++                    if(by_utf8xbot_7314(existing, input))
++                    {
++                        duplicate = true;
++                        break;
++                    }
++                }
++                if(!duplicate)
++                    result.push_back(input);
++            }
++        }
++    }
++    return result;
++}
++
++static bool by_utf8xbot_8085(const AvoidNode &left, const AvoidNode &right)
++{
++    if(left.terminal != right.terminal)
++        return !left.terminal;
++    if(left.survivedTicks != right.survivedTicks)
++        return left.survivedTicks > right.survivedTicks;
++    if(left.unfreezes != right.unfreezes)
++        return left.unfreezes > right.unfreezes;
++    if(left.switches != right.switches)
++        return left.switches < right.switches;
++    if(left.score != right.score)
++        return left.score < right.score;
++    return left.timeline.size() < right.timeline.size();
++}
++
++static bool by_utf8xbot_9973(const AvoidNode &left, const AvoidNode &right)
++{
++    if(left.survivedTicks != right.survivedTicks)
++        return left.survivedTicks > right.survivedTicks;
++    if(left.terminal != right.terminal)
++        return !left.terminal;
++    if(left.unfreezes != right.unfreezes)
++        return left.unfreezes > right.unfreezes;
++    if(left.score != right.score)
++        return left.score < right.score;
++    return left.switches < right.switches;
++}
++
++static std::vector<AvoidNode> by_utf8xbot_2506(std::vector<AvoidNode> nodes, int beamWidth, int perFirstAction)
++{
++    std::sort(nodes.begin(), nodes.end(), by_utf8xbot_8085);
++    std::vector<std::vector<AvoidNode>> groups;
++    for(AvoidNode &node : nodes)
++    {
++        if(node.timeline.empty())
++            continue;
++        std::size_t groupIndex = groups.size();
++        for(std::size_t index = 0; index < groups.size(); ++index)
++        {
++            if(!groups[index].empty() && by_utf8xbot_6048(groups[index].front().timeline.front(), node.timeline.front()))
++            {
++                groupIndex = index;
++                break;
++            }
++        }
++        if(groupIndex == groups.size())
++            groups.emplace_back();
++        if(static_cast<int>(groups[groupIndex].size()) < perFirstAction)
++            groups[groupIndex].push_back(std::move(node));
++    }
++    std::vector<AvoidNode> result;
++    for(std::size_t rank = 0; static_cast<int>(result.size()) < beamWidth; ++rank)
++    {
++        bool added = false;
++        for(auto &group : groups)
++        {
++            if(rank < group.size())
++            {
++                result.push_back(std::move(group[rank]));
++                added = true;
++                if(static_cast<int>(result.size()) >= beamWidth)
++                    break;
++            }
++        }
++        if(!added)
++            break;
++    }
++    return result;
++}
++
++static int by_utf8xbot_1148(const AvoidState &initial, const AvoidInput &input, const AvoidConfig &config, const AvoidCallbacks &callbacks)
++{
++    AvoidState state = initial;
++    for(int tick = 1; tick <= config.predictionTicks; ++tick)
++    {
++        const AvoidState before = state;
++        callbacks.step(callbacks.context, state, input);
++        state.tick = initial.tick + tick;
++        if(by_utf8xbot_5570(by_utf8xbot_2196(callbacks, before, state), config))
++            return tick;
++    }
++    return config.predictionTicks + 1;
++}
++
++static AvoidPlan by_utf8xbot_5632(const AvoidNode &node, int horizon)
++{
++    AvoidPlan plan;
++    plan.valid = !node.timeline.empty();
++    plan.survivesHorizon = !node.terminal && node.survivedTicks >= horizon;
++    plan.dangerTick = node.dangerTick;
++    plan.survivedTicks = node.survivedTicks;
++    plan.switches = node.switches;
++    plan.score = node.score;
++    for(std::size_t tick = 0; tick < node.timeline.size(); ++tick)
++    {
++        if(tick == 0 || !by_utf8xbot_7314(node.timeline[tick - 1], node.timeline[tick]))
++            plan.inputs.push_back({static_cast<int>(tick) + 1, node.timeline[tick]});
++    }
++    if(!plan.inputs.empty())
++        plan.firstChangeTick = plan.inputs.front().fromTick;
++    return plan;
++}
++
++static AvoidInput by_utf8xbot_7751(const AvoidPlan &plan, int tick, const AvoidInput &fallback)
++{
++    AvoidInput result = fallback;
++    for(const AvoidPlanInput &entry : plan.inputs)
++    {
++        if(entry.fromTick > tick)
++            break;
++        result = entry.input;
++    }
++    return result;
++}
++
++static bool by_utf8xbot_3906(const AvoidState &initial, const AvoidInput &current, const AvoidPlan &plan, const AvoidConfig &config, const AvoidCallbacks &callbacks, int *dangerTick)
++{
++    if(!plan.valid || plan.inputs.empty())
++        return false;
++    AvoidState state = initial;
++    for(int tick = 1; tick <= config.predictionTicks; ++tick)
++    {
++        const AvoidInput input = by_utf8xbot_7751(plan, tick, current);
++        const AvoidState before = state;
++        callbacks.step(callbacks.context, state, input);
++        state.tick = initial.tick + tick;
++        if(by_utf8xbot_5570(by_utf8xbot_2196(callbacks, before, state), config))
++        {
++            if(dangerTick)
++                *dangerTick = tick;
++            return false;
++        }
++    }
++    if(dangerTick)
++        *dangerTick = config.predictionTicks + 1;
++    return true;
++}
++
++static AvoidPlan by_utf8xbot_8460(const AvoidState &initial, const AvoidInput &current, const AvoidConfig &sourceConfig, const AvoidCallbacks &callbacks)
++{
++    AvoidConfig config = sourceConfig;
++    config.predictionTicks = by_utf8xbot_4821(config.predictionTicks, 1, 32);
++    config.beamWidth = by_utf8xbot_4821(config.beamWidth, 5, 100);
++    config.beamPerFirstAction = by_utf8xbot_4821(config.beamPerFirstAction, 1, 30);
++    config.maxPlanInputSwitches = by_utf8xbot_4821(config.maxPlanInputSwitches, 1, 16);
++    const std::vector<AvoidInput> actions = by_utf8xbot_6620(current, config);
++    std::vector<AvoidNode> beam;
++    AvoidNode root;
++    root.state = initial;
++    root.survivedTicks = 0;
++    beam.push_back(root);
++    AvoidNode best = root;
++    const std::uint64_t started = callbacks.clockMicroseconds ? callbacks.clockMicroseconds(callbacks.context) : 0;
++    for(int tick = 1; tick <= config.predictionTicks; ++tick)
++    {
++        std::vector<AvoidNode> expanded;
++        std::unordered_map<std::uint64_t, std::size_t> deduplicated;
++        for(const AvoidNode &parent : beam)
++        {
++            if(parent.terminal)
++                continue;
++            for(const AvoidInput &action : actions)
++            {
++                AvoidNode child = parent;
++                const AvoidInput previous = child.timeline.empty() ? current : child.timeline.back();
++                const bool changed = !by_utf8xbot_7314(previous, action);
++                if(changed)
++                    ++child.switches;
++                if(child.switches > config.maxPlanInputSwitches)
++                    continue;
++                const AvoidState before = child.state;
++                callbacks.step(callbacks.context, child.state, action);
++                child.state.tick = initial.tick + tick;
++                child.timeline.push_back(action);
++                child.survivedTicks = tick;
++                child.score += by_utf8xbot_4183(previous, action, child.state, callbacks);
++                const AvoidThreat threat = by_utf8xbot_2196(callbacks, before, child.state);
++                if(threat == AvoidThreat::Unfreeze && config.predictUnfreeze)
++                    ++child.unfreezes;
++                if(by_utf8xbot_5570(threat, config))
++                {
++                    child.terminal = true;
++                    child.dangerTick = tick;
++                }
++                const std::uint64_t hash = by_utf8xbot_8762(callbacks, child.state);
++                const auto found = deduplicated.find(hash);
++                if(found == deduplicated.end())
++                {
++                    deduplicated.emplace(hash, expanded.size());
++                    expanded.push_back(std::move(child));
++                }
++                else if(by_utf8xbot_8085(child, expanded[found->second]))
++                {
++                    expanded[found->second] = std::move(child);
++                }
++            }
++        }
++        if(expanded.empty())
++            break;
++        for(const AvoidNode &node : expanded)
++        {
++            if(best.timeline.empty() || by_utf8xbot_9973(node, best))
++                best = node;
++        }
++        beam = by_utf8xbot_2506(std::move(expanded), config.beamWidth, config.beamPerFirstAction);
++        if(callbacks.clockMicroseconds && config.timeBudgetMicroseconds > 0)
++        {
++            const std::uint64_t now = callbacks.clockMicroseconds(callbacks.context);
++            if(now >= started && now - started > static_cast<std::uint64_t>(config.timeBudgetMicroseconds))
++                break;
++        }
++    }
++    for(const AvoidNode &node : beam)
++    {
++        if(best.timeline.empty() || by_utf8xbot_9973(node, best))
++            best = node;
++    }
++    return by_utf8xbot_5632(best, config.predictionTicks);
++}
++
++static bool by_utf8xbot_9365(const AvoidRuntime &runtime, const AvoidState &state, int worldTick, const AvoidCallbacks &callbacks)
++{
++    if(!runtime.cacheValid || !runtime.cachedPlan.valid)
++        return false;
++    if(worldTick <= runtime.cacheWorldTick)
++        return false;
++    if(worldTick - runtime.cacheWorldTick > 1)
++        return false;
++    return runtime.cacheStateHash == by_utf8xbot_8762(callbacks, state);
++}
++
++AvoidResult by_utf8xbot_9184(AvoidRuntime &runtime, const AvoidState &state, const AvoidInput &current, int worldTick, const AvoidConfig &sourceConfig, const AvoidCallbacks &callbacks)
++{
++    AvoidResult result;
++    result.input = current;
++    if(!sourceConfig.enabled || !callbacks.step)
++    {
++        runtime.cacheValid = false;
++        return result;
++    }
++    AvoidConfig config = sourceConfig;
++    config.predictionTicks = by_utf8xbot_4821(config.predictionTicks, 1, 32);
++    config.reactionTicks = by_utf8xbot_4821(config.reactionTicks, 1, 12);
++    config.beamWidth = by_utf8xbot_4821(config.beamWidth, 5, 100);
++    config.beamPerFirstAction = by_utf8xbot_4821(config.beamPerFirstAction, 1, 30);
++    config.maxPlanInputSwitches = by_utf8xbot_4821(config.maxPlanInputSwitches, 1, 16);
++    result.baselineDangerTick = by_utf8xbot_1148(state, current, config, callbacks);
++    result.dangerPredicted = result.baselineDangerTick <= config.predictionTicks;
++    if(!result.dangerPredicted)
++    {
++        runtime.cacheValid = false;
++        return result;
++    }
++    AvoidPlan plan;
++    if(by_utf8xbot_9365(runtime, state, worldTick, callbacks))
++    {
++        plan = runtime.cachedPlan;
++        for(AvoidPlanInput &entry : plan.inputs)
++            entry.fromTick = std::max(1, entry.fromTick - 1);
++        int cachedDangerTick = -1;
++        if(!by_utf8xbot_3906(state, current, plan, config, callbacks, &cachedDangerTick))
++            plan = {};
++    }
++    if(!plan.valid)
++        plan = by_utf8xbot_8460(state, current, config, callbacks);
++    int plannedDangerTick = -1;
++    if(!by_utf8xbot_3906(state, current, plan, config, callbacks, &plannedDangerTick))
++    {
++        runtime.cacheValid = false;
++        result.plan = plan;
++        return result;
++    }
++    plan.survivesHorizon = true;
++    plan.dangerTick = plannedDangerTick;
++    result.plan = plan;
++    if(plan.firstChangeTick < 0 || plan.firstChangeTick > config.reactionTicks)
++    {
++        runtime.cacheValid = false;
++        return result;
++    }
++    const AvoidInput selected = by_utf8xbot_7751(plan, 1, current);
++    result.input = selected;
++    result.changed = !by_utf8xbot_7314(selected, current);
++    runtime.cacheValid = true;
++    runtime.cacheWorldTick = worldTick;
++    runtime.cacheStateHash = by_utf8xbot_8762(callbacks, state);
++    runtime.cachedPlan = plan;
++    return result;
++}

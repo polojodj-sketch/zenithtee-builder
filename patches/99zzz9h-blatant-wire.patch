@@ -1,0 +1,215 @@
+--- a/src/game/client/components/kinetix/avoid_freeze.cpp
++++ b/src/game/client/components/kinetix/avoid_freeze.cpp
+@@ -19,7 +19,10 @@
+ 
+ #include <algorithm>
+ #include <base/dbg.h>
++#include <base/time.h>
++#include <cstdint>
+ #include <engine/shared/config.h>
++#include <game/client/components/kinetix/blatant_avoid.h>
+ #include <game/client/components/controls.h>
+ #include <game/client/gameclient.h>
+ #include <game/client/prediction/entities/character.h>
+@@ -89,9 +92,95 @@
+ 	return 0;
+ }
+ 
++// ---- Blatant beam-search wiring (blatant_avoid.cpp planner) ----
++// The planner works on lightweight AvoidState snapshots. Each step advances
++// ONE tick of the real client prediction from a saved full core, so hook /
++// freeze / teleport physics match the game exactly. Node states are full
++// CCharacterCore copies in a per-call pool (AvoidState.integers[0] is the
++// pool index); a single scratch world is reused because calls are sequential
++// and every step reloads its node's core first.
++struct BlatantNodeCore
++{
++	CCharacterCore m_Core;
++	int m_FreezeTime = 0;
++};
++
++struct BlatantCtx
++{
++	CGameWorld *m_pWorld = nullptr;
++	CCollision *m_pCol = nullptr;
++	int m_LocalId = -1;
++	CNetObj_PlayerInput m_BaseInput{};
++	std::vector<BlatantNodeCore> m_vCores;
++};
++
++static void BlatantFillState(const BlatantNodeCore &NC, bool Dead, CCharacter *pChar, CCollision *pCol, AvoidState &St)
++{
++	St.position = {NC.m_Core.m_Pos.x, NC.m_Core.m_Pos.y};
++	St.velocity = {NC.m_Core.m_Vel.x, NC.m_Core.m_Vel.y};
++	St.hookPosition = {NC.m_Core.m_HookPos.x, NC.m_Core.m_HookPos.y};
++	St.hookDirection = {NC.m_Core.m_HookDir.x, NC.m_Core.m_HookDir.y};
++	St.hookState = NC.m_Core.m_HookState;
++	St.jumped = NC.m_Core.m_Jumped;
++	St.frozen = NC.m_FreezeTime > 0;
++	St.dead = Dead;
++	St.hookedPlayer = -1;
++	if(!Dead && pChar)
++	{
++		St.grounded = pChar->IsGrounded();
++		const int Idx = pCol->GetPureMapIndex(pChar->Core()->m_Pos);
++		St.teleported = pCol->IsTeleport(Idx) || pCol->IsEvilTeleport(Idx);
++	}
++	else
++	{
++		St.grounded = false;
++		St.teleported = false;
++	}
++}
++
++static void BlatantStep(void *pCtx, AvoidState &St, const AvoidInput &In)
++{
++	BlatantCtx *pC = (BlatantCtx *)pCtx;
++	const BlatantNodeCore &NC = pC->m_vCores[(size_t)St.integers[0]];
++	CCharacter *pCh = pC->m_pWorld->GetCharacterById(pC->m_LocalId);
++	if(!pCh)
++	{
++		St.dead = true;
++		return;
++	}
++	pCh->SetCore(NC.m_Core);
++	pCh->m_FreezeTime = NC.m_FreezeTime;
++	CNetObj_PlayerInput Sim = pC->m_BaseInput;
++	Sim.m_Direction = In.direction;
++	Sim.m_Jump = In.jump;
++	Sim.m_Hook = In.hook;
++	Sim.m_TargetX = In.targetX;
++	Sim.m_TargetY = In.targetY;
++	pCh->OnDirectInput(&Sim);
++	pC->m_pWorld->m_GameTick = St.tick + 1;
++	pCh->OnPredictedInput(&Sim);
++	pC->m_pWorld->Tick();
++	CCharacter *pAfter = pC->m_pWorld->GetCharacterById(pC->m_LocalId);
++	if(!pAfter)
++	{
++		St.dead = true;
++		return;
++	}
++	BlatantNodeCore Out;
++	Out.m_Core = *pAfter->Core();
++	Out.m_FreezeTime = pAfter->m_FreezeTime;
++	pC->m_vCores.push_back(Out);
++	St.integers[0] = (int)pC->m_vCores.size() - 1;
++	BlatantFillState(Out, false, pAfter, pC->m_pCol, St);
++}
++
++static std::uint64_t BlatantClock(void *)
++{
++	return (std::uint64_t)time_get() * 1000000ULL / (std::uint64_t)time_freq();
++}
++
+ void CAvoidFreeze::ApplyOverride()
+-{
+-	if(!g_Config.m_KxAvoidFreezeBot)
++{	if(!g_Config.m_KxAvoidFreezeBot)
+ 	{
+ 		m_WasOverriding = false;
+ 		m_OverrideHook = 0;
+@@ -141,6 +230,75 @@
+ 	if(!Ctx.m_pLocalChar)
+ 		return;
+ 	Ctx.m_pCol = Ctx.m_pLocalChar->Collision();
++
++	// Blatant beam-search engine (blatant_avoid.cpp): longer horizon, cached
++	// plans, latest-moment reaction. The Basic brute-force path below stays
++	// as fallback (KxAfMode 0).
++	if(g_Config.m_KxAfMode == 1)
++	{
++		BlatantCtx BCtx;
++		BCtx.m_pWorld = &Ctx.m_World;
++		BCtx.m_pCol = Ctx.m_pCol;
++		BCtx.m_LocalId = LocalId;
++		BCtx.m_BaseInput = Current;
++		BCtx.m_BaseInput.m_Fire = 0;
++		BlatantNodeCore Root;
++		Root.m_Core = *Ctx.m_pLocalChar->Core();
++		Root.m_FreezeTime = Ctx.m_pLocalChar->m_FreezeTime;
++		BCtx.m_vCores.push_back(Root);
++		AvoidState Init{};
++		Init.tick = Ctx.m_StartTick;
++		Init.integers[0] = 0;
++		BlatantFillState(Root, false, Ctx.m_pLocalChar, Ctx.m_pCol, Init);
++		AvoidInput CurIn{};
++		CurIn.direction = Current.m_Direction;
++		CurIn.targetX = Current.m_TargetX;
++		CurIn.targetY = Current.m_TargetY;
++		CurIn.jump = Current.m_Jump != 0 ? 1 : 0;
++		CurIn.hook = Current.m_Hook != 0 ? 1 : 0;
++		AvoidConfig Bfg{};
++		Bfg.enabled = true;
++		Bfg.allowDirection = g_Config.m_KxAfDirection != 0;
++		Bfg.allowJump = g_Config.m_KxAfJump != 0;
++		Bfg.allowHook = g_Config.m_KxAfHook != 0;
++		Bfg.predictDeath = g_Config.m_KxAfAvoidDeath != 0;
++		Bfg.predictTeleport = g_Config.m_KxAfAvoidTeleport != 0;
++		Bfg.predictUnfreeze = true;
++		Bfg.predictionTicks = simTicks;
++		Bfg.reactionTicks = std::clamp(triggerTicks, 1, 12);
++		Bfg.beamWidth = std::clamp(g_Config.m_KxAfBeamWidth, 5, 100);
++		Bfg.beamPerFirstAction = 16;
++		Bfg.maxPlanInputSwitches = 2;
++		Bfg.timeBudgetMicroseconds = 6000;
++		AvoidCallbacks Cb{};
++		Cb.context = &BCtx;
++		Cb.step = BlatantStep;
++		Cb.clockMicroseconds = BlatantClock;
++		static AvoidRuntime s_BlatantRuntime;
++		AvoidResult R = by_utf8xbot_9184(s_BlatantRuntime, Init, CurIn, Ctx.m_StartTick, Bfg, Cb);
++		if(!R.dangerPredicted)
++		{
++			if(m_WasOverriding)
++			{
++				if(m_OverrideHook != 0)
++					pInput->m_Hook = 0;
++				m_WasOverriding = false;
++				dbg_msg("avoid", "override released");
++			}
++			return;
++		}
++		if(R.changed)
++		{
++			pInput->m_Direction = R.input.direction;
++			pInput->m_Jump = R.input.jump;
++			pInput->m_Hook = R.input.hook;
++			if(!m_WasOverriding)
++				dbg_msg("avoid", "blatant override engaged");
++			m_WasOverriding = true;
++			m_OverrideHook = R.input.hook;
++		}
++		return;
++	}
+ 
+ 	// Danger with current input (detects hook pulling into freeze).
+ 	const int dangerWithCurrent = SimulateDanger(Ctx, Current, 0, Current, simTicks);
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -19,6 +19,7 @@
+ static const char *s_EspModeOpts[] = {"Active player", "Screen coordinates"};
+ static const char *s_EspStyleOpts[] = {"Line", "Arrow", "Dotted line", "Dotted Arrow"};
+ static const char *s_EspTargetsOpts[] = {"Both", "Only", "Ignore"};
++static const char *s_AfModeOpts[] = {"Basic", "Blatant"};
+ static const char *s_ABTeamOpts[] = {"Both", "War", "My"};
+ static const char *s_ABIgnoreOpts[] = {"Both", "Ignore", "Only"};
+ static const char *s_ABFreezeOpts[] = {"Both", "Freeze", "No freeze"};
+@@ -178,6 +179,8 @@
+ 	{ZEN_TOGGLE, "Aim", &g_Config.m_KxAfAim, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Aim FOV", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxAfFov, 5, 360, 1, "", 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Aim angles", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxAfAngles, 1, 144, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Mode", nullptr, 0, s_AfModeOpts, 2, &g_Config.m_KxAfMode, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Beam width", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxAfBeamWidth, 5, 100, 1, "", 0, nullptr, 0, nullptr},
+ };
+ static ZenRow s_ZenRows[] = {
+ 	{ZEN_SECTION, "Main", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+@@ -206,7 +209,7 @@
+ 	{ZEN_EXPAND, "Spoofer", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_SpoofKids, 5, &s_SpoofOpen},
+ 	{ZEN_EXPAND, "IRC", &g_Config.m_KxIrcEnabled, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_IrcKids, 2, &s_IrcOpen},
+ 	{ZEN_EXPAND, "Trajectory", &g_Config.m_KxShowTrajectory, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_TrajKids, 1, &s_TrajOpen},
+-	{ZEN_EXPAND, "Avoid Freeze", &g_Config.m_KxAvoidFreezeBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_AvoidKids, 12, &s_AvoidOpen},
++	{ZEN_EXPAND, "Avoid Freeze", &g_Config.m_KxAvoidFreezeBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_AvoidKids, 14, &s_AvoidOpen},
+ 	{ZEN_BUTTON, "Join TAS", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 110, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Play", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 111, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Pause", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 112, nullptr, 0, nullptr},
