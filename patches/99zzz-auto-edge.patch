@@ -1,0 +1,106 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -17,6 +17,7 @@
+ #include <game/client/components/menus.h>
+ #include <game/client/components/scoreboard.h>
+ #include <game/client/gameclient.h>
++#include <game/client/prediction/entities/character.h>
+ #include <game/collision.h>
+ #include <game/localization.h>
+ 
+@@ -522,6 +523,95 @@
+ 		m_FakeAimRenderActive = false;
+ 	}
+ 
++	// ZenithTee: Auto Edge (TClient-style). While airborne, auto-fire the hook
++	// at the nearest hookable tile edge with a clear line, inside
++	// kx_auto_edge_dist. Never fights other assists: skipped while silent or
++	// visible aim is armed, and only ever manages the hook bit it engaged
++	// itself (s_EdgeHeld) — manual hooks are never touched or cut.
++	static bool s_EdgeHeld = false;
++	if(g_Config.m_KxAutoEdge && !m_LaserUnfreezeAimActive && !m_VisibleAimActive)
++	{
++		const int AD = g_Config.m_ClDummy;
++		const int LocalId = GameClient()->m_Snap.m_LocalClientId;
++		CCharacter *pChr = (LocalId >= 0) ? GameClient()->m_PredictedWorld.GetCharacterById(LocalId) : nullptr;
++		if(pChr && !pChr->IsGrounded())
++		{
++			const vec2 MyPos = GameClient()->m_LocalCharacterPos;
++			const int hs = pChr->Core()->m_HookState;
++			if(s_EdgeHeld && (hs == HOOK_FLYING || hs == HOOK_GRABBED))
++			{
++				m_aInputData[AD].m_Hook = 1;
++				const vec2 d = pChr->Core()->m_HookPos - MyPos;
++				m_aInputData[AD].m_TargetX = (int)d.x;
++				m_aInputData[AD].m_TargetY = (int)d.y;
++				m_aMousePos[AD] = d;
++			}
++			else
++			{
++				if(s_EdgeHeld)
++				{
++					m_aInputData[AD].m_Hook = 0;
++					s_EdgeHeld = false;
++				}
++				if(hs == HOOK_RETRACTED)
++				{
++					const float maxDist = (float)std::clamp(g_Config.m_KxAutoEdgeDist, 100, 2000);
++					const int myTX = (int)(MyPos.x / 32.0f);
++					const int myTY = (int)(MyPos.y / 32.0f);
++					const int R = (int)(maxDist / 32.0f) + 1;
++					bool found = false;
++					vec2 aim(0.0f, 0.0f);
++					for(int r = 1; r <= R && !found; r++)
++					{
++						for(int dy = -r; dy <= r && !found; dy++)
++						{
++							for(int dx = -r; dx <= r && !found; dx++)
++							{
++								if(std::max(std::abs(dx), std::abs(dy)) != r)
++									continue;
++								const float cx = (float)((myTX + dx) * 32 + 16);
++								const float cy = (float)((myTY + dy) * 32 + 16);
++								const float ddx = cx - MyPos.x, ddy = cy - MyPos.y;
++								if(ddx * ddx + ddy * ddy > maxDist * maxDist)
++									continue;
++								if(!GameClient()->Collision()->IsSolid((int)cx, (int)cy))
++									continue;
++								const int idx = GameClient()->Collision()->GetPureMapIndex(vec2(cx, cy));
++								if(GameClient()->Collision()->GetTileIndex(idx) == TILE_NOHOOK)
++									continue;
++								if(GameClient()->Collision()->IntersectLine(MyPos, vec2(cx, cy), nullptr, nullptr) != 0)
++									continue;
++								aim = vec2(ddx, ddy);
++								found = true;
++							}
++						}
++					}
++					if(found)
++					{
++						m_aInputData[AD].m_Hook = 1;
++						m_aInputData[AD].m_TargetX = (int)aim.x;
++						m_aInputData[AD].m_TargetY = (int)aim.y;
++						m_aMousePos[AD] = aim;
++						s_EdgeHeld = true;
++					}
++				}
++			}
++		}
++		else if(pChr && s_EdgeHeld)
++		{
++			m_aInputData[g_Config.m_ClDummy].m_Hook = 0;
++			s_EdgeHeld = false;
++		}
++		else if(!pChr)
++		{
++			s_EdgeHeld = false;
++		}
++	}
++	else
++	{
++		s_EdgeHeld = false;
++	}
++
+ 	// ZenithTee (kinetix): visible aimbot aim. Visible (non-silent) AimBot
+ 	// publishes its aim from OnUpdate instead of poking m_aMousePos directly
+ 	// (touch input and camera freeview save/restore rewrite m_aMousePos before
