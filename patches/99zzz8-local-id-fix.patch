@@ -1,0 +1,61 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -384,7 +384,7 @@
+ 	static int s_BalTarget = -1;
+ 	if(g_Config.m_KxBalanceBot)
+ 	{
+-		const int MyId = GameClient()->m_Snap.m_LocalClientId;
++		const int MyId = GameClient()->m_aLocalIds[g_Config.m_ClDummy] >= 0 ? GameClient()->m_aLocalIds[g_Config.m_ClDummy] : GameClient()->m_Snap.m_LocalClientId;
+ 		bool balValid = MyId >= 0 && s_BalTarget >= 0 && s_BalTarget < MAX_CLIENTS &&
+ 			s_BalTarget != MyId && GameClient()->m_aClients[s_BalTarget].m_Active &&
+ 			GameClient()->m_Snap.m_aCharacters[s_BalTarget].m_Active;
+@@ -532,7 +532,7 @@
+ 	if(g_Config.m_KxAutoEdge && !m_LaserUnfreezeAimActive && !m_VisibleAimActive)
+ 	{
+ 		const int AD = g_Config.m_ClDummy;
+-		const int LocalId = GameClient()->m_Snap.m_LocalClientId;
++		const int LocalId = GameClient()->m_aLocalIds[g_Config.m_ClDummy] >= 0 ? GameClient()->m_aLocalIds[g_Config.m_ClDummy] : GameClient()->m_Snap.m_LocalClientId;
+ 		CCharacter *pChr = (LocalId >= 0) ? GameClient()->m_PredictedWorld.GetCharacterById(LocalId) : nullptr;
+ 		if(pChr && !pChr->IsGrounded())
+ 		{
+--- a/src/game/client/components/kinetix/avoid_freeze.cpp
++++ b/src/game/client/components/kinetix/avoid_freeze.cpp
+@@ -99,7 +99,11 @@
+ 	}
+ 
+ 	CGameClient *pGame = GameClient();
+-	const int LocalId = pGame->m_Snap.m_LocalClientId;
++	// Active tee id (dummy-aware): m_Snap.m_LocalClientId alone points at
++	// the wrong tee when playing with a dummy.
++	int LocalId = pGame->m_aLocalIds[g_Config.m_ClDummy];
++	if(LocalId < 0)
++		LocalId = pGame->m_Snap.m_LocalClientId;
+ 	if(LocalId < 0 || !pGame->m_Snap.m_aCharacters[LocalId].m_Active)
+ 	{
+ 		m_WasOverriding = false;
+--- a/src/game/client/components/kinetix/laser_unfreeze.cpp
++++ b/src/game/client/components/kinetix/laser_unfreeze.cpp
+@@ -95,7 +95,11 @@
+     if(!pGame || !pGame->m_Snap.m_pLocalInfo)
+         return;
+ 
+-    int LocalID = pGame->m_Snap.m_LocalClientId;
++    // Active tee id (dummy-aware): m_Snap.m_LocalClientId alone points at
++    // the wrong tee when playing with a dummy.
++    int LocalID = pGame->m_aLocalIds[g_Config.m_ClDummy];
++    if(LocalID < 0)
++        LocalID = pGame->m_Snap.m_LocalClientId;
+     if(LocalID < 0)
+         return;
+ 
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -292,7 +292,7 @@
+         const int ActiveD = g_Config.m_ClDummy;
+         if(ActiveD < 0 || ActiveD >= MAX_DUMMIES)
+                 return;
+-        const int LocalId = pGame->m_Snap.m_LocalClientId;
++        const int LocalId = pGame->m_aLocalIds[g_Config.m_ClDummy] >= 0 ? pGame->m_aLocalIds[g_Config.m_ClDummy] : pGame->m_Snap.m_LocalClientId;
+         if(LocalId < 0 || !pGame->m_Snap.m_aCharacters[LocalId].m_Active)
+                 return;
+         CBotNetDummy &State = m_aDummies[ActiveD];
