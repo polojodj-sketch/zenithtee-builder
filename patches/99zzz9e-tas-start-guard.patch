@@ -1,0 +1,58 @@
+--- a/src/game/client/components/kinetix/tas.h
++++ b/src/game/client/components/kinetix/tas.h
+@@ -173,6 +173,7 @@
+ 	// Real-world execution (Play outside the playground): the saved inputs
+ 	// are fed to the real player through CControls::SnapInput.
+ 	bool IsRealPlaying() const { return m_RealPlaying; }
++	bool ExecOffStart() const { return m_ExecOffStart; }
+ 	int RealPlayIdx() const { return m_RealIdx; }
+ 	bool ApplyTasRealInput(CNetObj_PlayerInput *pInput);
+ 
+@@ -269,6 +270,7 @@
+ 	// counter (rebased onto the live one so the press/release parity edges
+ 	// reproduce exactly).
+ 	bool m_RealPlaying = false;
++	bool m_ExecOffStart = false;
+ 	int m_RealIdx = 0;
+ 	int m_RealFire = 0;
+ 
+--- a/src/game/client/components/kinetix/tas.cpp
++++ b/src/game/client/components/kinetix/tas.cpp
+@@ -643,6 +643,7 @@
+ 	if(m_RealPlaying)
+ 	{
+ 		m_RealPlaying = false;
++		m_ExecOffStart = false;
+ 		dbg_msg("tas", "real replay stopped at %d/%d", m_RealIdx, (int)m_vSaved.size());
+ 		return;
+ 	}
+@@ -654,6 +655,19 @@
+ 	}
+ 	if(m_vSaved.empty())
+ 		return;
++	// Blind replay snowballs any start offset into a desync: refuse when
++	// far from the recorded start (file takes carry no start state, skip).
++	if(!m_TakeFromFile)
++	{
++		const vec2 d = GameClient()->m_LocalCharacterPos - m_SavedStart.Core.m_Pos;
++		if(length(d) > 64.0f)
++		{
++			m_ExecOffStart = true;
++			dbg_msg("tas", "real replay refused: stand at the recorded start first");
++			return;
++		}
++	}
++	m_ExecOffStart = false;
+ 	m_RealPlaying = true;
+ 	m_RealIdx = 0;
+ 	m_RealFire = 0;
+--- a/src/game/client/components/kinetix/zenith_hud.cpp
++++ b/src/game/client/components/kinetix/zenith_hud.cpp
+@@ -128,6 +128,7 @@
+ 	KX_ADD_IF("TAS REC", GameClient()->m_Tas.IsRecording())
+ 	KX_ADD_IF("TAS PLAY", GameClient()->m_Tas.IsPlaying())
+ 	KX_ADD_IF("TAS EXEC", GameClient()->m_Tas.IsRealPlaying())
++	KX_ADD_IF("TAS TO START", GameClient()->m_Tas.ExecOffStart())
+ 	KX_ADD_IF("Laser Unfreeze", g_Config.m_KxLaserUnfreeze)
+ 	KX_ADD_IF("Copy Moves", g_Config.m_KxCopyMoves)
+ 	KX_ADD_IF("Pilot Bot", g_Config.m_KxPfPilotMode != 0)
