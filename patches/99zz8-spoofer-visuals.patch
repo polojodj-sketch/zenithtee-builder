@@ -1,0 +1,61 @@
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -40,6 +40,25 @@
+ 	{ZEN_TOGGLE, "Hitboxes", &g_Config.m_KxEspHitboxes, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "X", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxEspScreenX, 0, 7680, 10, "", 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Y", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxEspScreenY, 0, 4320, 10, "", 0, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Mode", nullptr, 0, s_EspModeOpts, 2, &g_Config.m_KxEspMode, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Style", nullptr, 0, s_EspStyleOpts, 4, &g_Config.m_KxEspStyle, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++};
++static bool s_SpoofOpen = true;
++static ZenRow s_SpoofKids[] = {
++	{ZEN_SLIDER, "Version ID", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxVersionSpoofId, 10000, 21000, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Client preset", nullptr, 0, s_SpoofPresetOpts, 4, &g_Config.m_KxSpoofClientPreset, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Git hash", &g_Config.m_KxSpoofGitHashEnabled, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "BC extra", &g_Config.m_KxSpoofBestClientExtraNetmsgs, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "TC extra", &g_Config.m_KxSpoofTClientExtraNetmsgs, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++};
++static bool s_IrcOpen = true;
++static ZenRow s_IrcKids[] = {
++	{ZEN_TOGGLE, "Reveal join", &g_Config.m_KxIrcRevealJoin, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Nameplate tag", &g_Config.m_KxIrcNameplateTag, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++};
++static bool s_TrajOpen = true;
++static ZenRow s_TrajKids[] = {
++	{ZEN_SLIDER, "Prediction Ticks", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxTrajectoryTicks, 1, 50, 1, "", 0, nullptr, 0, nullptr},
+ };
+ static bool s_PilotOpen = true;
+ static bool s_BalOpen = true;
+@@ -57,6 +76,9 @@
+ static const char *s_PfEffortOpts[] = {"Very Low", "Low", "Medium", "High", "Ultra", "Max", "Custom"};
+ static const char *s_PfAlgoOpts[] = {"BFS", "Beam", "RHEA", "BMCTS"};
+ static const char *s_TasFakeAimModeOpts[] = {"Real", "Smooth", "Random", "Robot", "Spin", "Lag"};
++static const char *s_SpoofPresetOpts[] = {"DDNet", "TClient", "BestClient", "Custom"};
++static const char *s_EspModeOpts[] = {"Active player", "Screen coordinates"};
++static const char *s_EspStyleOpts[] = {"Line", "Arrow", "Dotted line", "Dotted Arrow"};
+ static bool s_ABOpen = true;
+ static bool s_TBOpen = true;
+ static bool s_BlockOpen = true;
+@@ -155,8 +177,12 @@
+ 	{ZEN_TOGGLE, "Copy Moves", &g_Config.m_KxCopyMoves, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_EXPAND, "Fake Aim", &g_Config.m_KxFakeAim, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_FakeKids, 4, &s_FakeOpen},
+ 	{ZEN_EXPAND, "Laser", &g_Config.m_KxLaserUnfreeze, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_LaserKids, 9, &s_LaserOpen},
+-	{ZEN_EXPAND, "ESP", &g_Config.m_KxEsp, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_EspKids, 4, &s_EspOpen},
++	{ZEN_EXPAND, "ESP", &g_Config.m_KxEsp, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_EspKids, 6, &s_EspOpen},
+ 	{ZEN_SLIDER, "Blur", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxMenuBlur, 0, 100, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_EXPAND, "Spoofer", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_SpoofKids, 5, &s_SpoofOpen},
++	{ZEN_EXPAND, "IRC", &g_Config.m_KxIrcEnabled, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_IrcKids, 2, &s_IrcOpen},
++	{ZEN_EXPAND, "Trajectory", &g_Config.m_KxShowTrajectory, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_TrajKids, 1, &s_TrajOpen},
++	{ZEN_SLIDER, "GUI Scale", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxClickGuiScale, 1, 20, 1, "", 0, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Join TAS", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 110, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Play", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 111, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Pause", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 112, nullptr, 0, nullptr},
+@@ -194,7 +220,7 @@
+ };
+ static const int s_ZenRowCount = sizeof(s_ZenRows) / sizeof(s_ZenRows[0]);
+ // Tab per top-level row: 0=Bots 1=Combat 2=Avoid 3=Visuals 4=TAS 5=Pathfinder.
+-static const int s_ZenRowTabs[] = {0, 0, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0};
++static const int s_ZenRowTabs[] = {0, 0, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0};
+ 
+ // Dark frosted-glass theme (layered translucency fakes blur; the renderer
+ // has no blur pass, so true background blur would need engine changes).
