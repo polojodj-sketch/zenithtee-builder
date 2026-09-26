@@ -1,0 +1,87 @@
+--- a/src/game/client/components/kinetix/avoid_freeze.h
++++ b/src/game/client/components/kinetix/avoid_freeze.h
+@@ -40,6 +40,8 @@
+         // Called from CControls::SnapInput at the very end (after all other
+         // input manipulators: bot control, fake aim, laser unfreeze).
+         void ApplyOverride();
++        // True while an override is currently engaged (HUD/log visibility).
++        bool Overriding() const { return m_WasOverriding; }
+ 
+ private:
+         // Shared simulation context — the world is copied once per ApplyOverride
+--- a/src/game/client/components/kinetix/avoid_freeze.cpp
++++ b/src/game/client/components/kinetix/avoid_freeze.cpp
+@@ -18,6 +18,7 @@
+ #include <game/client/components/kinetix/avoid_freeze.h>
+ 
+ #include <algorithm>
++#include <base/dbg.h>
+ #include <engine/shared/config.h>
+ #include <game/client/components/controls.h>
+ #include <game/client/gameclient.h>
+@@ -91,14 +92,26 @@
+ void CAvoidFreeze::ApplyOverride()
+ {
+ 	if(!g_Config.m_KxAvoidFreezeBot)
+-		return;
++	{
++		m_WasOverriding = false;
++		m_OverrideHook = 0;
++		return;
++	}
+ 
+ 	CGameClient *pGame = GameClient();
+ 	const int LocalId = pGame->m_Snap.m_LocalClientId;
+ 	if(LocalId < 0 || !pGame->m_Snap.m_aCharacters[LocalId].m_Active)
+-		return;
++	{
++		m_WasOverriding = false;
++		m_OverrideHook = 0;
++		return;
++	}
+ 	if(!pGame->m_PredictedWorld.GetCharacterById(LocalId))
+-		return;
++	{
++		m_WasOverriding = false;
++		m_OverrideHook = 0;
++		return;
++	}
+ 
+ 	CNetObj_PlayerInput *pInput = &pGame->m_Controls.m_aInputData[g_Config.m_ClDummy];
+ 	const CNetObj_PlayerInput Current = *pInput;
+@@ -140,6 +153,7 @@
+ 			if(m_OverrideHook != 0)
+ 				pInput->m_Hook = 0;
+ 			m_WasOverriding = false;
++			dbg_msg("avoid", "override released");
+ 		}
+ 		return;
+ 	}
+@@ -160,6 +174,8 @@
+ 			return; // can wait — hook is safe for now
+ 		// Last moment — release the hook NOW.
+ 		pInput->m_Hook = 0;
++		if(!m_WasOverriding)
++			dbg_msg("avoid", "hook released (hook-only danger)");
+ 		m_WasOverriding = true;
+ 		m_OverrideHook = 0;
+ 		return;
+@@ -277,6 +293,8 @@
+ 		pInput->m_Jump = bestInput.m_Jump;
+ 		pInput->m_Hook = bestInput.m_Hook;
+ 
++		if(!m_WasOverriding)
++			dbg_msg("avoid", "override engaged: dir=%d jump=%d hook=%d surv=%d (was %d)", bestInput.m_Direction, bestInput.m_Jump, bestInput.m_Hook, bestSurvival, currentSurvival);
+ 		m_WasOverriding = true;
+ 		m_OverrideHook = bestInput.m_Hook;
+ 
+--- a/src/game/client/components/kinetix/zenith_hud.cpp
++++ b/src/game/client/components/kinetix/zenith_hud.cpp
+@@ -124,6 +124,7 @@
+ 	KX_ADD_IF("Hitboxes", g_Config.m_KxEspHitboxes)
+ 	KX_ADD_IF("Fake Aim", g_Config.m_KxFakeAim)
+ 	KX_ADD_IF("Avoid Freeze", g_Config.m_KxAvoidFreezeBot)
++	KX_ADD_IF("AVOID ACTIVE", GameClient()->m_AvoidFreeze.Overriding())
+ 	KX_ADD_IF("Laser Unfreeze", g_Config.m_KxLaserUnfreeze)
+ 	KX_ADD_IF("Copy Moves", g_Config.m_KxCopyMoves)
+ 	KX_ADD_IF("Pilot Bot", g_Config.m_KxPfPilotMode != 0)
