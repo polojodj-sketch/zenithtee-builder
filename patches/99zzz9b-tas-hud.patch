@@ -1,0 +1,12 @@
+--- a/src/game/client/components/kinetix/zenith_hud.cpp
++++ b/src/game/client/components/kinetix/zenith_hud.cpp
+@@ -125,6 +125,9 @@
+ 	KX_ADD_IF("Fake Aim", g_Config.m_KxFakeAim)
+ 	KX_ADD_IF("Avoid Freeze", g_Config.m_KxAvoidFreezeBot)
+ 	KX_ADD_IF("AVOID ACTIVE", GameClient()->m_AvoidFreeze.Overriding())
++	KX_ADD_IF("TAS REC", GameClient()->m_Tas.IsRecording())
++	KX_ADD_IF("TAS PLAY", GameClient()->m_Tas.IsPlaying())
++	KX_ADD_IF("TAS EXEC", GameClient()->m_Tas.IsRealPlaying())
+ 	KX_ADD_IF("Laser Unfreeze", g_Config.m_KxLaserUnfreeze)
+ 	KX_ADD_IF("Copy Moves", g_Config.m_KxCopyMoves)
+ 	KX_ADD_IF("Pilot Bot", g_Config.m_KxPfPilotMode != 0)
