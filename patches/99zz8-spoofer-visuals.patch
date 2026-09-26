@@ -1,6 +1,16 @@
 --- a/src/game/client/components/kinetix/clickgui_zen.cpp
 +++ b/src/game/client/components/kinetix/clickgui_zen.cpp
-@@ -40,6 +40,25 @@
+@@ -15,6 +15,9 @@
+ 
+ static const char *s_PilotModes[] = {"Off", "Follow cursor", "Follow player", "Autonomous"};
+ static const char *s_FakeAimModeOpts[] = {"Random", "Robot", "Spin", "Lag", "Chaos", "Real"};
++static const char *s_SpoofPresetOpts[] = {"DDNet", "TClient", "BestClient", "Custom"};
++static const char *s_EspModeOpts[] = {"Active player", "Screen coordinates"};
++static const char *s_EspStyleOpts[] = {"Line", "Arrow", "Dotted line", "Dotted Arrow"};
+ static bool s_FakeOpen = true;
+ static bool s_LaserOpen = true;
+ static ZenRow s_FakeKids[] = {
+@@ -40,6 +43,25 @@
  	{ZEN_TOGGLE, "Hitboxes", &g_Config.m_KxEspHitboxes, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
  	{ZEN_SLIDER, "X", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxEspScreenX, 0, 7680, 10, "", 0, nullptr, 0, nullptr},
  	{ZEN_SLIDER, "Y", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxEspScreenY, 0, 4320, 10, "", 0, nullptr, 0, nullptr},
@@ -26,16 +36,6 @@
  };
  static bool s_PilotOpen = true;
  static bool s_BalOpen = true;
-@@ -57,6 +76,9 @@
- static const char *s_PfEffortOpts[] = {"Very Low", "Low", "Medium", "High", "Ultra", "Max", "Custom"};
- static const char *s_PfAlgoOpts[] = {"BFS", "Beam", "RHEA", "BMCTS"};
- static const char *s_TasFakeAimModeOpts[] = {"Real", "Smooth", "Random", "Robot", "Spin", "Lag"};
-+static const char *s_SpoofPresetOpts[] = {"DDNet", "TClient", "BestClient", "Custom"};
-+static const char *s_EspModeOpts[] = {"Active player", "Screen coordinates"};
-+static const char *s_EspStyleOpts[] = {"Line", "Arrow", "Dotted line", "Dotted Arrow"};
- static bool s_ABOpen = true;
- static bool s_TBOpen = true;
- static bool s_BlockOpen = true;
 @@ -155,8 +177,12 @@
  	{ZEN_TOGGLE, "Copy Moves", &g_Config.m_KxCopyMoves, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
  	{ZEN_EXPAND, "Fake Aim", &g_Config.m_KxFakeAim, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_FakeKids, 4, &s_FakeOpen},
