@@ -9,18 +9,36 @@
  {
  	m_PfVPath.clear();
  	m_PfVHookSegs.clear();
-@@ -65,7 +65,9 @@
- 		return;
+@@ -54,7 +54,7 @@
+ 	if(!pGame || !pGame->m_Snap.m_pLocalInfo)
+ 	{
+ 		dbg_msg("pathfinder", "PfResetRun: no game or no local info");
+-		return;
++		return false;
  	}
  
+ 	if(!m_MapGridLoaded)
+@@ -62,20 +62,22 @@
+ 	if(!m_MapGridLoaded)
+ 	{
+ 		dbg_msg("pathfinder", "PfResetRun: map grid failed to load");
+-		return;
+-	}
+-
 -	int LocalID = pGame->m_Snap.m_LocalClientId;
++		return false;
++	}
++
 +	int LocalID = pGame->m_aLocalIds[g_Config.m_ClDummy];
-+	if(LocalID < 0)
-+		LocalID = pGame->m_Snap.m_LocalClientId;
  	if(LocalID < 0)
++		LocalID = pGame->m_Snap.m_LocalClientId;
++	if(LocalID < 0)
  	{
  		dbg_msg("pathfinder", "PfResetRun: no local client id");
-@@ -75,7 +77,7 @@
+-		return;
++		return false;
+ 	}
+ 	CCharacter *pChar = pGame->m_PredictedWorld.GetCharacterById(LocalID);
  	if(!pChar)
  	{
  		dbg_msg("pathfinder", "PfResetRun: no predicted character");
