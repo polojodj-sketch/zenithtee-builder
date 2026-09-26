@@ -1,0 +1,47 @@
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -18,6 +18,10 @@
+ static const char *s_SpoofPresetOpts[] = {"DDNet", "TClient", "BestClient", "Custom"};
+ static const char *s_EspModeOpts[] = {"Active player", "Screen coordinates"};
+ static const char *s_EspStyleOpts[] = {"Line", "Arrow", "Dotted line", "Dotted Arrow"};
++static const char *s_EspTargetsOpts[] = {"Both", "Only", "Ignore"};
++static const char *s_ABTeamOpts[] = {"Both", "War", "My"};
++static const char *s_ABIgnoreOpts[] = {"Both", "Ignore", "Only"};
++static const char *s_ABFreezeOpts[] = {"Both", "Freeze", "No freeze"};
+ static const char *s_TasAutoTileOpts[] = {"Freeze", "Teleport", "Death"};
+ static const char *s_TasAutoModeOpts[] = {"Rewind", "Forward"};
+ static const char *s_TasModeOpts[] = {"Play", "Record"};
+@@ -48,6 +52,13 @@
+ 	{ZEN_SLIDER, "Y", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxEspScreenY, 0, 4320, 10, "", 0, nullptr, 0, nullptr},
+ 	{ZEN_CYCLE, "Mode", nullptr, 0, s_EspModeOpts, 2, &g_Config.m_KxEspMode, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_CYCLE, "Style", nullptr, 0, s_EspStyleOpts, 4, &g_Config.m_KxEspStyle, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Team", nullptr, 0, s_ABTeamOpts, 3, &g_Config.m_KxEspTeamFilter, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Friend", nullptr, 0, s_ABIgnoreOpts, 3, &g_Config.m_KxEspFriendFilter, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Dummy", nullptr, 0, s_ABIgnoreOpts, 3, &g_Config.m_KxEspDummyFilter, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Clanmate", nullptr, 0, s_ABIgnoreOpts, 3, &g_Config.m_KxEspClanmateFilter, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Freeze", nullptr, 0, s_ABFreezeOpts, 3, &g_Config.m_KxEspFreezeFilter, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Targets", nullptr, 0, s_EspTargetsOpts, 3, &g_Config.m_KxEspTargetsFilterMode, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Speed", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxEspSpeed, 0, 100, 1, "", 0, nullptr, 0, nullptr},
+ };
+ static bool s_SpoofOpen = true;
+ static ZenRow s_SpoofKids[] = {
+@@ -81,10 +92,7 @@
+ static const char *s_TBTriggerModes[] = {"One tick", "Hold", "Every tick"};
+ static const char *s_ABAimModes[] = {"Edge", "Trigger", "Always", "Smooth"};
+ static const char *s_TBTriggerOpts[] = {"Fire", "Hook"};
+-static const char *s_ABTeamOpts[] = {"Both", "War", "My"};
+-static const char *s_ABIgnoreOpts[] = {"Both", "Ignore", "Only"};
+ static const char *s_ABPriorityOpts[] = {"Nearest FOV", "Nearest Aim", "Nearest to me"};
+-static const char *s_ABFreezeOpts[] = {"Both", "Freeze", "No freeze"};
+ static const char *s_PfEffortOpts[] = {"Very Low", "Low", "Medium", "High", "Ultra", "Max", "Custom"};
+ static const char *s_PfAlgoOpts[] = {"BFS", "Beam", "RHEA", "BMCTS"};
+ static const char *s_TasFakeAimModeOpts[] = {"Real", "Smooth", "Random", "Robot", "Spin", "Lag"};
+@@ -192,7 +200,7 @@
+ 	{ZEN_TOGGLE, "Rescue", &g_Config.m_KxRescue, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Rescue radius", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxRescueRadius, 0, 10000, 50, "px", 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Copy Moves", &g_Config.m_KxCopyMoves, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+-	{ZEN_EXPAND, "ESP", &g_Config.m_KxEsp, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_EspKids, 6, &s_EspOpen},
++	{ZEN_EXPAND, "ESP", &g_Config.m_KxEsp, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_EspKids, 13, &s_EspOpen},
+ 	{ZEN_SLIDER, "Blur", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxMenuBlur, 0, 100, 1, "", 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "GUI Scale", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxClickGuiScale, 1, 20, 1, "", 0, nullptr, 0, nullptr},
+ 	{ZEN_EXPAND, "Spoofer", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_SpoofKids, 5, &s_SpoofOpen},
