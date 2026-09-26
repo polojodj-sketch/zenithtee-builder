@@ -1,0 +1,126 @@
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -18,6 +18,9 @@
+ static const char *s_SpoofPresetOpts[] = {"DDNet", "TClient", "BestClient", "Custom"};
+ static const char *s_EspModeOpts[] = {"Active player", "Screen coordinates"};
+ static const char *s_EspStyleOpts[] = {"Line", "Arrow", "Dotted line", "Dotted Arrow"};
++static const char *s_TasAutoTileOpts[] = {"Freeze", "Teleport", "Death"};
++static const char *s_TasAutoModeOpts[] = {"Rewind", "Forward"};
++static const char *s_TasModeOpts[] = {"Play", "Record"};
+ static bool s_FakeOpen = true;
+ static bool s_LaserOpen = true;
+ static ZenRow s_FakeKids[] = {
+@@ -62,6 +65,12 @@
+ static bool s_TrajOpen = true;
+ static ZenRow s_TrajKids[] = {
+ 	{ZEN_SLIDER, "Prediction Ticks", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxTrajectoryTicks, 1, 50, 1, "", 0, nullptr, 0, nullptr},
++};
++static bool s_AutoRfOpen = true;
++static ZenRow s_AutoRfKids[] = {
++	{ZEN_CYCLE, "Tile", nullptr, 0, s_TasAutoTileOpts, 3, nullptr, nullptr, 0, 0, 0, nullptr, 129, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "Mode", nullptr, 0, s_TasAutoModeOpts, 2, nullptr, nullptr, 0, 0, 0, nullptr, 130, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Ticks", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 100, 1, "", 131, nullptr, 0, nullptr},
+ };
+ static bool s_PilotOpen = true;
+ static bool s_BalOpen = true;
+@@ -189,13 +198,15 @@
+ 	{ZEN_SLIDER, "TPS", nullptr, 0, nullptr, 0, nullptr, nullptr, 1, 50, 1, "", 113, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Forward", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 114, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Rewind", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 115, nullptr, 0, nullptr},
+-	{ZEN_TOGGLE, "Auto RF", &g_Config.m_KxTasAutoRf, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Auto RF", &g_Config.m_KxTasAutoRf, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_AutoRfKids, 3, &s_AutoRfOpen},
+ 	{ZEN_TOGGLE, "Show Path", &g_Config.m_KxTasShowPath, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Show Hooks", &g_Config.m_KxTasShowHooks, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Show Speed", &g_Config.m_KxTasShowSpeed, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Trajectory", &g_Config.m_KxTasShowTrajectory, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Fake Aim", &g_Config.m_KxTasFakeAim, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_CYCLE, "Fake Mode", nullptr, 0, s_TasFakeAimModeOpts, 6, &g_Config.m_KxTasFakeAimMode, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_CYCLE, "TAS Mode", nullptr, 0, s_TasModeOpts, 2, nullptr, nullptr, 0, 0, 0, nullptr, 133, nullptr, 0, nullptr},
++	{ZEN_BUTTON, "Record", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 134, nullptr, 0, nullptr},
+ 	{ZEN_CYCLE, "Effort", nullptr, 0, s_PfEffortOpts, 7, &g_Config.m_KxPfEffort, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_CYCLE, "Algorithm", nullptr, 0, s_PfAlgoOpts, 4, &g_Config.m_KxPfAlgorithm, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Beam width", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxPfBeamWidth, 8, 4096, 8, "", 0, nullptr, 0, nullptr},
+@@ -214,13 +225,14 @@
+ 	{ZEN_TOGGLE, "Show field", &g_Config.m_KxPfShowField, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Show hooks", &g_Config.m_KxPfShowHooks, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Show speed", &g_Config.m_KxPfShowSpeed, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_BUTTON, "Generate tunnel", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 132, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Pathfinding", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 116, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Connect Dummy", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Switch", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 1, nullptr, 0, nullptr},
+ };
+ static const int s_ZenRowCount = sizeof(s_ZenRows) / sizeof(s_ZenRows[0]);
+ // Tab per top-level row: 0=Bots 1=Combat 2=Avoid 3=Visuals 4=TAS 5=Pathfinder.
+-static const int s_ZenRowTabs[] = {0, 0, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0};
++static const int s_ZenRowTabs[] = {0, 0, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0};
+ 
+ // Dark frosted-glass theme (layered translucency fakes blur; the renderer
+ // has no blur pass, so true background blur would need engine changes).
+@@ -306,6 +318,9 @@
+ 	case 123: return ZenABSet(pGame, w).m_FreezeFilter;
+ 	case 122: return ZenABSet(pGame, w).m_Priority;
+ 	case 124: return ZenTBSet(pGame, w).m_Trigger;
++	case 129: return pGame->m_Tas.AutoRfTile();
++	case 130: return pGame->m_Tas.AutoRfMode();
++	case 133: return pGame->m_Tas.Mode();
+ 	default: break;
+ 	}
+ 	return 0;
+@@ -323,6 +338,7 @@
+ 	case 125: return (int)ZenTBSet(pGame, w).m_Fov;
+ 	case 126: return (int)ZenTBSet(pGame, w).m_Radius;
+ 	case 127: return ZenTBSet(pGame, w).m_RandomLatency;
++	case 131: return pGame->m_Tas.AutoRfTicks();
+ 	default: return 0;
+ 	}
+ }
+@@ -337,6 +353,7 @@
+ 		if(pGame->m_BotNet.m_PfState == PF_STATE_IDLE)
+ 			return "Start";
+ 		return (pGame->m_BotNet.m_PfState == PF_STATE_RUNNING) ? "Stop" : "Reset";
++	case 134: return pGame->m_Tas.IsRecording() ? "Stop" : "Record";
+ 	default: break;
+ 	}
+ 	if(row.m_Kind == ZEN_BUTTON)
+@@ -412,6 +429,12 @@
+ 			pVal = s_ABFreezeOpts[idx];
+ 		else if(row.m_Action == 124 && idx >= 0 && idx < 2)
+ 			pVal = s_TBTriggerOpts[idx];
++		else if(row.m_Action == 129 && idx >= 0 && idx < 3)
++			pVal = s_TasAutoTileOpts[idx];
++		else if(row.m_Action == 130 && idx >= 0 && idx < 2)
++			pVal = s_TasAutoModeOpts[idx];
++		else if(row.m_Action == 133 && idx >= 0 && idx < 2)
++			pVal = s_TasModeOpts[idx];
+ 		DrawText(rx, midY - 8.5f, 17.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
+ 		const float tw = TextRender()->TextWidth(17.0f, pVal);
+ 		DrawText(cx - tw - 22.0f, midY - 8.5f, 17.0f, pVal, ZCol(Z_COL_DIM, alpha));
+@@ -442,6 +465,8 @@
+ 			pct = (float)(v - 1) / 1999.0f;
+ 		else if(row.m_Action == 127)
+ 			pct = (float)v / 10.0f;
++		else if(row.m_Action == 131)
++			pct = (float)v / 100.0f;
+ 		if(pct < 0.0f)
+ 			pct = 0.0f;
+ 		if(pct > 1.0f)
+@@ -489,6 +514,11 @@
+ 	case 114: pGame->m_Tas.StepForward(); break;
+ 	case 115: pGame->m_Tas.StepRewind(); break;
+ 	case 116: ZenPfToggle(pGame); break;
++	case 129: pGame->m_Tas.SetAutoRfTile(pGame->m_Tas.AutoRfTile() + 1); break;
++	case 130: pGame->m_Tas.SetAutoRfMode(pGame->m_Tas.AutoRfMode() + 1); break;
++	case 132: pGame->m_BotNet.PfGenerateTunnel(); break;
++	case 133: pGame->m_Tas.SetMode((pGame->m_Tas.Mode() + 1) % 2); break;
++	case 134: pGame->m_Tas.ToggleRecord(); break;
+ 	default: break;
+ 	}
+ }
+@@ -510,6 +540,7 @@
+ 	case 125: ZenTBSet(pGame, w).m_Fov = 1.0f + pct * 359.0f; break;
+ 	case 126: ZenTBSet(pGame, w).m_Radius = 1.0f + pct * 1999.0f; break;
+ 	case 127: ZenTBSet(pGame, w).m_RandomLatency = (int)(pct * 10.0f + 0.5f); break;
++	case 131: pGame->m_Tas.SetAutoRfTicks((int)(pct * 100.0f + 0.5f)); break;
+ 	default: break;
+ 	}
+ }
