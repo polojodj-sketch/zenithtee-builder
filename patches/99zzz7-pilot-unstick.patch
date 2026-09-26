@@ -1,0 +1,61 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -385,13 +385,51 @@
+         else if(!IsTileWalkable(targetTX, targetTY))
+                 return;
+ 
+-        // ---- Steer via the flow field ----
+-        bool left = false, right = false, jump = false;
+-        GetMovementFromFlow(State, left, right, jump);
+-
+-        pInput->m_Direction = right ? 1 : (left ? -1 : 0);
+-        pInput->m_Jump = jump ? 1 : 0;
+-        pInput->m_PlayerFlags |= 1;
++	// ---- Steer via the flow field ----
++	bool left = false, right = false, jump = false;
++	GetMovementFromFlow(State, left, right, jump);
++
++	pInput->m_Direction = right ? 1 : (left ? -1 : 0);
++	pInput->m_Jump = jump ? 1 : 0;
++	pInput->m_PlayerFlags |= 1;
++
++	// ---- Stuck detection: flow steering into a wall/edge yields no
++	// progress. If the tee barely moved over ~2s while steering, force a
++	// jump burst to unstick (hop onto the ledge / off the wall).
++	static vec2 s_StuckPos = vec2(0.0f, 0.0f);
++	static int64_t s_StuckTick = 0;
++	static int s_UnstickLeft = 0;
++	static int s_StuckModeCache = 0;
++	static bool s_StuckInit = false;
++	if(!s_StuckInit || PilotMode != s_StuckModeCache)
++	{
++		s_StuckPos = MyPos;
++		s_StuckTick = CurTick;
++		s_UnstickLeft = 0;
++		s_StuckInit = true;
++		s_StuckModeCache = PilotMode;
++	}
++	const float sdx = MyPos.x - s_StuckPos.x;
++	const float sdy = MyPos.y - s_StuckPos.y;
++	if(s_UnstickLeft > 0)
++	{
++		pInput->m_Jump = 1;
++		pInput->m_PlayerFlags |= 1;
++		s_UnstickLeft--;
++		s_StuckPos = MyPos;
++		s_StuckTick = CurTick;
++	}
++	else if(CurTick - s_StuckTick >= 100 && (sdx * sdx + sdy * sdy) < 16.0f)
++	{
++		s_UnstickLeft = 20;
++		s_StuckPos = MyPos;
++		s_StuckTick = CurTick;
++	}
++	else if((sdx * sdx + sdy * sdy) >= 256.0f)
++	{
++		s_StuckPos = MyPos;
++		s_StuckTick = CurTick;
++	}
+ }
+ 
+ 
