@@ -1,0 +1,20 @@
+--- a/src/game/client/components/menus_settings.cpp
++++ b/src/game/client/components/menus_settings.cpp
+@@ -62,6 +62,17 @@
+ 			g_Config.m_UiSettingsPage = i;
+ 	}
+ 
++	// ZenithTee: open the Zen overlay from the settings sidebar (like
++	// Burmolda's entry). Closes the menus so the overlay owns input.
++	TabBar.HSplitTop(10.0f, nullptr, &TabBar);
++	TabBar.HSplitTop(26.0f, &Button, &TabBar);
++	static CButtonContainer s_ZenithTabButton;
++	if(DoButton_MenuTab(&s_ZenithTabButton, "Zenith", 0, &Button, IGraphics::CORNER_R))
++	{
++		g_Config.m_ClClickGui = 1;
++		SetActive(false);
++	}
++
+ 	if(g_Config.m_UiSettingsPage == SETTINGS_LANGUAGE)
+ 	{
+ 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_LANGUAGE);
