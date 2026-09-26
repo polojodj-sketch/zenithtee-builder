@@ -1,0 +1,150 @@
+--- a/src/game/client/components/kinetix/clickgui.h
++++ b/src/game/client/components/kinetix/clickgui.h
+@@ -44,6 +44,7 @@
+ 	ZEN_SLIDER,
+ 	ZEN_BUTTON,
+ 	ZEN_EXPAND,
++	ZEN_SECTION,
+ };
+ 
+ struct ZenRow
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -172,28 +172,33 @@
+ 	{ZEN_SLIDER, "Aim angles", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxAfAngles, 1, 144, 1, "", 0, nullptr, 0, nullptr},
+ };
+ static ZenRow s_ZenRows[] = {
++	{ZEN_SECTION, "Main", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_EXPAND, "AimBot", &g_Config.m_KxAimBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_ABKids, 14, &s_ABOpen},
++	{ZEN_EXPAND, "TriggerBot", &g_Config.m_KxTriggerBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_TBKids, 7, &s_TBOpen},
++	{ZEN_EXPAND, "Fake Aim", &g_Config.m_KxFakeAim, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_FakeKids, 4, &s_FakeOpen},
++	{ZEN_EXPAND, "Laser", &g_Config.m_KxLaserUnfreeze, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_LaserKids, 9, &s_LaserOpen},
++	{ZEN_SECTION, "Bots", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_EXPAND, "Pilot Bot", &g_Config.m_KxPfPilotMode, 2, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_PilotKids, 5, &s_PilotOpen},
+ 	{ZEN_EXPAND, "BalanceBot", &g_Config.m_KxBalanceBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_BalKids, 1, &s_BalOpen},
+-	{ZEN_EXPAND, "Avoid Freeze", &g_Config.m_KxAvoidFreezeBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_AvoidKids, 12, &s_AvoidOpen},
+ 	{ZEN_TOGGLE, "HookRide", &g_Config.m_KxHookRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "JetRide", &g_Config.m_KxJetRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Jump delay", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxJetRideDelay, 5, 100, 1, "t", 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Auto Edge", &g_Config.m_KxAutoEdge, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Edge Dist", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxAutoEdgeDist, 100, 2000, 10, "px", 0, nullptr, 0, nullptr},
++	{ZEN_BUTTON, "Connect Dummy", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_BUTTON, "Switch", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 1, nullptr, 0, nullptr},
++	{ZEN_SECTION, "Combat", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_EXPAND, "Block", &g_Config.m_KxAttack, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_BlockKids, 29, &s_BlockOpen},
+-	{ZEN_EXPAND, "AimBot", &g_Config.m_KxAimBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_ABKids, 14, &s_ABOpen},
+-	{ZEN_EXPAND, "TriggerBot", &g_Config.m_KxTriggerBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_TBKids, 7, &s_TBOpen},
+ 	{ZEN_TOGGLE, "Rescue", &g_Config.m_KxRescue, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Rescue radius", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxRescueRadius, 0, 10000, 50, "px", 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Copy Moves", &g_Config.m_KxCopyMoves, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+-	{ZEN_EXPAND, "Fake Aim", &g_Config.m_KxFakeAim, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_FakeKids, 4, &s_FakeOpen},
+-	{ZEN_EXPAND, "Laser", &g_Config.m_KxLaserUnfreeze, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_LaserKids, 9, &s_LaserOpen},
+ 	{ZEN_EXPAND, "ESP", &g_Config.m_KxEsp, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_EspKids, 6, &s_EspOpen},
+ 	{ZEN_SLIDER, "Blur", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxMenuBlur, 0, 100, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "GUI Scale", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxClickGuiScale, 1, 20, 1, "", 0, nullptr, 0, nullptr},
+ 	{ZEN_EXPAND, "Spoofer", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_SpoofKids, 5, &s_SpoofOpen},
+ 	{ZEN_EXPAND, "IRC", &g_Config.m_KxIrcEnabled, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_IrcKids, 2, &s_IrcOpen},
+ 	{ZEN_EXPAND, "Trajectory", &g_Config.m_KxShowTrajectory, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_TrajKids, 1, &s_TrajOpen},
+-	{ZEN_SLIDER, "GUI Scale", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxClickGuiScale, 1, 20, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_EXPAND, "Avoid Freeze", &g_Config.m_KxAvoidFreezeBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_AvoidKids, 12, &s_AvoidOpen},
+ 	{ZEN_BUTTON, "Join TAS", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 110, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Play", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 111, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Pause", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 112, nullptr, 0, nullptr},
+@@ -229,12 +234,10 @@
+ 	{ZEN_TOGGLE, "Show speed", &g_Config.m_KxPfShowSpeed, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Generate tunnel", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 132, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Pathfinding", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 116, nullptr, 0, nullptr},
+-	{ZEN_BUTTON, "Connect Dummy", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+-	{ZEN_BUTTON, "Switch", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 1, nullptr, 0, nullptr},
+ };
+ static const int s_ZenRowCount = sizeof(s_ZenRows) / sizeof(s_ZenRows[0]);
+ // Tab per top-level row: 0=Bots 1=Combat 2=Avoid 3=Visuals 4=TAS 5=Pathfinder.
+-static const int s_ZenRowTabs[] = {0, 0, 2, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 0};
++static const int s_ZenRowTabs[] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5};
+ 
+ // Dark frosted-glass theme (layered translucency fakes blur; the renderer
+ // has no blur pass, so true background blur would need engine changes).
+@@ -251,10 +254,11 @@
+ 	col.a *= alpha;
+ 	return col;
+ }
+-static const char *s_ZenTabs[] = {"Bots", "Combat", "Avoid", "Visuals", "TAS", "Pathfinder"};
++static const char *s_ZenTabs[] = {"Aimbot", "Misc", "Visuals & HUD", "Avoid", "TAS", "Settings"};
+ static const int s_ZenTabCount = 6;
+ 
+ static constexpr float Z_ROWH = 50.0f;
++static constexpr float Z_SECTH = 40.0f;
+ static constexpr float Z_KIDH = 46.0f;
+ static constexpr float Z_INDENT = 28.0f;
+ static constexpr float Z_PAD = 16.0f;
+@@ -587,6 +591,11 @@
+ {
+ 	(void)depth;
+ 	const float midY = ry + rh * 0.5f;
++	if(row.m_Kind == ZEN_SECTION)
++	{
++		DrawText(rx, midY - 11.0f, 22.0f, row.m_pName, ZCol(Z_COL_TEXT, alpha));
++		return;
++	}
+ 	if(row.m_Action >= 100)
+ 	{
+ 		ZenDrawAction(row, rx, ry, rw, rh, alpha);
+@@ -664,7 +673,8 @@
+ 			continue;
+ 		ZenRow &row = s_ZenRows[i];
+ 		float rx, ry, rw, rh;
+-		ZenRowRect(row, 0, wx, y, ww, Z_ROWH, rx, ry, rw, rh);
++		const float topH = (row.m_Kind == ZEN_SECTION) ? Z_SECTH : Z_ROWH;
++		ZenRowRect(row, 0, wx, y, ww, topH, rx, ry, rw, rh);
+ 		if(draw)
+ 		{
+ 			if(ry + rh >= wy + headerH + Z_TABSH && ry <= wy + headerH + Z_TABSH + bodyH)
+@@ -672,8 +682,8 @@
+ 		}
+ 		else if(ry + rh >= wy + headerH + Z_TABSH && ry <= wy + headerH + Z_TABSH + bodyH)
+ 			ZenHitRow(row, 0, rx, ry, rw, rh, i);
+-		y += Z_ROWH;
+-		contentH += Z_ROWH;
++		y += topH;
++		contentH += topH;
+ 		if(row.m_Kind == ZEN_EXPAND && row.m_pExpanded && *row.m_pExpanded)
+ 		{
+ 			for(int c = 0; c < row.m_KidCount; c++)
+@@ -723,8 +733,8 @@
+ 	{
+ 		float tx = wx + t * tabW;
+ 		bool active = (t == m_ZenTab);
+-		const float tw = TextRender()->TextWidth(14.0f, s_ZenTabs[t]);
+-		DrawText(tx + (tabW - tw) * 0.5f, wy + headerH + 11.0f, 14.0f, s_ZenTabs[t], ZCol(active ? Z_COL_TAB_ON : Z_COL_TAB, alpha));
++		const float tw = TextRender()->TextWidth(13.0f, s_ZenTabs[t]);
++		DrawText(tx + (tabW - tw) * 0.5f, wy + headerH + 11.0f, 13.0f, s_ZenTabs[t], ZCol(active ? Z_COL_TAB_ON : Z_COL_TAB, alpha));
+ 		if(active)
+ 		{
+ 			const float ux = tx + (tabW - tw) * 0.5f - 6.0f;
+@@ -755,6 +765,8 @@
+ {
+ 	(void)row;
+ 	(void)depth;
++	if(row.m_Kind == ZEN_SECTION)
++		return;
+ 	if(m_ZenHitPos.x >= rx && m_ZenHitPos.x < rx + rw && m_ZenHitPos.y >= ry && m_ZenHitPos.y < ry + rh)
+ 		m_ZenHitIdx = flatIdx;
+ }
+@@ -784,6 +796,8 @@
+ 
+ void CClickGui::ZenApplySlider(ZenRow &row, float x)
+ {
++	if(row.m_Kind == ZEN_SECTION)
++		return;
+ 	float wx, wy, ww, wh, headerH;
+ 	ZenWindowRect(wx, wy, ww, wh, headerH);
+ 	float rx = wx + Z_PAD, rw = ww - Z_PAD * 2.0f;
+@@ -811,6 +825,8 @@
+ 
+ void CClickGui::ZenActivate(ZenRow &row, float x)
+ {
++	if(row.m_Kind == ZEN_SECTION)
++		return;
+ 	if(row.m_Action >= 100)
+ 	{
+ 		ZenActivateAction(row);
