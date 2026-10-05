@@ -1,0 +1,13 @@
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -830,8 +830,10 @@
+ 			if(active)
+ 				DrawRoundedRect(navX, iy, navW, 52.0f, 26.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
+ 			ColorRGBA ic = ZCol(active ? Z_COL_TAB_ON : Z_COL_TAB, alpha);
++			TextRender()->SetFontPreset(EFontPreset::ICON_FONT);
+ 			TextRender()->TextColor(ic.r, ic.g, ic.b, ic.a);
+ 			TextRender()->Text(navX + 18.0f, iy + 13.0f, 22.0f, s_ZenTabIcons[t], -1.0f);
++			TextRender()->SetFontPreset(EFontPreset::DEFAULT_FONT);
+ 			TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+ 			DrawText(navX + 52.0f, iy + 13.0f, 20.0f, s_ZenTabs[t], ZCol(active ? Z_COL_TAB_ON : Z_COL_TAB, alpha));
+ 		}
