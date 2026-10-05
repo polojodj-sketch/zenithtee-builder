@@ -1,0 +1,121 @@
+--- a/src/game/client/components/kinetix/kinetix.h
++++ b/src/game/client/components/kinetix/kinetix.h
+@@ -416,6 +416,11 @@
+         // Per-dummy runtime state
+         CBotNetDummy m_aDummies[MAX_DUMMIES];
+ 
++        // Pilot progress telemetry (updated by ProcessPilotSelf, read by HUD).
++        float m_PilotGoalDist = -1.0f; // meters to goal, -1 = no goal/inactive
++        bool m_PilotStuck = false;
++        int m_PilotUnsticks = 0;
++
+         // Map grid (shared — same map for all)
+         int m_MapWidth;
+         int m_MapHeight;
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -294,7 +294,11 @@
+         CGameClient *pGame = GameClient();
+         const int PilotMode = g_Config.m_KxPfPilotMode;
+         if(PilotMode < 1 || PilotMode > 3)
++        {
++                m_PilotGoalDist = -1.0f;
++                m_PilotStuck = false;
+                 return;
++        }
+         const int ActiveD = g_Config.m_ClDummy;
+         if(ActiveD < 0 || ActiveD >= MAX_DUMMIES)
+                 return;
+@@ -363,17 +367,30 @@
+         }
+ 
+         if(!goalValid)
++        {
++                m_PilotGoalDist = -1.0f;
++                m_PilotStuck = false;
+                 return;
++        }
+ 
+         State.m_PilotGoalPos = Goal;
+         State.m_PilotGoalValid = true;
+ 
++        // Progress telemetry: meters to goal for HUD/log.
++        {
++                const float gdx = Goal.x - MyPos.x, gdy = Goal.y - MyPos.y;
++                m_PilotGoalDist = sqrtf(gdx * gdx + gdy * gdy) / 32.0f;
++        }
++
+         int targetTX = (int)(Goal.x / 32.0f);
+         int targetTY = (int)(Goal.y / 32.0f);
+ 
+         // Already on the goal tile -> don't hijack input.
+         if(botTX == targetTX && botTY == targetTY)
++        {
++                m_PilotStuck = false;
+                 return;
++        }
+ 
+         // ---- Rebuild the flow field on the sequence-length cadence ----
+         int64_t CurTick = Client()->GameTick(ActiveD);
+@@ -406,6 +423,8 @@
+ 	static int64_t s_StuckTick = 0;
+ 	static int s_UnstickLeft = 0;
+ 	static int s_StuckModeCache = 0;
++	static int s_UnstickBursts = 0;
++	static int s_UnstickDir = 0;
+ 	static bool s_StuckInit = false;
+ 	if(!s_StuckInit || PilotMode != s_StuckModeCache)
+ 	{
+@@ -414,6 +433,10 @@
+ 		s_UnstickLeft = 0;
+ 		s_StuckInit = true;
+ 		s_StuckModeCache = PilotMode;
++		s_UnstickBursts = 0;
++		s_UnstickDir = 0;
++		m_PilotUnsticks = 0;
++		m_PilotStuck = false;
+ 	}
+ 	const float sdx = MyPos.x - s_StuckPos.x;
+ 	const float sdy = MyPos.y - s_StuckPos.y;
+@@ -421,20 +444,31 @@
+ 	{
+ 		pInput->m_Jump = 1;
+ 		pInput->m_PlayerFlags |= 1;
++		// Level 2: every other burst, push away from the stuck side instead
++		// of along the flow (unsticks corners; avoid overrides danger).
++		if((s_UnstickBursts % 2) == 1 && s_UnstickDir != 0)
++			pInput->m_Direction = -s_UnstickDir;
+ 		s_UnstickLeft--;
+ 		s_StuckPos = MyPos;
+ 		s_StuckTick = CurTick;
++		m_PilotStuck = true;
+ 	}
+ 	else if(CurTick - s_StuckTick >= 100 && (sdx * sdx + sdy * sdy) < 16.0f)
+ 	{
+ 		s_UnstickLeft = 20;
++		s_UnstickBursts++;
++		s_UnstickDir = right ? 1 : (left ? -1 : 0);
++		m_PilotUnsticks = s_UnstickBursts;
++		m_PilotStuck = true;
+ 		s_StuckPos = MyPos;
+ 		s_StuckTick = CurTick;
++		dbg_msg("pilot", "unstick #%d dist=%.0fm", s_UnstickBursts, (double)m_PilotGoalDist);
+ 	}
+ 	else if((sdx * sdx + sdy * sdy) >= 256.0f)
+ 	{
+ 		s_StuckPos = MyPos;
+ 		s_StuckTick = CurTick;
++		m_PilotStuck = false;
+ 	}
+ 
+ 	// ---- Hook assist (Autonomous only): while airborne with a free hook,
+--- a/src/game/client/components/kinetix/zenith_hud.cpp
++++ b/src/game/client/components/kinetix/zenith_hud.cpp
+@@ -132,6 +132,7 @@
+ 	KX_ADD_IF("Laser Unfreeze", g_Config.m_KxLaserUnfreeze)
+ 	KX_ADD_IF("Copy Moves", g_Config.m_KxCopyMoves)
+ 	KX_ADD_IF("Pilot Bot", g_Config.m_KxPfPilotMode != 0)
++	KX_ADD_IF("PILOT STUCK", GameClient()->m_BotNet.m_PilotStuck)
+ 	KX_ADD_IF("BalanceBot", g_Config.m_KxBalanceBot)
+ 	KX_ADD_IF("Attack Bot", g_Config.m_KxAttack)
+ 	KX_ADD_IF("Zoom Hack", g_Config.m_KxZoomHack)
