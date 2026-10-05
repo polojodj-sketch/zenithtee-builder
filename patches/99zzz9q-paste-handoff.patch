@@ -1,0 +1,36 @@
+--- a/src/game/client/components/kinetix/tas.cpp
++++ b/src/game/client/components/kinetix/tas.cpp
+@@ -691,6 +691,8 @@
+ 	if(m_Recording)
+ 		m_Recording = false;
+ 	m_SavedStart = CTasState{};
++	if(!vPath.empty())
++		m_SavedStart.Core.m_Pos = vPath[0];
+ 	m_vSaved.clear();
+ 	for(size_t i = 0; i < vInputs.size(); i++)
+ 	{
+--- a/src/game/client/components/kinetix/pathfinder/pathfinder_tab.cpp
++++ b/src/game/client/components/kinetix/pathfinder/pathfinder_tab.cpp
+@@ -157,6 +157,11 @@
+ 	for(const PfHookSeg &Seg : m_PfVHookSegs)
+ 		vSegs.emplace_back(Seg.teePos, Seg.hookPos);
+ 	GameClient()->m_Tas.PasteRun(m_PfFullInputs, m_PfVPath, vSegs);
++	// Hand the take over: join the playground so Play watches it, and flip
++	// the menu to the TAS tab so the user sees it arrived.
++	if(!GameClient()->m_Tas.IsJoined())
++		GameClient()->m_Tas.JoinLeavePlayground();
++	GameClient()->m_ClickGui.SetZenTab(4);
+ }
+ 
+ // =========================================================
+--- a/src/game/client/components/kinetix/clickgui.h
++++ b/src/game/client/components/kinetix/clickgui.h
+@@ -78,6 +78,8 @@
+         bool OnInput(const IInput::CEvent &Event) override;
+         bool OnCursorMove(float x, float y, IInput::ECursorType CursorType) override;
+         bool OnTouchState(std::vector<IInput::CTouchFingerState> &vTouchFingerStates) override;
++
++        void SetZenTab(int Tab) { m_ZenTab = Tab; }
+ 
+         static constexpr int NUM_PANELS = 7;
+ 
