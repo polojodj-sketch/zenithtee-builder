@@ -1,0 +1,33 @@
+--- a/src/game/client/components/kinetix/pathfinder/pathfinder_tunnel.cpp
++++ b/src/game/client/components/kinetix/pathfinder/pathfinder_tunnel.cpp
+@@ -51,7 +51,9 @@
+ 
+ 	// Start tile = active player position (fallback: last run start).
+ 	int startTX = -1, startTY = -1;
+-	int LocalID = pGame->m_Snap.m_LocalClientId;
++	int LocalID = pGame->m_aLocalIds[g_Config.m_ClDummy];
++	if(LocalID < 0)
++		LocalID = pGame->m_Snap.m_LocalClientId;
+ 	if(LocalID >= 0)
+ 	{
+ 		CCharacter *pChar = pGame->m_PredictedWorld.GetCharacterById(LocalID);
+--- a/src/game/client/components/kinetix/pathfinder/pathfinder_tab.cpp
++++ b/src/game/client/components/kinetix/pathfinder/pathfinder_tab.cpp
+@@ -143,6 +143,17 @@
+ // kx_pf_paste: copy the found path into the TAS Playground as the current run.
+ void CBotNet::PfPasteToTas()
+ {
++	// No path yet: start the search automatically (same as Start) so the
++	// button always moves things forward instead of silently doing nothing.
++	if(!m_PfAPathReady && m_PfState == PF_STATE_IDLE)
++	{
++		if(PfResetRun())
++		{
++			m_PfState = PF_STATE_RUNNING;
++			dbg_msg("pathfinder", "to tas: computing path first, press again when done");
++		}
++		return;
++	}
+ 	if(!m_PfAPathReady)
+ 	{
+ 		dbg_msg("pathfinder", "kx_pf_paste: path not ready (run pathfinder first, or press Stop after it finds a path)");
