@@ -1,0 +1,41 @@
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -245,13 +245,18 @@
+ 	{ZEN_TOGGLE, "Show hooks", &g_Config.m_KxPfShowHooks, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "Show speed", &g_Config.m_KxPfShowSpeed, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Generate tunnel", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 132, nullptr, 0, nullptr},
++	{ZEN_BUTTON, "To TAS", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 135, nullptr, 0, nullptr},
+ 	{ZEN_BUTTON, "Pathfinding", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 116, nullptr, 0, nullptr},
+ };
+ static const int s_ZenRowCount = sizeof(s_ZenRows) / sizeof(s_ZenRows[0]);
+ // Tab per top-level row: 0=Bots 1=Combat 2=Avoid 3=Visuals 4=TAS 5=Pathfinder.
+-static const int s_ZenRowTabs[] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5};
++static const int s_ZenRowTabs[] = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5};
+ // Column per top-level row (0=left, 1=right); ignored on narrow screens.
+-static const int s_ZenRowCols[] = {0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
++static const int s_ZenRowCols[] = {0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
++// Shown only when Pathfinder Effort == Custom (6): presets override the
++// search internals at read time, so editing them otherwise is meaningless.
++// (Tunnel/vision rows stay always visible.)
++static const int s_ZenRowCustomOnly[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0};
+ 
+ // Dark frosted-glass theme (layered translucency fakes blur; the renderer
+ // has no blur pass, so true background blur would need engine changes).
+@@ -574,6 +579,7 @@
+ 	case 132: pGame->m_BotNet.PfGenerateTunnel(); break;
+ 	case 133: pGame->m_Tas.SetMode((pGame->m_Tas.Mode() + 1) % 2); break;
+ 	case 134: pGame->m_Tas.ToggleRecord(); break;
++	case 135: pGame->m_BotNet.PfPasteToTas(); break;
+ 	default: break;
+ 	}
+ }
+@@ -733,6 +739,9 @@
+ 	for(int i = 0; i < s_ZenRowCount; i++)
+ 	{
+ 		if(s_ZenRowTabs[i] != m_ZenTab)
++			continue;
++		// Preset-overridden search tunables are only meaningful on Custom.
++		if(s_ZenRowCustomOnly[i] && g_Config.m_KxPfEffort != 6)
+ 			continue;
+ 		ZenRow &row = s_ZenRows[i];
+ 		float rx, ry, rw, rh;
