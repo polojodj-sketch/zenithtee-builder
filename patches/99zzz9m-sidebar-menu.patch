@@ -1,0 +1,246 @@
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -4,6 +4,7 @@
+ // walk, so taps always land where rows are drawn.
+ #include <game/client/components/kinetix/clickgui.h>
+ 
++#include <engine/font_icons.h>
+ #include <engine/shared/config.h>
+ 
+ #include <game/client/gameclient.h>
+@@ -269,6 +270,7 @@
+ }
+ static const char *s_ZenTabs[] = {"Aimbot", "Misc", "Visuals & HUD", "Avoid", "TAS", "Settings"};
+ static const int s_ZenTabCount = 6;
++static const char *s_ZenTabIcons[] = {FontIcon::STAR, FontIcon::LIST_UL, FontIcon::EYE, FontIcon::BAN, FontIcon::PLAY, FontIcon::GEAR};
+ 
+ static constexpr float Z_ROWH = 50.0f;
+ static constexpr float Z_SECTH = 40.0f;
+@@ -276,6 +278,23 @@
+ static constexpr float Z_INDENT = 28.0f;
+ static constexpr float Z_PAD = 16.0f;
+ static constexpr float Z_TABSH = 42.0f;
++static constexpr float Z_NAVW = 200.0f;
++static constexpr float Z_NAVITEMH = 58.0f;
++
++static bool ZenSideBar(float ww)
++{
++	// Sidebar navigation needs room; narrow portrait screens keep tabs.
++	return ww >= 640.0f;
++}
++
++static void ZenNavLayout(float wx, float wy, float ww, float headerH, float &navX, float &navW, float &contX, float &contW, float &itemsY)
++{
++	navX = wx + Z_PAD;
++	navW = Z_NAVW;
++	contX = navX + navW + 16.0f;
++	contW = wx + ww - Z_PAD - contX;
++	itemsY = wy + headerH + 96.0f;
++}
+ 
+ } // namespace
+ 
+@@ -499,7 +518,15 @@
+ 		if(pct > 1.0f)
+ 			pct = 1.0f;
+ 		if(tw2 * pct > 0.5f)
+-			DrawRoundedRect(tx, ty, tw2 * pct, 6.0f, 3.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
++		{
++			ColorRGBA fillL((unsigned)m_AccentColorRGBA, true);
++			fillL.a *= alpha;
++			ColorRGBA fillR = fillL;
++			fillR.r += (1.0f - fillR.r) * 0.45f;
++			fillR.g += (1.0f - fillR.g) * 0.45f;
++			fillR.b += (1.0f - fillR.b) * 0.45f;
++			Graphics()->DrawRect4(tx, ty, tw2 * pct, 6.0f, fillL, fillR, fillL, fillR, 15, 3.0f);
++		}
+ 		const float kx = tx + tw2 * pct - 9.0f;
+ 		DrawRoundedRect(kx, ty - 6.0f, 18.0f, 18.0f, 9.0f, 15, ZCol(0xffffffff, alpha));
+ 	}
+@@ -578,8 +605,8 @@
+ 	const float sw = VScreenWidth();
+ 	const float sh = VScreenHeight();
+ 	outW = sw - 60.0f;
+-	if(outW > 560.0f)
+-		outW = 560.0f;
++	if(outW > 780.0f)
++		outW = 780.0f;
+ 	if(outW < 280.0f)
+ 		outW = 280.0f;
+ 	outH = sh - 140.0f;
+@@ -666,7 +693,15 @@
+ 		if(pct > 1.0f)
+ 			pct = 1.0f;
+ 		if(tw2 * pct > 0.5f)
+-			DrawRoundedRect(tx, ty, tw2 * pct, 6.0f, 3.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
++		{
++			ColorRGBA fillL((unsigned)m_AccentColorRGBA, true);
++			fillL.a *= alpha;
++			ColorRGBA fillR = fillL;
++			fillR.r += (1.0f - fillR.r) * 0.45f;
++			fillR.g += (1.0f - fillR.g) * 0.45f;
++			fillR.b += (1.0f - fillR.b) * 0.45f;
++			Graphics()->DrawRect4(tx, ty, tw2 * pct, 6.0f, fillL, fillR, fillL, fillR, 15, 3.0f);
++		}
+ 		const float kx = tx + tw2 * pct - 9.0f;
+ 		DrawRoundedRect(kx, ty - 6.0f, 18.0f, 18.0f, 9.0f, 15, ZCol(0xffffffff, alpha));
+ 	}
+@@ -688,7 +723,7 @@
+ // Shared layout walk for render + input.
+ float CClickGui::ZenWalk(float wx, float wy, float ww, float headerH, float scroll, float bodyH, bool draw, float alpha)
+ {
+-	float y = wy + headerH + Z_TABSH - scroll;
++	float y = wy + headerH + m_ZenTabH - scroll;
+ 	// Two-column layout (Burmolda-style) on wide windows, single column
+ 	// on narrow phone portrait screens.
+ 	const bool twoCol = ww >= 500.0f;
+@@ -707,10 +742,10 @@
+ 		ZenRowRect(row, 0, cx, yCol[col], colW, topH, rx, ry, rw, rh);
+ 		if(draw)
+ 		{
+-			if(ry + rh >= wy + headerH + Z_TABSH && ry <= wy + headerH + Z_TABSH + bodyH)
++			if(ry + rh >= wy + headerH + m_ZenTabH && ry <= wy + headerH + m_ZenTabH + bodyH)
+ 				ZenDrawRow(row, 0, rx, ry, rw, rh, alpha);
+ 		}
+-		else if(ry + rh >= wy + headerH + Z_TABSH && ry <= wy + headerH + Z_TABSH + bodyH)
++		else if(ry + rh >= wy + headerH + m_ZenTabH && ry <= wy + headerH + m_ZenTabH + bodyH)
+ 			ZenHitRow(row, 0, rx, ry, rw, rh, i);
+ 		yCol[col] += topH;
+ 		if(row.m_Kind == ZEN_EXPAND && row.m_pExpanded && *row.m_pExpanded)
+@@ -721,10 +756,10 @@
+ 				ZenRowRect(kid, 1, cx, yCol[col], colW, Z_KIDH, rx, ry, rw, rh);
+ 				if(draw)
+ 				{
+-					if(ry + rh >= wy + headerH + Z_TABSH && ry <= wy + headerH + Z_TABSH + bodyH)
++					if(ry + rh >= wy + headerH + m_ZenTabH && ry <= wy + headerH + m_ZenTabH + bodyH)
+ 						ZenDrawRow(kid, 1, rx, ry, rw, rh, alpha);
+ 				}
+-				else if(ry + rh >= wy + headerH + Z_TABSH && ry <= wy + headerH + Z_TABSH + bodyH)
++				else if(ry + rh >= wy + headerH + m_ZenTabH && ry <= wy + headerH + m_ZenTabH + bodyH)
+ 					ZenHitRow(kid, 1, rx, ry, rw, rh, i * 100 + c);
+ 				yCol[col] += Z_KIDH;
+ 			}
+@@ -775,6 +810,35 @@
+ 	Graphics()->LinesDraw(&sep, 1);
+ 	Graphics()->LinesEnd();
+ 	float tabW = ww / (float)s_ZenTabCount;
++	const bool sideBar = ZenSideBar(ww);
++	m_ZenTabH = sideBar ? 0.0f : Z_TABSH;
++	float walkX = wx, walkW = ww;
++	if(sideBar)
++	{
++		// Kinetix-style sidebar navigation (wide windows only).
++		float navX, navW, contX, contW, itemsY;
++		ZenNavLayout(wx, wy, ww, headerH, navX, navW, contX, contW, itemsY);
++		walkX = contX;
++		walkW = contW;
++		ClipEnableVirtual(wx, wy + headerH, ww, wh - headerH);
++		DrawText(navX, wy + headerH + 14.0f, 30.0f, "Kinetix", ZCol(Z_COL_TEXT, alpha));
++		DrawText(navX, wy + headerH + 50.0f, 15.0f, "ClickGUI", ZCol(Z_COL_DIM, alpha));
++		for(int t = 0; t < s_ZenTabCount; t++)
++		{
++			const float iy = itemsY + (float)t * Z_NAVITEMH;
++			const bool active = (t == m_ZenTab);
++			if(active)
++				DrawRoundedRect(navX, iy, navW, 52.0f, 26.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
++			ColorRGBA ic = ZCol(active ? Z_COL_TAB_ON : Z_COL_TAB, alpha);
++			TextRender()->TextColor(ic.r, ic.g, ic.b, ic.a);
++			TextRender()->Text(navX + 18.0f, iy + 13.0f, 22.0f, s_ZenTabIcons[t], -1.0f);
++			TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
++			DrawText(navX + 52.0f, iy + 13.0f, 20.0f, s_ZenTabs[t], ZCol(active ? Z_COL_TAB_ON : Z_COL_TAB, alpha));
++		}
++		Graphics()->ClipDisable();
++	}
++	}
++	else
+ 	for(int t = 0; t < s_ZenTabCount; t++)
+ 	{
+ 		float tx = wx + t * tabW;
+@@ -793,10 +857,12 @@
+ 			Graphics()->LinesEnd();
+ 		}
+ 	}
+-	const float bodyY = wy + headerH + Z_TABSH;
+-	const float bodyH = wh - headerH - Z_TABSH;
++	const float bodyY = wy + headerH + m_ZenTabH;
++	const float bodyH = wh - headerH - m_ZenTabH;
+ 	ClipEnableVirtual(wx, bodyY, ww, bodyH);
+-	float contentH = ZenWalk(wx, wy, ww, headerH, m_ZenScroll, bodyH, true, alpha);
++	m_ZenSliderRX = walkX + Z_PAD;
++	m_ZenSliderRW = walkW - Z_PAD * 2.0f;
++	float contentH = ZenWalk(walkX, wy, walkW, headerH, m_ZenScroll, bodyH, true, alpha);
+ 	Graphics()->ClipDisable();
+ 	if(contentH > bodyH)
+ 		m_ZenScrollMax = contentH - bodyH;
+@@ -847,6 +913,11 @@
+ 	float wx, wy, ww, wh, headerH;
+ 	ZenWindowRect(wx, wy, ww, wh, headerH);
+ 	float rx = wx + Z_PAD, rw = ww - Z_PAD * 2.0f;
++	if(m_ZenSliderRW > 0.0f)
++	{
++		rx = m_ZenSliderRX;
++		rw = m_ZenSliderRW;
++	}
+ 	float pct = (x - rx) / rw;
+ 	if(pct < 0.0f)
+ 		pct = 0.0f;
+@@ -948,6 +1019,33 @@
+ 	}
+ 	m_ZenHitPos = pos;
+ 	m_ZenHitIdx = -1;
++	const bool sideBar = ZenSideBar(ww);
++	m_ZenTabH = sideBar ? 0.0f : Z_TABSH;
++	float walkX = wx, walkW = ww;
++	if(sideBar)
++	{
++		float navX, navW, contX, contW, itemsY;
++		ZenNavLayout(wx, wy, ww, headerH, navX, navW, contX, contW, itemsY);
++		walkX = contX;
++		walkW = contW;
++		for(int t = 0; t < s_ZenTabCount; t++)
++		{
++			const float iy = itemsY + (float)t * Z_NAVITEMH;
++			if(pos.x >= navX && pos.x < navX + navW && pos.y >= iy && pos.y < iy + 52.0f)
++			{
++				if(t != m_ZenTab)
++				{
++					m_ZenTab = t;
++					m_ZenScroll = 0.0f;
++					m_ZenSliderDrag = -1;
++				}
++				m_ZenDown = false;
++				return true;
++			}
++		}
++	}
++	else
++	{
+ 	float tabW = ww / (float)s_ZenTabCount;
+ 	if(pos.y >= wy + headerH && pos.y < wy + headerH + Z_TABSH)
+ 	{
+@@ -961,8 +1059,11 @@
+ 		m_ZenDown = false;
+ 		return true;
+ 	}
+-	float bodyH = wh - headerH - Z_TABSH;
+-	ZenWalk(wx, wy, ww, headerH, m_ZenScroll, bodyH, false, 1.0f);
++	}
++	float bodyH = wh - headerH - m_ZenTabH;
++	m_ZenSliderRX = walkX + Z_PAD;
++	m_ZenSliderRW = walkW - Z_PAD * 2.0f;
++	ZenWalk(walkX, wy, walkW, headerH, m_ZenScroll, bodyH, false, 1.0f);
+ 	if(m_ZenHitIdx >= 0)
+ 	{
+ 		ZenRow *pRow = ZenRowByFlat(m_ZenHitIdx);
+--- a/src/game/client/components/kinetix/clickgui.h
++++ b/src/game/client/components/kinetix/clickgui.h
+@@ -196,6 +196,9 @@
+         vec2 m_ZenDownPos = vec2(0, 0);
+         int m_ZenDownIdx = -1;
+         int m_ZenTab = 0;
++        float m_ZenTabH = 42.0f;
++        float m_ZenSliderRX = 0.0f;
++        float m_ZenSliderRW = 0.0f;
+         bool m_ZenTouchDown = false;
+         vec2 m_ZenTouchPos = vec2(0, 0);
+         vec2 m_ZenHitPos = vec2(0, 0);
