@@ -1,0 +1,74 @@
+--- a/src/game/client/components/kinetix/avoid_freeze.cpp
++++ b/src/game/client/components/kinetix/avoid_freeze.cpp
+@@ -237,7 +237,11 @@
+ 	}
+ 	Ctx.m_pLocalChar = Ctx.m_World.GetCharacterById(LocalId);
+ 	if(!Ctx.m_pLocalChar)
+-		return;
++	{
++		m_WasOverriding = false;
++		m_OverrideHook = 0;
++		return;
++	}
+ 	Ctx.m_pCol = Ctx.m_pLocalChar->Collision();
+ 
+ 	// Blatant beam-search engine (blatant_avoid.cpp): longer horizon, cached
+@@ -305,17 +309,26 @@
+ 			}
+ 			return;
+ 		}
+-		if(R.changed)
+-		{
+-			pInput->m_Direction = R.input.direction;
+-			pInput->m_Jump = R.input.jump;
+-			pInput->m_Hook = R.input.hook;
+-			if(!m_WasOverriding)
+-				dbg_msg("avoid", "blatant override engaged");
+-			m_WasOverriding = true;
+-			m_OverrideHook = R.input.hook;
+-		}
+-		return;
++	if(R.changed)
++	{
++		pInput->m_Direction = R.input.direction;
++		pInput->m_Jump = R.input.jump;
++		pInput->m_Hook = R.input.hook;
++		if(!m_WasOverriding)
++			dbg_msg("avoid", "blatant override engaged");
++		m_WasOverriding = true;
++		m_OverrideHook = R.input.hook;
++	}
++	else if(m_WasOverriding)
++	{
++		// Danger still predicted but the plan keeps the current input:
++		// stand down instead of reporting ACTIVE while doing nothing.
++		if(m_OverrideHook != 0)
++			pInput->m_Hook = 0;
++		m_WasOverriding = false;
++		m_OverrideHook = 0;
++	}
++	return;
+ 	}
+ 
+ 	// Danger with current input (detects hook pulling into freeze).
+@@ -342,8 +355,19 @@
+ 
+ 	// --- Engagement threshold (kx_af_trigger_ticks): danger still far →
+ 	// monitor only. The player keeps control until the danger is imminent.
++	// Stand down first: otherwise AVOID ACTIVE lingers while monitoring
++	// and a stale forced hook is cut late on the next release.
+ 	if(imminent > triggerTicks)
+-		return;
++	{
++		if(m_WasOverriding)
++		{
++			if(m_OverrideHook != 0)
++				pInput->m_Hook = 0;
++			m_WasOverriding = false;
++			m_OverrideHook = 0;
++		}
++		return;
++	}
+ 
+ 	// --- Hook-only danger: latest-moment release. ---
+ 	if(dangerWithCurrent > 0 && dangerWithoutHook == 0)
