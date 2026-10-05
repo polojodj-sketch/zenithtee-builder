@@ -1,0 +1,22 @@
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -498,7 +498,8 @@
+ 			pct = 0.0f;
+ 		if(pct > 1.0f)
+ 			pct = 1.0f;
+-		DrawRoundedRect(tx, ty, tw2 * pct, 6.0f, 3.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
++		if(tw2 * pct > 0.5f)
++			DrawRoundedRect(tx, ty, tw2 * pct, 6.0f, 3.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
+ 		const float kx = tx + tw2 * pct - 9.0f;
+ 		DrawRoundedRect(kx, ty - 6.0f, 18.0f, 18.0f, 9.0f, 15, ZCol(0xffffffff, alpha));
+ 	}
+@@ -664,7 +665,8 @@
+ 			pct = 0.0f;
+ 		if(pct > 1.0f)
+ 			pct = 1.0f;
+-		DrawRoundedRect(tx, ty, tw2 * pct, 6.0f, 3.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
++		if(tw2 * pct > 0.5f)
++			DrawRoundedRect(tx, ty, tw2 * pct, 6.0f, 3.0f, 15, ZCol((unsigned)m_AccentColorRGBA, alpha));
+ 		const float kx = tx + tw2 * pct - 9.0f;
+ 		DrawRoundedRect(kx, ty - 6.0f, 18.0f, 18.0f, 9.0f, 15, ZCol(0xffffffff, alpha));
+ 	}
