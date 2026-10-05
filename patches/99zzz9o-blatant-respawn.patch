@@ -1,0 +1,39 @@
+--- a/src/game/client/components/kinetix/avoid_freeze.cpp
++++ b/src/game/client/components/kinetix/avoid_freeze.cpp
+@@ -108,6 +108,7 @@
+ struct BlatantCtx
+ {
+ 	CGameWorld *m_pWorld = nullptr;
++	CGameWorld *m_pBaseWorld = nullptr;
+ 	CCollision *m_pCol = nullptr;
+ 	int m_LocalId = -1;
+ 	CNetObj_PlayerInput m_BaseInput{};
+@@ -143,6 +144,14 @@
+ 	BlatantCtx *pC = (BlatantCtx *)pCtx;
+ 	const BlatantNodeCore &NC = pC->m_vCores[(size_t)St.integers[0]];
+ 	CCharacter *pCh = pC->m_pWorld->GetCharacterById(pC->m_LocalId);
++	if(!pCh)
++	{
++		// A sibling branch killed the shared scratch tee (death tile).
++		// Rebuild it from the pristine base — without this, every later
++		// step in this search wrongly reports death.
++		pC->m_pWorld->CopyWorld(pC->m_pBaseWorld);
++		pCh = pC->m_pWorld->GetCharacterById(pC->m_LocalId);
++	}
+ 	if(!pCh)
+ 	{
+ 		St.dead = true;
+@@ -237,7 +246,12 @@
+ 	if(g_Config.m_KxAfMode == 1)
+ 	{
+ 		BlatantCtx BCtx;
+-		BCtx.m_pWorld = &Ctx.m_World;
++		// Pristine template (never ticked) + scratch world (ticked by steps,
++		// rebuilt from the template whenever a branch kills its tee).
++		CGameWorld BlatantScratch;
++		BlatantScratch.CopyWorld(&Ctx.m_World);
++		BCtx.m_pWorld = &BlatantScratch;
++		BCtx.m_pBaseWorld = &Ctx.m_World;
+ 		BCtx.m_pCol = Ctx.m_pCol;
+ 		BCtx.m_LocalId = LocalId;
+ 		BCtx.m_BaseInput = Current;
