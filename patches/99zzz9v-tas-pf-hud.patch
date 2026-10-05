@@ -1,0 +1,25 @@
+--- a/src/game/client/components/kinetix/zenith_hud.cpp
++++ b/src/game/client/components/kinetix/zenith_hud.cpp
+@@ -109,10 +109,10 @@
+ void CZenithHud::RenderArrayList()
+ {
+ 	// Array list — enabled ZenithTee modules, stacked top-left.
+-	char aLines[24][48];
++	char aLines[26][48];
+ 	int Count = 0;
+ #define KX_ADD_IF(Name, Cond) \
+-	if(Cond && Count < 24) \
++	if(Cond && Count < 26) \
+ 	{ \
+ 		str_copy(aLines[Count], Name, sizeof(aLines[Count])); \
+ 		Count++; \
+@@ -130,7 +130,8 @@
+ 	KX_ADD_IF("TAS EXEC", GameClient()->m_Tas.IsRealPlaying())
+ 	KX_ADD_IF("TAS TO START", GameClient()->m_Tas.ExecOffStart())
+ 	KX_ADD_IF("TAS DEAD", GameClient()->m_Tas.IsJoined() && GameClient()->m_Tas.IsDead())
+-	KX_ADD_IF("TAS NO TAKE", GameClient()->m_Tas.IsJoined() && !GameClient()->m_Tas.IsRecording() && GameClient()->m_Tas.SavedCount() == 0)
++	KX_ADD_IF("TAS NO TAKE", !GameClient()->m_Tas.IsRecording() && GameClient()->m_Tas.SavedCount() == 0)
++	KX_ADD_IF("PF SEARCHING", GameClient()->m_BotNet.m_PfState == PF_STATE_RUNNING)
+ 	KX_ADD_IF("Laser Unfreeze", g_Config.m_KxLaserUnfreeze)
+ 	KX_ADD_IF("Copy Moves", g_Config.m_KxCopyMoves)
+ 	KX_ADD_IF("Pilot Bot", g_Config.m_KxPfPilotMode != 0)
