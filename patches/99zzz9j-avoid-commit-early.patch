@@ -1,0 +1,49 @@
+--- a/src/game/client/components/kinetix/avoid_freeze.cpp
++++ b/src/game/client/components/kinetix/avoid_freeze.cpp
+@@ -332,7 +332,11 @@
+ 	{
+ 		// Test A: 1 tick with current input (hook still held), then hookless
+ 		// for the rest — one continuous simulation from the same state.
+-		if(SimulateDanger(Ctx, Current, 1, NoHook, simTicks) == 0)
++		// Waiting is only allowed with margin: inside WAIT_MARGIN ticks of
++		// the danger, commit to the release NOW. One-tick lookahead
++		// procrastinates past the last escapable moment (proven on the
++		// Python stand: it waits, then neither waiting nor acting saves).
++		if(dangerWithCurrent > 3 && SimulateDanger(Ctx, Current, 1, NoHook, simTicks) == 0)
+ 			return; // can wait — hook is safe for now
+ 		// Last moment — release the hook NOW.
+ 		pInput->m_Hook = 0;
+@@ -425,13 +429,20 @@
+ 						canWait = true;
+ 
+ 					// Test B: this combo from tick 0 — score by survival.
++					// Ties break toward minimal input diff, then toward
++					// keeping the player's direction (proven on the Python
++					// stand: direction-keeping jump sails over the freeze
++					// instead of parking in front of it).
+ 					if(!found && !sameAsCurrent)
+ 					{
+ 						const int danger = SimulateDanger(Ctx, test, 0, test, simTicks);
+ 						const int survival = (danger == 0) ? simTicks : danger - 1;
+ 						const int diff = InputDiff(Current, test);
+ 						if(bestSurvival < 0 || survival > bestSurvival ||
+-							(survival == bestSurvival && diff < bestDiff))
++							(survival == bestSurvival && diff < bestDiff) ||
++							(survival == bestSurvival && diff == bestDiff &&
++								test.m_Direction == Current.m_Direction &&
++								bestInput.m_Direction != Current.m_Direction))
+ 						{
+ 							bestSurvival = survival;
+ 							bestDiff = diff;
+@@ -444,7 +455,10 @@
+ 		}
+ 	}
+ 
+-	if(canWait)
++	// Waiting (Test A) is only allowed with margin: inside 3 ticks of the
++	// danger, commit to the best action NOW instead of procrastinating
++	// past the last escapable moment (see hook branch above).
++	if(canWait && imminent > 3)
+ 		return;
+ 
+ 	// Apply the best combo if it survives longer than the current input.
