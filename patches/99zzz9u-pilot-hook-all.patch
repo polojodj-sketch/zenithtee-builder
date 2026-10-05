@@ -1,0 +1,20 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -471,7 +471,7 @@
+ 		m_PilotStuck = false;
+ 	}
+ 
+-	// ---- Hook assist (Autonomous only): while airborne with a free hook,
++	// ---- Hook assist (modes 1-3): while airborne with a free hook,
+ 	// grab a hookable edge roughly toward the goal so hookfly gaps and long
+ 	// swings complete. Gated by the Auto Edge master toggle + dist (shared
+ 	// semantics with the standalone assist). Latch protocol mirrors it, so
+@@ -479,7 +479,7 @@
+ 	// grounded releases, flying/grabbed holds, transitions are left alone
+ 	// until the state settles back to retracted.
+ 	static bool s_PilotHookHeld = false;
+-	if(PilotMode == 3 && g_Config.m_KxAutoEdge)
++	if(PilotMode >= 1 && PilotMode <= 3 && g_Config.m_KxAutoEdge)
+ 	{
+ 		CCharacter *pChr = pGame->m_PredictedWorld.GetCharacterById(LocalId);
+ 		if(pChr && !pChr->IsGrounded())
