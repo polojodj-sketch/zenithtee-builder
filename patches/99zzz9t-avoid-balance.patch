@@ -1,0 +1,76 @@
+--- a/src/game/client/components/kinetix/avoid_freeze.cpp
++++ b/src/game/client/components/kinetix/avoid_freeze.cpp
+@@ -246,12 +246,16 @@
+ 	if(g_Config.m_KxAfMode == 1)
+ 	{
+ 		BlatantCtx BCtx;
+-		// Pristine template (never ticked) + scratch world (ticked by steps,
+-		// rebuilt from the template whenever a branch kills its tee).
++		// Blatant keeps the other characters: pushes, blocks and hook
++		// targets change the outcome, and stripping them made the sim
++		// optimistic (freeze on approach despite a clean prediction).
++		// One extra base copy per tick; the 6ms planner budget caps it.
++		CGameWorld BlatantBase;
++		BlatantBase.CopyWorld(&pGame->m_PredictedWorld);
+ 		CGameWorld BlatantScratch;
+-		BlatantScratch.CopyWorld(&Ctx.m_World);
++		BlatantScratch.CopyWorld(&BlatantBase);
+ 		BCtx.m_pWorld = &BlatantScratch;
+-		BCtx.m_pBaseWorld = &Ctx.m_World;
++		BCtx.m_pBaseWorld = &BlatantBase;
+ 		BCtx.m_pCol = Ctx.m_pCol;
+ 		BCtx.m_LocalId = LocalId;
+ 		BCtx.m_BaseInput = Current;
+--- a/src/engine/shared/config_variables.h
++++ b/src/engine/shared/config_variables.h
+@@ -434,7 +434,7 @@
+ MACRO_CONFIG_INT(KxAfAngles, kx_af_angles, 9, 1, 144, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid Freeze: number of aim angles to try (within FOV)")
+ MACRO_CONFIG_INT(KxAfSilent, kx_af_silent, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid Freeze: silent aim (don't move visible crosshair)")
+ MACRO_CONFIG_INT(KxAfTicks, kx_af_ticks, 16, 1, 20, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid Freeze: prediction horizon in ticks")
+-MACRO_CONFIG_INT(KxAfTriggerTicks, kx_af_trigger_ticks, 8, 1, 20, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid Freeze: engagement threshold — intervene when danger is within this many ticks")
++MACRO_CONFIG_INT(KxAfTriggerTicks, kx_af_trigger_ticks, 12, 1, 20, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Avoid Freeze: engagement threshold — intervene when danger is within this many ticks")
+ 
+ // ESP — draw lines from a point to all players matching filters
+ MACRO_CONFIG_INT(KxEsp, kx_esp, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "ESP: draw lines from point A to all matching players")
+--- a/src/game/client/components/controls.h
++++ b/src/game/client/components/controls.h
+@@ -44,6 +44,7 @@
+ 	vec2 m_VisibleAimOffset = vec2(0.0f, 0.0f);
+ 	bool m_FakeAimRenderActive = false;
+ 	vec2 m_FakeAimRenderOffset = vec2(0.0f, 0.0f);
++	bool m_BalanceActive = false;
+ 	int m_aInputDirectionLeft[NUM_DUMMIES];
+ 	int m_aInputDirectionRight[NUM_DUMMIES];
+ 	int m_aShowHookColl[NUM_DUMMIES];
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -432,14 +432,19 @@
+ 				s_BalDir = (dx > 0.0f) ? 1 : -1;
+ 			if(s_BalDir != 0)
+ 				m_aInputData[g_Config.m_ClDummy].m_Direction = s_BalDir;
++			m_BalanceActive = (s_BalDir != 0);
+ 		}
+ 		else
++		{
+ 			s_BalDir = 0;
++			m_BalanceActive = false;
++		}
+ 	}
+ 	else
+ 	{
+ 		s_BalTarget = -1;
+ 		s_BalDir = 0;
++		m_BalanceActive = false;
+ 	}
+ 
+ 	// ── ZenithTee (kinetix): Fake Aim spoof ───────────────────────────────
+--- a/src/game/client/components/kinetix/zenith_hud.cpp
++++ b/src/game/client/components/kinetix/zenith_hud.cpp
+@@ -134,6 +134,7 @@
+ 	KX_ADD_IF("Pilot Bot", g_Config.m_KxPfPilotMode != 0)
+ 	KX_ADD_IF("PILOT STUCK", GameClient()->m_BotNet.m_PilotStuck)
+ 	KX_ADD_IF("BalanceBot", g_Config.m_KxBalanceBot)
++	KX_ADD_IF("BALANCE ACTIVE", GameClient()->m_Controls.m_BalanceActive)
+ 	KX_ADD_IF("Attack Bot", g_Config.m_KxAttack)
+ 	KX_ADD_IF("Zoom Hack", g_Config.m_KxZoomHack)
+ 	KX_ADD_IF("Spectator list", g_Config.m_KxSpectatorList)
