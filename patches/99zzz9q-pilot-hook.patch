@@ -1,0 +1,119 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -1,5 +1,11 @@
+ #include <game/client/components/kinetix/kinetix.h>
+ #include <game/client/components/kinetix/kinetix_internal.h>
++
++#include <game/client/prediction/entities/character.h>
++#include <game/mapitems.h>
++
++#include <algorithm>
++#include <cmath>
+ 
+ bool CBotNet::HandleFrozenDummy(CGameClient *pGame, CNetObj_PlayerInput *pInput, int Dummy, int LocalID)
+ {
+@@ -430,6 +436,104 @@
+ 		s_StuckPos = MyPos;
+ 		s_StuckTick = CurTick;
+ 	}
++
++	// ---- Hook assist (Autonomous only): while airborne with a free hook,
++	// grab a hookable edge roughly toward the goal so hookfly gaps and long
++	// swings complete. Gated by the Auto Edge master toggle + dist (shared
++	// semantics with the standalone assist). Latch protocol mirrors it, so
++	// manual hooks are never touched or cut. All hook states covered:
++	// grounded releases, flying/grabbed holds, transitions are left alone
++	// until the state settles back to retracted.
++	static bool s_PilotHookHeld = false;
++	if(PilotMode == 3 && g_Config.m_KxAutoEdge)
++	{
++		CCharacter *pChr = pGame->m_PredictedWorld.GetCharacterById(LocalId);
++		if(pChr && !pChr->IsGrounded())
++		{
++			const int hs = pChr->Core()->m_HookState;
++			if(s_PilotHookHeld && (hs == HOOK_FLYING || hs == HOOK_GRABBED))
++			{
++				pInput->m_Hook = 1;
++				const vec2 d = pChr->Core()->m_HookPos - MyPos;
++				pInput->m_TargetX = (int)d.x;
++				pInput->m_TargetY = (int)d.y;
++				pGame->m_Controls.m_aMousePos[ActiveD] = d;
++			}
++			else if(hs == HOOK_RETRACTED)
++			{
++				const bool wasHeld = s_PilotHookHeld;
++				s_PilotHookHeld = false;
++				const float gdx = Goal.x - MyPos.x, gdy = Goal.y - MyPos.y;
++				const float glen = sqrtf(gdx * gdx + gdy * gdy);
++				if(glen > 32.0f)
++				{
++					const float maxDist = (float)std::clamp(g_Config.m_KxAutoEdgeDist, 100, 2000);
++					const float base = atan2f(gdy, gdx);
++					bool found = false;
++					vec2 aim(0.0f, 0.0f);
++					float bestD2 = maxDist * maxDist;
++					for(int r = -3; r <= 3 && !found; r++)
++					{
++						const float a = base + (float)r * 0.2f;
++						const vec2 dir(cosf(a), sinf(a));
++						for(float t = 32.0f; t <= maxDist; t += 16.0f)
++						{
++							const float cx = MyPos.x + dir.x * t;
++							const float cy = MyPos.y + dir.y * t;
++							const float ddx = cx - MyPos.x, ddy = cy - MyPos.y;
++							const float d2 = ddx * ddx + ddy * ddy;
++							if(d2 > bestD2)
++								break;
++							if(!pGame->Collision()->IsSolid((int)cx, (int)cy))
++								continue;
++							const int idx = pGame->Collision()->GetPureMapIndex(vec2(cx, cy));
++							if(pGame->Collision()->GetTileIndex(idx) == TILE_NOHOOK)
++								continue;
++							if(pGame->Collision()->IntersectLine(MyPos, vec2(cx, cy), nullptr, nullptr) != 0)
++								continue;
++							aim = vec2(ddx, ddy);
++							bestD2 = d2;
++							found = true;
++							break;
++						}
++					}
++					if(found)
++					{
++						pInput->m_Hook = 1;
++						pInput->m_TargetX = (int)aim.x;
++						pInput->m_TargetY = (int)aim.y;
++						pGame->m_Controls.m_aMousePos[ActiveD] = aim;
++						s_PilotHookHeld = true;
++					}
++					else if(wasHeld)
++					{
++						// Lost the edge: release so the next find re-fires
++						// with a rising edge instead of holding stale aim.
++						pInput->m_Hook = 0;
++					}
++				}
++			}
++			else if(s_PilotHookHeld && hs != HOOK_FLYING && hs != HOOK_GRABBED)
++			{
++				// Transition states (retract start/end): keep holding until
++				// it settles; never cut here.
++				pInput->m_Hook = 1;
++			}
++		}
++		else if(pChr && s_PilotHookHeld)
++		{
++			pInput->m_Hook = 0;
++			s_PilotHookHeld = false;
++		}
++		else if(!pChr)
++		{
++			s_PilotHookHeld = false;
++		}
++	}
++	else
++	{
++		s_PilotHookHeld = false;
++	}
+ }
+ 
+ 
