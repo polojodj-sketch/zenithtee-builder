@@ -1,0 +1,34 @@
+--- a/src/game/client/components/kinetix/pathfinder/pathfinder_astar.cpp
++++ b/src/game/client/components/kinetix/pathfinder/pathfinder_astar.cpp
+@@ -1,5 +1,6 @@
+ #include <game/client/components/kinetix/kinetix.h>
+ #include <game/client/components/kinetix/kinetix_internal.h>
++#include <base/time.h>
+ #include <algorithm>
+ 
+ // =========================================================
+@@ -874,6 +875,7 @@
+ 		return;
+ 	}
+ 
++	const int64_t SearchStart = time_get();
+ 	while(!m_PfThreadCancel.load(std::memory_order_relaxed))
+ 	{
+ 		int result = PfAStarStep();
+@@ -891,8 +893,14 @@
+ 			m_PfThreadRunning.store(false);
+ 			return;
+ 		}
+-		if(result < 0)
+-		{
++		// Wall-clock budget: the node budget default (10M) never trips on
++		// a phone — without this the worker grinds until manually stopped
++		// ("Stop hangs forever"). Timeout falls through to the best
++		// partial-path fallback in the poller, same as exhaustion.
++		if(result < 0 || time_get() - SearchStart > time_freq() * 90)
++		{
++			if(result >= 0)
++				dbg_msg("pathfinder", "A* wall budget (90s) hit — falling back to best partial path");
+ 			m_PfThreadResult.store(-1);
+ 			m_PfThreadRunning.store(false);
+ 			return;
