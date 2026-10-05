@@ -1,0 +1,20 @@
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -802,7 +802,7 @@
+ 	DrawRoundedRect(wx, wy, ww, wh, 14.0f, 15, ZCol(Z_COL_BG, alpha));
+ 	if(ww > 28.0f)
+ 		Graphics()->DrawRect(wx + 14.0f, wy + 1.0f, ww - 28.0f, 2.0f, ColorRGBA(1.0f, 1.0f, 1.0f, 0.07f * alpha), 0, 0.0f);
+-	DrawText(wx + Z_PAD, wy + 15.0f, 20.0f, "Zenith", ZCol(Z_COL_TEXT, alpha));
++	DrawText(wx + Z_PAD, wy + 15.0f, 20.0f, "ZenithTee", ZCol(Z_COL_TEXT, alpha));
+ 	DrawText(wx + ww - 34.0f, wy + 15.0f, 20.0f, "X", ZCol(Z_COL_DIM, alpha));
+ 	Graphics()->LinesBegin();
+ 	const IGraphics::CLineItem sep(wx + Z_PAD, wy + headerH, wx + ww - Z_PAD, wy + headerH);
+@@ -821,7 +821,7 @@
+ 		walkX = contX;
+ 		walkW = contW;
+ 		ClipEnableVirtual(wx, wy + headerH, ww, wh - headerH);
+-		DrawText(navX, wy + headerH + 14.0f, 30.0f, "Kinetix", ZCol(Z_COL_TEXT, alpha));
++		DrawText(navX, wy + headerH + 14.0f, 30.0f, "ZenithTee", ZCol(Z_COL_TEXT, alpha));
+ 		DrawText(navX, wy + headerH + 50.0f, 15.0f, "ClickGUI", ZCol(Z_COL_DIM, alpha));
+ 		for(int t = 0; t < s_ZenTabCount; t++)
+ 		{
