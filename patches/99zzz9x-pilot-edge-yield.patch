@@ -1,0 +1,20 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -551,10 +551,14 @@
+ 	// ZenithTee: Auto Edge (TClient-style). While airborne, auto-fire the hook
+ 	// at the nearest hookable tile edge with a clear line, inside
+ 	// kx_auto_edge_dist. Never fights other assists: skipped while silent or
+-	// visible aim is armed, and only ever manages the hook bit it engaged
+-	// itself (s_EdgeHeld) — manual hooks are never touched or cut.
++	// visible aim is armed, yields fully while Pilot Bot owns the hook
++	// (modes 1-3 drive it goal-directed from ProcessPilotSelf below —
++	// two searchers in one tick flicker the hook bit and it never grabs),
++	// and only ever manages the hook bit it engaged itself (s_EdgeHeld) —
++	// manual hooks are never touched or cut.
+ 	static bool s_EdgeHeld = false;
+-	if(g_Config.m_KxAutoEdge && !m_LaserUnfreezeAimActive && !m_VisibleAimActive)
++	const int EdgePilotMode = g_Config.m_KxPfPilotMode;
++	if(g_Config.m_KxAutoEdge && !m_LaserUnfreezeAimActive && !m_VisibleAimActive && (EdgePilotMode < 1 || EdgePilotMode > 3))
+ 	{
+ 		const int AD = g_Config.m_ClDummy;
+ 		const int LocalId = GameClient()->m_aLocalIds[g_Config.m_ClDummy] >= 0 ? GameClient()->m_aLocalIds[g_Config.m_ClDummy] : GameClient()->m_Snap.m_LocalClientId;
