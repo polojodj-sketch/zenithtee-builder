@@ -120,7 +120,7 @@
  					ZenHitRow(kid, 1, rx, ry, rw, rh, i * 100 + c);
  				yCol[col] += Z_KIDH;
  			}
-@@ -775,6 +810,35 @@
+@@ -775,6 +810,34 @@
  	Graphics()->LinesDraw(&sep, 1);
  	Graphics()->LinesEnd();
  	float tabW = ww / (float)s_ZenTabCount;
@@ -151,12 +151,11 @@
 +		}
 +		Graphics()->ClipDisable();
 +	}
-+	}
 +	else
  	for(int t = 0; t < s_ZenTabCount; t++)
  	{
  		float tx = wx + t * tabW;
-@@ -793,10 +857,12 @@
+@@ -793,10 +856,12 @@
  			Graphics()->LinesEnd();
  		}
  	}
@@ -172,7 +171,7 @@
  	Graphics()->ClipDisable();
  	if(contentH > bodyH)
  		m_ZenScrollMax = contentH - bodyH;
-@@ -847,6 +913,11 @@
+@@ -847,6 +912,11 @@
  	float wx, wy, ww, wh, headerH;
  	ZenWindowRect(wx, wy, ww, wh, headerH);
  	float rx = wx + Z_PAD, rw = ww - Z_PAD * 2.0f;
@@ -184,7 +183,7 @@
  	float pct = (x - rx) / rw;
  	if(pct < 0.0f)
  		pct = 0.0f;
-@@ -948,6 +1019,33 @@
+@@ -948,6 +1018,33 @@
  	}
  	m_ZenHitPos = pos;
  	m_ZenHitIdx = -1;
@@ -218,7 +217,7 @@
  	float tabW = ww / (float)s_ZenTabCount;
  	if(pos.y >= wy + headerH && pos.y < wy + headerH + Z_TABSH)
  	{
-@@ -961,8 +1059,11 @@
+@@ -961,8 +1058,11 @@
  		m_ZenDown = false;
  		return true;
  	}
