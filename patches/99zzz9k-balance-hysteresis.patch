@@ -1,0 +1,52 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -382,6 +382,7 @@
+ 	// only outside the offset tolerance (tiles); inside, the player's own
+ 	// input stands. Runs before Avoid Freeze so safety overrides it.
+ 	static int s_BalTarget = -1;
++	static int s_BalDir = 0;
+ 	if(g_Config.m_KxBalanceBot)
+ 	{
+ 		const int MyId = GameClient()->m_aLocalIds[g_Config.m_ClDummy] >= 0 ? GameClient()->m_aLocalIds[g_Config.m_ClDummy] : GameClient()->m_Snap.m_LocalClientId;
+@@ -391,6 +392,7 @@
+ 		if(!balValid)
+ 		{
+ 			s_BalTarget = -1;
++			s_BalDir = 0;
+ 			if(MyId >= 0)
+ 			{
+ 				float best = 1e18f;
+@@ -415,12 +417,30 @@
+ 		{
+ 			const float dx = (float)GameClient()->m_Snap.m_aCharacters[s_BalTarget].m_Cur.m_X - GameClient()->m_LocalCharacterPos.x;
+ 			const float tol = (float)std::clamp(g_Config.m_KxBalanceBotOffset, 0, 16) * 32.0f;
+-			if(fabsf(dx) > tol)
+-				m_aInputData[g_Config.m_ClDummy].m_Direction = (dx > 0.0f) ? 1 : -1;
+-		}
++			// Hysteresis against edge jitter: engage outside the tolerance,
++			// hold the direction until back inside half of it, then hand
++			// control back to the player. Overshoot past full tolerance
++			// re-arms to the other side.
++			if(s_BalDir == 0)
++			{
++				if(fabsf(dx) > tol)
++					s_BalDir = (dx > 0.0f) ? 1 : -1;
++			}
++			else if(fabsf(dx) < tol * 0.5f)
++				s_BalDir = 0;
++			else if(fabsf(dx) > tol)
++				s_BalDir = (dx > 0.0f) ? 1 : -1;
++			if(s_BalDir != 0)
++				m_aInputData[g_Config.m_ClDummy].m_Direction = s_BalDir;
++		}
++		else
++			s_BalDir = 0;
+ 	}
+ 	else
++	{
+ 		s_BalTarget = -1;
++		s_BalDir = 0;
++	}
+ 
+ 	// ── ZenithTee (kinetix): Fake Aim spoof ───────────────────────────────
+ 	// kx_fake_aim sends a spoofed aim to the server while the visible
