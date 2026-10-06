@@ -1,0 +1,63 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -490,6 +490,7 @@
+ 			if(m_PilotHookHeld && (hs == HOOK_FLYING || hs == HOOK_GRABBED))
+ 			{
+ 				pInput->m_Hook = 1;
++				m_PilotHookGrace = 0; // echo received, latch is meaningful again
+ 				const vec2 d = pChr->Core()->m_HookPos - MyPos;
+ 				pInput->m_TargetX = (int)d.x;
+ 				pInput->m_TargetY = (int)d.y;
+@@ -497,8 +498,24 @@
+ 			}
+ 			else if(hs == HOOK_RETRACTED)
+ 			{
++				// Post-fire grace: the server echo (FLYING) needs a
++				// round trip. A failed re-search right after firing
++				// must not cancel the hook in flight (field log:
++				// "hook fired" + "no edge" in the same second, swing
++				// cut, tee fell). Hold the stored aim, then re-search.
++				if(m_PilotHookHeld && m_PilotHookGrace > 0)
++				{
++					m_PilotHookGrace--;
++					pInput->m_Hook = 1;
++					pInput->m_TargetX = (int)m_PilotHookAim.x;
++					pInput->m_TargetY = (int)m_PilotHookAim.y;
++					pGame->m_Controls.m_aMousePos[ActiveD] = m_PilotHookAim;
++				}
++				else
++				{
+ 				const bool wasHeld = m_PilotHookHeld;
+ 				m_PilotHookHeld = false;
++				m_PilotHookGrace = 0;
+ 				const float gdx = Goal.x - MyPos.x, gdy = Goal.y - MyPos.y;
+ 				const float glen = sqrtf(gdx * gdx + gdy * gdy);
+ 				if(glen > 32.0f)
+@@ -545,6 +562,8 @@
+ 						pInput->m_TargetY = (int)aim.y;
+ 						pGame->m_Controls.m_aMousePos[ActiveD] = aim;
+ 						m_PilotHookHeld = true;
++						m_PilotHookGrace = 25; // let the echo arrive before any re-search may cancel
++						m_PilotHookAim = aim;
+ 						dbg_msg("pilot", "hook fired mode=%d dist=%.0fm", PilotMode, (double)(glen / 32.0f));
+ 					}
+ 					else
+@@ -577,15 +596,18 @@
+ 		{
+ 			pInput->m_Hook = 0;
+ 			m_PilotHookHeld = false;
++			m_PilotHookGrace = 0;
+ 		}
+ 		else if(!pChr)
+ 		{
+ 			m_PilotHookHeld = false;
++			m_PilotHookGrace = 0;
+ 		}
+ 	}
+ 	else
+ 	{
+ 		m_PilotHookHeld = false;
++		m_PilotHookGrace = 0;
+ 	}
+ }
+ 

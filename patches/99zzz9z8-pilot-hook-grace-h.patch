@@ -1,0 +1,11 @@
+--- a/src/game/client/components/kinetix/kinetix.h
++++ b/src/game/client/components/kinetix/kinetix.h
+@@ -421,6 +421,8 @@
+         bool m_PilotStuck = false;
+         int m_PilotUnsticks = 0;
+         bool m_PilotHookHeld = false; // pilot hook assist latch (was a hidden static)
++        int m_PilotHookGrace = 0; // post-fire grace: SnapInput calls holding the hook while the echo is in flight
++        vec2 m_PilotHookAim = vec2(0.0f, 0.0f); // aim stored at fire, replayed during grace
+ 
+         // Map grid (shared — same map for all)
+         int m_MapWidth;
