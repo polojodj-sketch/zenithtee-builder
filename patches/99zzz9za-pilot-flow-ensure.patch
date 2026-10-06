@@ -1,0 +1,16 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -316,6 +316,13 @@
+         MaybeReloadMapGrid(0);
+         if(!m_MapGridLoaded)
+                 return;
++
++        // The flow field + finish tiles are built lazily by the Pathfinder
++        // tab; the pilot must not depend on it. Without this Autonomous has
++        // no goal (empty finish list) and steering reads a null field —
++        // fully idle with zero logs. Same lazy condition as UpdatePathfinder.
++        if(m_PfFlowField == nullptr || (m_PfFinishTiles.empty() && m_PfCustomFinishTiles.empty()))
++                PfComputeFlowField(MyPos);
+ 
+         // ---- Resolve the goal ----
+         vec2 Goal;
