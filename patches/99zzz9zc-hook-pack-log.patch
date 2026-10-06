@@ -1,0 +1,14 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -718,6 +718,11 @@
+ 		GameClient()->m_Tas.ApplyTasRealInput(&m_aInputData[g_Config.m_ClDummy]);
+ 
+ 	m_LastSendTime = time_get();
++	static int s_LastPackedHook = 0;
++	const int curPackedHook = m_aInputData[g_Config.m_ClDummy].m_Hook;
++	if(curPackedHook && !s_LastPackedHook)
++		dbg_msg("pilot", "hook packed slot=%d latch=%d", g_Config.m_ClDummy, (int)GameClient()->m_BotNet.m_PilotHookHeld);
++	s_LastPackedHook = curPackedHook;
+ 	mem_copy(pData, &m_aInputData[g_Config.m_ClDummy], sizeof(m_aInputData[0]));
+ 	return sizeof(m_aInputData[0]);
+ }
