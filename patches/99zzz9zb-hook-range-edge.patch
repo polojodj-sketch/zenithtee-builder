@@ -1,0 +1,17 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -584,7 +584,13 @@
+ 				}
+ 				if(hs == HOOK_RETRACTED)
+ 				{
+-					const float maxDist = (float)std::clamp(g_Config.m_KxAutoEdgeDist, 100, 2000);
++					const float maxDistCfg = (float)std::clamp(g_Config.m_KxAutoEdgeDist, 100, 2000);
++					// Cap at the server's hook reach (same as pilot
++					// assist): farther finds always miss.
++					float hookLen = pChr->Core()->m_Tuning.m_HookLength;
++					if(!(hookLen > 1.0f) || !(hookLen < 10000.0f))
++						hookLen = 900.0f;
++					const float maxDist = std::min(maxDistCfg, hookLen);
+ 					const int myTX = (int)(MyPos.x / 32.0f);
+ 					const int myTY = (int)(MyPos.y / 32.0f);
+ 					const int R = (int)(maxDist / 32.0f) + 1;

@@ -1,0 +1,19 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -527,7 +527,15 @@
+ 				const float glen = sqrtf(gdx * gdx + gdy * gdy);
+ 				if(glen > 32.0f)
+ 				{
+-					const float maxDist = (float)std::clamp(g_Config.m_KxAutoEdgeDist, 100, 2000);
++					const float maxDistCfg = (float)std::clamp(g_Config.m_KxAutoEdgeDist, 100, 2000);
++					// Cap at the server's hook reach (live tuning, custom
++					// zones respected): anything farther is an automatic
++					// miss even on a validated wall. Same guard as the
++					// kinodynamic planner (broken tuning -> 900 default).
++					float hookLen = pChr->Core()->m_Tuning.m_HookLength;
++					if(!(hookLen > 1.0f) || !(hookLen < 10000.0f))
++						hookLen = 900.0f;
++					const float maxDist = std::min(maxDistCfg, hookLen);
+ 					const float base = atan2f(gdy, gdx);
+ 					bool found = false;
+ 					vec2 aim(0.0f, 0.0f);
