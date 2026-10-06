@@ -1,0 +1,15 @@
+--- a/src/game/client/components/countryflags.cpp
++++ b/src/game/client/components/countryflags.cpp
+@@ -166,7 +166,11 @@
+ 
+ const CCountryFlags::CCountryFlag &CCountryFlags::GetByCountryCode(int CountryCode) const
+ {
+-	dbg_assert(CountryCode >= CountryCode::MINIMUM && CountryCode <= CountryCode::MAXIMUM, "Invalid CountryCode: %d", CountryCode);
++	// Servers (antibot/custom) can send codes outside the index range
++	// (seen: -401). Fall back to the default flag instead of asserting:
++	// the lookup table is pre-filled with the default index.
++	if(CountryCode < CountryCode::MINIMUM || CountryCode > CountryCode::MAXIMUM)
++		CountryCode = CountryCode::DEFAULT;
+ 	return GetByIndex(m_aCountryCodeToIndexTable[CountryCode - CountryCode::MINIMUM]);
+ }
+ 
