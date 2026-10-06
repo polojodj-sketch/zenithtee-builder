@@ -1,0 +1,16 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -508,7 +508,12 @@
+ 					bool found = false;
+ 					vec2 aim(0.0f, 0.0f);
+ 					float bestD2 = maxDist * maxDist;
+-					for(int r = -3; r <= 3 && !found; r++)
++					// Wide forward fan (±80°): narrow cones miss on open
++					// story maps where the wall is up-left/up-right of the
++					// goal. Every ray is scanned (per-ray nearest via the
++					// ascending t + bestD2) instead of taking the first
++					// leftmost hit.
++					for(int r = -7; r <= 7; r++)
+ 					{
+ 						const float a = base + (float)r * 0.2f;
+ 						const vec2 dir(cosf(a), sinf(a));
