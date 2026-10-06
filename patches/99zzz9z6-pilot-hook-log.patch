@@ -1,0 +1,31 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -545,12 +545,24 @@
+ 						pInput->m_TargetY = (int)aim.y;
+ 						pGame->m_Controls.m_aMousePos[ActiveD] = aim;
+ 						m_PilotHookHeld = true;
++						dbg_msg("pilot", "hook fired mode=%d dist=%.0fm", PilotMode, (double)(glen / 32.0f));
+ 					}
+-					else if(wasHeld)
++					else
+ 					{
+-						// Lost the edge: release so the next find re-fires
+-						// with a rising edge instead of holding stale aim.
+-						pInput->m_Hook = 0;
++						// Throttled: proves the search ran but the fan is
++						// empty (vs the block never reached). 5s cadence.
++						static int64_t s_LastNoEdgeLog = 0;
++						if(CurTick - s_LastNoEdgeLog >= 250)
++						{
++							s_LastNoEdgeLog = CurTick;
++							dbg_msg("pilot", "no edge in fan mode=%d dist=%.0fm", PilotMode, (double)(glen / 32.0f));
++						}
++						if(wasHeld)
++						{
++							// Lost the edge: release so the next find re-fires
++							// with a rising edge instead of holding stale aim.
++							pInput->m_Hook = 0;
++						}
+ 					}
+ 				}
+ 			}
