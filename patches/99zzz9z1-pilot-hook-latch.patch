@@ -1,0 +1,89 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -297,6 +297,7 @@
+         {
+                 m_PilotGoalDist = -1.0f;
+                 m_PilotStuck = false;
++                m_PilotHookHeld = false;
+                 return;
+         }
+         const int ActiveD = g_Config.m_ClDummy;
+@@ -370,6 +371,7 @@
+         {
+                 m_PilotGoalDist = -1.0f;
+                 m_PilotStuck = false;
++                m_PilotHookHeld = false;
+                 return;
+         }
+ 
+@@ -477,15 +479,15 @@
+ 	// semantics with the standalone assist). Latch protocol mirrors it, so
+ 	// manual hooks are never touched or cut. All hook states covered:
+ 	// grounded releases, flying/grabbed holds, transitions are left alone
+-	// until the state settles back to retracted.
+-	static bool s_PilotHookHeld = false;
++	// until the state settles back to retracted. Latch lives on the BotNet
++	// (m_PilotHookHeld) so the HUD can show it; reset on every exit above.
+ 	if(PilotMode >= 1 && PilotMode <= 3 && g_Config.m_KxAutoEdge)
+ 	{
+ 		CCharacter *pChr = pGame->m_PredictedWorld.GetCharacterById(LocalId);
+ 		if(pChr && !pChr->IsGrounded())
+ 		{
+ 			const int hs = pChr->Core()->m_HookState;
+-			if(s_PilotHookHeld && (hs == HOOK_FLYING || hs == HOOK_GRABBED))
++			if(m_PilotHookHeld && (hs == HOOK_FLYING || hs == HOOK_GRABBED))
+ 			{
+ 				pInput->m_Hook = 1;
+ 				const vec2 d = pChr->Core()->m_HookPos - MyPos;
+@@ -495,8 +497,8 @@
+ 			}
+ 			else if(hs == HOOK_RETRACTED)
+ 			{
+-				const bool wasHeld = s_PilotHookHeld;
+-				s_PilotHookHeld = false;
++				const bool wasHeld = m_PilotHookHeld;
++				m_PilotHookHeld = false;
+ 				const float gdx = Goal.x - MyPos.x, gdy = Goal.y - MyPos.y;
+ 				const float glen = sqrtf(gdx * gdx + gdy * gdy);
+ 				if(glen > 32.0f)
+@@ -537,7 +539,7 @@
+ 						pInput->m_TargetX = (int)aim.x;
+ 						pInput->m_TargetY = (int)aim.y;
+ 						pGame->m_Controls.m_aMousePos[ActiveD] = aim;
+-						s_PilotHookHeld = true;
++						m_PilotHookHeld = true;
+ 					}
+ 					else if(wasHeld)
+ 					{
+@@ -547,26 +549,26 @@
+ 					}
+ 				}
+ 			}
+-			else if(s_PilotHookHeld && hs != HOOK_FLYING && hs != HOOK_GRABBED)
++			else if(m_PilotHookHeld && hs != HOOK_FLYING && hs != HOOK_GRABBED)
+ 			{
+ 				// Transition states (retract start/end): keep holding until
+ 				// it settles; never cut here.
+ 				pInput->m_Hook = 1;
+ 			}
+ 		}
+-		else if(pChr && s_PilotHookHeld)
++		else if(pChr && m_PilotHookHeld)
+ 		{
+ 			pInput->m_Hook = 0;
+-			s_PilotHookHeld = false;
++			m_PilotHookHeld = false;
+ 		}
+ 		else if(!pChr)
+ 		{
+-			s_PilotHookHeld = false;
++			m_PilotHookHeld = false;
+ 		}
+ 	}
+ 	else
+ 	{
+-		s_PilotHookHeld = false;
++		m_PilotHookHeld = false;
+ 	}
+ }
+ 

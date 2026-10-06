@@ -1,0 +1,10 @@
+--- a/src/game/client/components/kinetix/kinetix.h
++++ b/src/game/client/components/kinetix/kinetix.h
+@@ -420,6 +420,7 @@
+         float m_PilotGoalDist = -1.0f; // meters to goal, -1 = no goal/inactive
+         bool m_PilotStuck = false;
+         int m_PilotUnsticks = 0;
++        bool m_PilotHookHeld = false; // pilot hook assist latch (was a hidden static)
+ 
+         // Map grid (shared — same map for all)
+         int m_MapWidth;

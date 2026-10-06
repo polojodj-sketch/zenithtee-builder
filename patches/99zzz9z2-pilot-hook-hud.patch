@@ -1,0 +1,24 @@
+--- a/src/game/client/components/kinetix/zenith_hud.cpp
++++ b/src/game/client/components/kinetix/zenith_hud.cpp
+@@ -109,10 +109,10 @@
+ void CZenithHud::RenderArrayList()
+ {
+ 	// Array list — enabled ZenithTee modules, stacked top-left.
+-	char aLines[26][48];
++	char aLines[28][48];
+ 	int Count = 0;
+ #define KX_ADD_IF(Name, Cond) \
+-	if(Cond && Count < 26) \
++	if(Cond && Count < 28) \
+ 	{ \
+ 		str_copy(aLines[Count], Name, sizeof(aLines[Count])); \
+ 		Count++; \
+@@ -136,6 +136,8 @@
+ 	KX_ADD_IF("Copy Moves", g_Config.m_KxCopyMoves)
+ 	KX_ADD_IF("Pilot Bot", g_Config.m_KxPfPilotMode != 0)
+ 	KX_ADD_IF("PILOT STUCK", GameClient()->m_BotNet.m_PilotStuck)
++	KX_ADD_IF("PILOT NO GOAL", g_Config.m_KxPfPilotMode != 0 && GameClient()->m_BotNet.m_PilotGoalDist < 0.0f)
++	KX_ADD_IF("PILOT HOOK", GameClient()->m_BotNet.m_PilotHookHeld)
+ 	KX_ADD_IF("BalanceBot", g_Config.m_KxBalanceBot)
+ 	KX_ADD_IF("BALANCE ACTIVE", GameClient()->m_Controls.m_BalanceActive)
+ 	KX_ADD_IF("Attack Bot", g_Config.m_KxAttack)
