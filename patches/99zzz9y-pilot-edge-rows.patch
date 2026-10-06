@@ -1,0 +1,20 @@
+--- a/src/game/client/components/kinetix/clickgui_zen.cpp
++++ b/src/game/client/components/kinetix/clickgui_zen.cpp
+@@ -163,6 +163,8 @@
+ 	{ZEN_SLIDER, "Exploration Depth", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxPfPilotExplorationDepth, 1, 50, 1, "", 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Top-K", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxPfPilotTopK, 1, 128, 1, "", 0, nullptr, 0, nullptr},
+ 	{ZEN_SLIDER, "Sequence Length", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxPfPilotSequenceLength, 1, 32, 1, "", 0, nullptr, 0, nullptr},
++	{ZEN_TOGGLE, "Auto Edge", &g_Config.m_KxAutoEdge, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
++	{ZEN_SLIDER, "Edge Dist", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxAutoEdgeDist, 100, 2000, 10, "px", 0, nullptr, 0, nullptr},
+ };
+ static ZenRow s_BalKids[] = {
+ 	{ZEN_SLIDER, "Offset", nullptr, 0, nullptr, 0, nullptr, &g_Config.m_KxBalanceBotOffset, 0, 16, 1, "", 0, nullptr, 0, nullptr},
+@@ -190,7 +192,7 @@
+ 	{ZEN_EXPAND, "Fake Aim", &g_Config.m_KxFakeAim, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_FakeKids, 4, &s_FakeOpen},
+ 	{ZEN_EXPAND, "Laser", &g_Config.m_KxLaserUnfreeze, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_LaserKids, 9, &s_LaserOpen},
+ 	{ZEN_SECTION, "Bots", nullptr, 0, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+-	{ZEN_EXPAND, "Pilot Bot", &g_Config.m_KxPfPilotMode, 2, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_PilotKids, 5, &s_PilotOpen},
++	{ZEN_EXPAND, "Pilot Bot", &g_Config.m_KxPfPilotMode, 2, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_PilotKids, 7, &s_PilotOpen},
+ 	{ZEN_EXPAND, "BalanceBot", &g_Config.m_KxBalanceBot, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, s_BalKids, 1, &s_BalOpen},
+ 	{ZEN_TOGGLE, "HookRide", &g_Config.m_KxHookRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
+ 	{ZEN_TOGGLE, "JetRide", &g_Config.m_KxJetRide, 1, nullptr, 0, nullptr, nullptr, 0, 0, 0, nullptr, 0, nullptr, 0, nullptr},
