@@ -1,0 +1,23 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -502,7 +502,8 @@
+ 				// round trip. A failed re-search right after firing
+ 				// must not cancel the hook in flight (field log:
+ 				// "hook fired" + "no edge" in the same second, swing
+-				// cut, tee fell). Hold the stored aim, then re-search.
++				// cut, tee fell). Nothing follows the hook block in
++				// this function, so holding returns early.
+ 				if(m_PilotHookHeld && m_PilotHookGrace > 0)
+ 				{
+ 					m_PilotHookGrace--;
+@@ -510,9 +511,8 @@
+ 					pInput->m_TargetX = (int)m_PilotHookAim.x;
+ 					pInput->m_TargetY = (int)m_PilotHookAim.y;
+ 					pGame->m_Controls.m_aMousePos[ActiveD] = m_PilotHookAim;
++					return;
+ 				}
+-				else
+-				{
+ 				const bool wasHeld = m_PilotHookHeld;
+ 				m_PilotHookHeld = false;
+ 				m_PilotHookGrace = 0;
