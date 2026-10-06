@@ -1,0 +1,41 @@
+--- a/src/game/client/components/kinetix/helpers.cpp
++++ b/src/game/client/components/kinetix/helpers.cpp
+@@ -39,11 +39,13 @@
+ 
+ bool CBotNet::MaybeReloadMapGrid(int reloadSlot)
+ {
+-        // reloadSlot 0 is shared between PathfinderGo and Attack-BranchA (legacy
+-        // behaviour: a single 5s static timer).  reloadSlot 1 is BranchB's own
+-        // independent timer.  Two slots => two statics => same semantics as before.
+-        static int64_t s_LastReload[2] = {0, 0};
+-
++        // Reload only when the map actually changed (dimensions or name).
++        // The old 5s forced timer rebuilt the grid unconditionally, wiping
++        // m_PfFlowField/m_PfFinishTiles every 5 seconds: Autonomous lost its
++        // goal (NO GOAL gaps) and steering read a freed field until
++        // something rebuilt it. Live tile edits write the grids directly,
++        // so no timer is needed.
++        (void)reloadSlot;
+         bool mapChanged = false;
+         if(m_MapGridLoaded)
+         {
+@@ -55,13 +57,12 @@
+                         if(curW != m_MapWidth || curH != m_MapHeight)
+                                 mapChanged = true;
+                 }
+-        }
+-
+-        int64_t now = time_get();
+-        if(now - s_LastReload[reloadSlot] > time_freq() * 5)
+-        {
+-                mapChanged = true;
+-                s_LastReload[reloadSlot] = now;
++                if(!mapChanged && Client())
++                {
++                        const char *pName = Client()->MapDownloadName();
++                        if(pName && pName[0] && m_aLastMapName[0] && str_comp(pName, m_aLastMapName) != 0)
++                                mapChanged = true;
++                }
+         }
+ 
+         if(!m_MapGridLoaded || mapChanged)
