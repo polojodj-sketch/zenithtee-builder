@@ -1,0 +1,26 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -374,6 +374,11 @@
+ 		Send = Send || time_get() > m_LastSendTime + time_freq() / 25; // send at least 25 Hz
+ 		Send = Send || (GameClient()->m_Snap.m_pLocalCharacter && GameClient()->m_Snap.m_pLocalCharacter->m_Weapon == WEAPON_NINJA && (m_aInputData[g_Config.m_ClDummy].m_Direction || m_aInputData[g_Config.m_ClDummy].m_Jump || m_aInputData[g_Config.m_ClDummy].m_Hook));
+ 	}
++	static int s_LastHookDev = 0;
++	const int curHookDev = m_aInputData[g_Config.m_ClDummy].m_Hook;
++	if(curHookDev && !s_LastHookDev)
++		dbg_msg("pilot", "hook seg dev=1");
++	s_LastHookDev = curHookDev;
+ 
+ 	// ZenithTee: Balance Bot (KRX-style). Drives the ACTIVE tee (not a dummy):
+ 	// holds horizontal position relative to a locked target tee (e.g. stay
+@@ -668,6 +673,11 @@
+ 	// Freeze so safety overrides it. Writes direction/jump only while
+ 	// steering, else leaves input untouched.
+ 	GameClient()->m_BotNet.ProcessPilotSelf();
++	static int s_LastHookPilot = 0;
++	const int curHookPilot = m_aInputData[g_Config.m_ClDummy].m_Hook;
++	if(curHookPilot && !s_LastHookPilot)
++		dbg_msg("pilot", "hook seg pilot=1 latch=%d", (int)GameClient()->m_BotNet.m_PilotHookHeld);
++	s_LastHookPilot = curHookPilot;
+ 
+ 	// ZenithTee (kinetix): Avoid Freeze bot. Its header mandates running here —
+ 	// at the very end of SnapInput, after the other manipulators — but nothing
