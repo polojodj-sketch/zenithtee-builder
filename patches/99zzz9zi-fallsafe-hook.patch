@@ -1,0 +1,50 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -634,6 +634,47 @@
+ 							// with a rising edge instead of holding stale aim.
+ 							pInput->m_Hook = 0;
+ 						}
++						else
++						{
++							// Fall-safe (classic flybot): fan found nothing
++							// and no floor below (pit/freeze pool) — hook
++							// straight up instead of falling in. Skipped
++							// after a hold so the 0-edge resyncs first.
++							bool floorFound = false;
++							for(float ft = 32.0f; ft <= 160.0f; ft += 16.0f)
++							{
++								if(pGame->Collision()->IsSolid((int)MyPos.x, (int)(MyPos.y + ft)))
++								{
++									floorFound = true;
++									break;
++								}
++							}
++							if(!floorFound)
++							{
++								for(float ut = 32.0f; ut <= maxDist; ut += 16.0f)
++								{
++									const float ux = MyPos.x, uy = MyPos.y - ut;
++									if(!pGame->Collision()->IsSolid((int)ux, (int)uy))
++										continue;
++									const int uidx = pGame->Collision()->GetPureMapIndex(vec2(ux, uy));
++									const int uhookTile = pGame->Collision()->GetTileIndex(uidx);
++									if(uhookTile == TILE_NOHOOK || uhookTile == TILE_FREEZE || uhookTile == TILE_DFREEZE)
++										continue;
++									if(pGame->Collision()->IntersectLine(MyPos, vec2(ux, uy), nullptr, nullptr) != 0)
++										continue;
++									const vec2 uaim(0.0f, uy - MyPos.y);
++									pInput->m_Hook = 1;
++									pInput->m_TargetX = (int)uaim.x;
++									pInput->m_TargetY = (int)uaim.y;
++									pGame->m_Controls.m_aMousePos[ActiveD] = uaim;
++									m_PilotHookHeld = true;
++									m_PilotHookGrace = 25;
++									m_PilotHookAim = uaim;
++									dbg_msg("pilot", "hook fired (fallsafe) mode=%d dist=%.0fm", PilotMode, (double)(glen / 32.0f));
++									break;
++								}
++							}
++						}
+ 					}
+ 				}
+ 			}
