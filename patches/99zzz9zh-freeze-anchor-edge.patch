@@ -1,0 +1,12 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -629,7 +629,8 @@
+ 								if(!GameClient()->Collision()->IsSolid((int)cx, (int)cy))
+ 									continue;
+ 								const int idx = GameClient()->Collision()->GetPureMapIndex(vec2(cx, cy));
+-								if(GameClient()->Collision()->GetTileIndex(idx) == TILE_NOHOOK)
++								const int hookTile = GameClient()->Collision()->GetTileIndex(idx);
++								if(hookTile == TILE_NOHOOK || hookTile == TILE_FREEZE || hookTile == TILE_DFREEZE)
+ 									continue;
+ 								if(GameClient()->Collision()->IntersectLine(MyPos, vec2(cx, cy), nullptr, nullptr) != 0)
+ 									continue;

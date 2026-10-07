@@ -1,0 +1,12 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -596,7 +596,8 @@
+ 							if(!pGame->Collision()->IsSolid((int)cx, (int)cy))
+ 								continue;
+ 							const int idx = pGame->Collision()->GetPureMapIndex(vec2(cx, cy));
+-							if(pGame->Collision()->GetTileIndex(idx) == TILE_NOHOOK)
++							const int hookTile = pGame->Collision()->GetTileIndex(idx);
++							if(hookTile == TILE_NOHOOK || hookTile == TILE_FREEZE || hookTile == TILE_DFREEZE)
+ 								continue;
+ 							if(pGame->Collision()->IntersectLine(MyPos, vec2(cx, cy), nullptr, nullptr) != 0)
+ 								continue;
