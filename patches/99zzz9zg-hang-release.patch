@@ -1,0 +1,94 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -298,6 +298,10 @@
+                 m_PilotGoalDist = -1.0f;
+                 m_PilotStuck = false;
+                 m_PilotHookHeld = false;
++                m_PilotHookGrace = 0;
++                m_PilotHookGrabTick = -1;
++                m_PilotHookGrabDist = -1.0f;
++                m_PilotHookNoFireUntil = 0;
+                 return;
+         }
+         const int ActiveD = g_Config.m_ClDummy;
+@@ -379,6 +383,8 @@
+                 m_PilotGoalDist = -1.0f;
+                 m_PilotStuck = false;
+                 m_PilotHookHeld = false;
++                m_PilotHookGrabTick = -1;
++                m_PilotHookGrabDist = -1.0f;
+                 return;
+         }
+ 
+@@ -496,8 +502,36 @@
+ 			const int hs = pChr->Core()->m_HookState;
+ 			if(m_PilotHookHeld && (hs == HOOK_FLYING || hs == HOOK_GRABBED))
+ 			{
++				m_PilotHookGrace = 0; // echo received, latch is meaningful again
++				if(hs == HOOK_GRABBED)
++				{
++					// Hang watchdog: cut grabs that make no progress toward
++					// the goal (re-grab after cooldown). Fast pulls are
++					// untouched; absolute cap 5s against dist jitter.
++					// Returns early like the grace hold: nothing follows
++					// the hook block in this function.
++					if(m_PilotHookGrabTick < 0)
++					{
++						m_PilotHookGrabTick = CurTick;
++						m_PilotHookGrabDist = m_PilotGoalDist;
++					}
++					else if(CurTick - m_PilotHookGrabTick > 250 ||
++						(CurTick - m_PilotHookGrabTick > 50 && m_PilotGoalDist > m_PilotHookGrabDist - 1.0f))
++					{
++						pInput->m_Hook = 0;
++						m_PilotHookHeld = false;
++						m_PilotHookGrabTick = -1;
++						m_PilotHookGrabDist = -1.0f;
++						m_PilotHookNoFireUntil = CurTick + 100; // 2s refire cooldown
++						dbg_msg("pilot", "hook released (hang %.0fm)", (double)m_PilotGoalDist);
++						return;
++					}
++				}
++				else
++				{
++					m_PilotHookGrabTick = -1; // flying: not hung yet
++				}
+ 				pInput->m_Hook = 1;
+-				m_PilotHookGrace = 0; // echo received, latch is meaningful again
+ 				const vec2 d = pChr->Core()->m_HookPos - MyPos;
+ 				pInput->m_TargetX = (int)d.x;
+ 				pInput->m_TargetY = (int)d.y;
+@@ -520,6 +554,8 @@
+ 					pGame->m_Controls.m_aMousePos[ActiveD] = m_PilotHookAim;
+ 					return;
+ 				}
++				if(CurTick < m_PilotHookNoFireUntil)
++					return; // refire cooldown after a cut hang; steering above still ran
+ 				const bool wasHeld = m_PilotHookHeld;
+ 				m_PilotHookHeld = false;
+ 				m_PilotHookGrace = 0;
+@@ -612,17 +648,24 @@
+ 			pInput->m_Hook = 0;
+ 			m_PilotHookHeld = false;
+ 			m_PilotHookGrace = 0;
++			m_PilotHookGrabTick = -1;
++			m_PilotHookGrabDist = -1.0f;
+ 		}
+ 		else if(!pChr)
+ 		{
+ 			m_PilotHookHeld = false;
+ 			m_PilotHookGrace = 0;
++			m_PilotHookGrabTick = -1;
++			m_PilotHookGrabDist = -1.0f;
+ 		}
+ 	}
+ 	else
+ 	{
+ 		m_PilotHookHeld = false;
+ 		m_PilotHookGrace = 0;
++		m_PilotHookGrabTick = -1;
++		m_PilotHookGrabDist = -1.0f;
++		m_PilotHookNoFireUntil = 0;
+ 	}
+ }
+ 

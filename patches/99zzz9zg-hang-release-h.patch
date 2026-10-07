@@ -1,0 +1,12 @@
+--- a/src/game/client/components/kinetix/kinetix.h
++++ b/src/game/client/components/kinetix/kinetix.h
+@@ -423,6 +423,9 @@
+         bool m_PilotHookHeld = false; // pilot hook assist latch (was a hidden static)
+         int m_PilotHookGrace = 0; // post-fire grace: SnapInput calls holding the hook while the echo is in flight
+         vec2 m_PilotHookAim = vec2(0.0f, 0.0f); // aim stored at fire, replayed during grace
++        int64_t m_PilotHookGrabTick = -1; // game tick the current grab started (-1 = not hanging)
++        float m_PilotHookGrabDist = -1.0f; // goal meters at grab start (progress watchdog)
++        int64_t m_PilotHookNoFireUntil = 0; // refire cooldown after a cut hang (game ticks)
+ 
+         // Map grid (shared — same map for all)
+         int m_MapWidth;
