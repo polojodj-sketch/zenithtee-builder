@@ -1,0 +1,11 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -503,7 +503,7 @@
+ 				pInput->m_TargetY = (int)d.y;
+ 				pGame->m_Controls.m_aMousePos[ActiveD] = d;
+ 			}
+-			else if(hs == HOOK_RETRACTED)
++			else if(hs == HOOK_RETRACTED || hs == HOOK_IDLE)
+ 			{
+ 				// Post-fire grace: the server echo (FLYING) needs a
+ 				// round trip. A failed re-search right after firing

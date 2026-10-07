@@ -1,0 +1,11 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -599,7 +599,7 @@
+ 					m_aInputData[AD].m_Hook = 0;
+ 					s_EdgeHeld = false;
+ 				}
+-				if(hs == HOOK_RETRACTED)
++				if(hs == HOOK_RETRACTED || hs == HOOK_IDLE)
+ 				{
+ 					const float maxDistCfg = (float)std::clamp(g_Config.m_KxAutoEdgeDist, 100, 2000);
+ 					// Cap at the server's hook reach (same as pilot
