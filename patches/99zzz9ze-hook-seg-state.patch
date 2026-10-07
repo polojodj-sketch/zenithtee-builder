@@ -1,0 +1,23 @@
+--- a/src/game/client/components/controls.cpp
++++ b/src/game/client/components/controls.cpp
+@@ -377,7 +377,19 @@
+ 	static int s_LastHookDev = 0;
+ 	const int curHookDev = m_aInputData[g_Config.m_ClDummy].m_Hook;
+ 	if(curHookDev && !s_LastHookDev)
+-		dbg_msg("pilot", "hook seg dev=1");
++	{
++		int dbgHs = -9, dbgFrz = -1, dbgGnd = -1;
++		const int dbgLid = GameClient()->m_aLocalIds[g_Config.m_ClDummy] >= 0 ? GameClient()->m_aLocalIds[g_Config.m_ClDummy] : GameClient()->m_Snap.m_LocalClientId;
++		CCharacter *pDbgChr = (dbgLid >= 0) ? GameClient()->m_PredictedWorld.GetCharacterById(dbgLid) : nullptr;
++		if(pDbgChr && pDbgChr->Core())
++		{
++			dbgHs = pDbgChr->Core()->m_HookState;
++			dbgGnd = pDbgChr->IsGrounded() ? 1 : 0;
++		}
++		if(dbgLid >= 0)
++			dbgFrz = GameClient()->m_aClients[dbgLid].m_FreezeEnd > 0 ? 1 : 0;
++		dbg_msg("pilot", "hook seg dev=1 hs=%d frz=%d gnd=%d", dbgHs, dbgFrz, dbgGnd);
++	}
+ 	s_LastHookDev = curHookDev;
+ 
+ 	// ZenithTee: Balance Bot (KRX-style). Drives the ACTIVE tee (not a dummy):
