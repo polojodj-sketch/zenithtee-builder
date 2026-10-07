@@ -1,0 +1,54 @@
+--- a/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
++++ b/src/game/client/components/kinetix/dummies/dummy_helpers.cpp
+@@ -576,22 +576,30 @@
+ 					bool found = false;
+ 					vec2 aim(0.0f, 0.0f);
+ 					float bestD2 = maxDist * maxDist;
++					float bestDot = -2.0f;
++					const float goalInv = 1.0f / glen;
++					const float goalDx = gdx * goalInv, goalDy = gdy * goalInv;
+ 					// Wide forward fan (±80°): narrow cones miss on open
+ 					// story maps where the wall is up-left/up-right of the
+-					// goal. Every ray is scanned (per-ray nearest via the
+-					// ascending t + bestD2) instead of taking the first
+-					// leftmost hit.
++					// goal. Every ray is scanned; the anchor whose pull
++					// aligns best with the goal wins (ties: nearest) —
++					// nearest-only kept grabbing side walls the swing
++					// never approaches from. Backward anchors (< -0.5)
++					// are refused outright.
+ 					for(int r = -7; r <= 7; r++)
+ 					{
+ 						const float a = base + (float)r * 0.2f;
+ 						const vec2 dir(cosf(a), sinf(a));
++						const float dot = dir.x * goalDx + dir.y * goalDy;
++						if(dot < -0.5f)
++							continue;
+ 						for(float t = 32.0f; t <= maxDist; t += 16.0f)
+ 						{
+ 							const float cx = MyPos.x + dir.x * t;
+ 							const float cy = MyPos.y + dir.y * t;
+ 							const float ddx = cx - MyPos.x, ddy = cy - MyPos.y;
+ 							const float d2 = ddx * ddx + ddy * ddy;
+-							if(d2 > bestD2)
++							if(d2 > maxDist * maxDist)
+ 								break;
+ 							if(!pGame->Collision()->IsSolid((int)cx, (int)cy))
+ 								continue;
+@@ -601,9 +609,13 @@
+ 								continue;
+ 							if(pGame->Collision()->IntersectLine(MyPos, vec2(cx, cy), nullptr, nullptr) != 0)
+ 								continue;
+-							aim = vec2(ddx, ddy);
+-							bestD2 = d2;
+-							found = true;
++							if(dot > bestDot + 0.05f || (dot >= bestDot - 0.05f && d2 < bestD2))
++							{
++								aim = vec2(ddx, ddy);
++								bestD2 = d2;
++								bestDot = dot;
++								found = true;
++							}
+ 							break;
+ 						}
+ 					}
